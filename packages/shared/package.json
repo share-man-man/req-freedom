@@ -1,0 +1,18 @@
+{
+  "name": "@req-freedom/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "共享枚举、常量与类型定义（内部包，直接以 TS 源码形式被消费）",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

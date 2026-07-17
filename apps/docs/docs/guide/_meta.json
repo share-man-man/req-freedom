@@ -1,0 +1,11 @@
+[
+  "getting-started",
+  "architecture",
+  {
+    "type": "dir",
+    "name": "features",
+    "label": "功能详解",
+    "collapsible": true,
+    "collapsed": false
+  }
+]

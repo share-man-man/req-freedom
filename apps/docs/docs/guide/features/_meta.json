@@ -1,0 +1,8 @@
+[
+  "block",
+  "redirect",
+  "inject-params",
+  "modify-headers",
+  "mock",
+  "delay"
+]

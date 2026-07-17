@@ -1,0 +1,15 @@
+{
+  "name": "@req-freedom/docs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Req Freedom 文档站（Rspress）",
+  "scripts": {
+    "dev": "rspress dev",
+    "build": "rspress build",
+    "preview": "rspress preview"
+  },
+  "devDependencies": {
+    "rspress": "^1.45.3",
+    "typescript": "^5.8.3"
+  }
+}

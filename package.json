@@ -1,0 +1,19 @@
+{
+  "name": "req-freedom",
+  "version": "0.1.0",
+  "private": true,
+  "description": "浏览器请求调试插件：拦截、重定向、参数注入、Header 改写、Mock、延迟模拟",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @req-freedom/extension dev",
+    "dev:docs": "pnpm --filter @req-freedom/docs dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

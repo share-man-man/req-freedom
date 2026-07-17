@@ -1,0 +1,21 @@
+{
+  "name": "@req-freedom/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "平台无关的规则匹配与转换引擎（内部包，直接以 TS 源码形式被消费）",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@req-freedom/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
