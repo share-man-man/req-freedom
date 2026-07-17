@@ -127,6 +127,13 @@ body {
   align-items: flex-start;
 }
 
+.headers-editor-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
 .kv-row {
   display: flex;
   gap: 6px;
@@ -136,6 +143,26 @@ body {
 .kv-row input,
 .kv-row select {
   flex: 1;
+}
+
+/* 无效 append 组合的行内警告 */
+.headers-editor-warning {
+  color: #b54708;
+  background: #fffaeb;
+  border: 1px solid #fedf89;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* 请求头改写的通用说明 */
+.headers-editor-hint {
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 4px 0 0;
 }
 
 .editor-error {
