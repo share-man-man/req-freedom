@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { Plus, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 /** 编辑中的单行键值对 */
 interface KeyValueRow {
@@ -50,28 +53,41 @@ export default function KeyValueEditor({ initialValue, onChange }: KeyValueEdito
   };
 
   return (
-    <div className="kv-editor">
+    <div className="flex flex-col items-start gap-2">
       {rows.map((row, index) => (
         // 行没有稳定 ID，用下标作为 key（仅增删改场景，无排序需求）
-        <div className="kv-row" key={index}>
-          <input
+        <div className="flex w-full gap-2" key={index}>
+          <Input
+            className="h-8"
             placeholder="键"
             value={row.key}
             onChange={(e) => handleRowChange(index, { key: e.target.value })}
           />
-          <input
+          <Input
+            className="h-8"
             placeholder="值"
             value={row.value}
             onChange={(e) => handleRowChange(index, { value: e.target.value })}
           />
-          <button type="button" onClick={() => commit(rows.filter((_, i) => i !== index))}>
-            删除
-          </button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+            title="删除"
+            onClick={() => commit(rows.filter((_, i) => i !== index))}
+          >
+            <X className="size-4" />
+          </Button>
         </div>
       ))}
-      <button type="button" onClick={() => commit([...rows, { key: '', value: '' }])}>
-        + 添加一项
-      </button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => commit([...rows, { key: '', value: '' }])}
+      >
+        <Plus />
+        添加一项
+      </Button>
     </div>
   );
 }
