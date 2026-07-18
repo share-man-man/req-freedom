@@ -193,14 +193,14 @@ function SortableRuleRow({ rule, onToggle, onEdit, onDelete }: SortableRuleRowPr
       <div className="min-w-0 truncate text-sm font-medium" title={rule.name}>
         {rule.name}
       </div>
-      <Badge variant="secondary" className="whitespace-nowrap">
+      <Badge variant="secondary" className="justify-self-start whitespace-nowrap">
         {RULE_TYPE_LABELS[rule.type]}
       </Badge>
       <span className="whitespace-nowrap text-sm text-muted-foreground">
         {MATCH_TYPE_LABELS[rule.matchType]}
       </span>
       <code
-        className="min-w-0 truncate rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
+        className="min-w-0 max-w-full justify-self-start truncate rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
         title={rule.pattern}
       >
         {rule.pattern}
@@ -443,14 +443,14 @@ function RuleRowStatic({ rule }: { rule: Rule }) {
       <div className="min-w-0 truncate text-sm font-medium" title={rule.name}>
         {rule.name}
       </div>
-      <Badge variant="secondary" className="whitespace-nowrap">
+      <Badge variant="secondary" className="justify-self-start whitespace-nowrap">
         {RULE_TYPE_LABELS[rule.type]}
       </Badge>
       <span className="whitespace-nowrap text-sm text-muted-foreground">
         {MATCH_TYPE_LABELS[rule.matchType]}
       </span>
       <code
-        className="min-w-0 truncate rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
+        className="min-w-0 max-w-full justify-self-start truncate rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
         title={rule.pattern}
       >
         {rule.pattern}
