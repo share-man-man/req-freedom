@@ -1,8 +1,47 @@
 import { browser } from 'wxt/browser';
 import { defineBackground } from 'wxt/utils/define-background';
+import type { Rule } from '@req-freedom/shared';
 import { DNR_RULE_ID_OFFSET, STORAGE_KEY_ENABLED, STORAGE_KEY_RULES } from '@req-freedom/shared';
 import { toDnrRule } from '@/utils/dnr';
 import { getEnabled, getRules } from '@/utils/storage';
+
+/** 由业务规则转换出的、非空的 DNR 动态规则 */
+type DnrRule = NonNullable<ReturnType<typeof toDnrRule>>;
+
+/** 一条业务规则与其对应的 DNR 规则的配对，便于失败时定位到源规则 */
+interface DnrEntry {
+  /** 源业务规则，仅用于日志定位 */
+  rule: Rule;
+  /** 转换后的 DNR 动态规则 */
+  dnrRule: DnrRule;
+}
+
+/**
+ * 逐条注册 DNR 规则，跳过非法的那几条，避免一条坏规则拖垮全部
+ *
+ * 仅在整批提交失败后作为降级路径调用；正常情况下不会走到这里。
+ * @param removeRuleIds 需要先移除的旧规则 ID 列表
+ * @param entries 待注册的规则配对列表
+ */
+async function syncDnrRulesIndividually(
+  removeRuleIds: number[],
+  entries: DnrEntry[],
+): Promise<void> {
+  // 先整批清除旧规则（仅移除、不新增，通常不会失败）
+  try {
+    await browser.declarativeNetRequest.updateDynamicRules({ removeRuleIds });
+  } catch (error) {
+    console.error('[req-freedom] 清除旧 DNR 规则失败：', error);
+  }
+  // 再逐条添加，非法规则单独失败并跳过，合法规则照常生效
+  for (const { rule, dnrRule } of entries) {
+    try {
+      await browser.declarativeNetRequest.updateDynamicRules({ addRules: [dnrRule] });
+    } catch (error) {
+      console.warn(`[req-freedom] 规则「${rule.name}」非法，已跳过（其余规则不受影响）：`, error);
+    }
+  }
+}
 
 /**
  * 将 storage 中的规则同步为 declarativeNetRequest 动态规则
@@ -11,6 +50,7 @@ import { getEnabled, getRules } from '@/utils/storage';
  * 1. 读取全局开关与规则列表
  * 2. 清空本插件之前注册的全部动态规则
  * 3. 全局开启时，把可由 DNR 承载的规则（拦截/重定向/参数注入/Header 改写）重新注册
+ * 4. 整批提交失败时降级为逐条注册，隔离非法规则
  */
 async function syncDnrRules(): Promise<void> {
   /** 全局开关状态 */
@@ -23,15 +63,25 @@ async function syncDnrRules(): Promise<void> {
   /** 需要移除的规则 ID 列表 */
   const removeRuleIds = existing.map((rule) => rule.id);
 
-  /** 需要新增的 DNR 规则列表 */
-  const addRules = enabled
+  /** 待注册的「业务规则 → DNR 规则」配对列表 */
+  const entries: DnrEntry[] = enabled
     ? rules
         .filter((rule) => rule.enabled)
-        .map((rule, index) => toDnrRule(rule, DNR_RULE_ID_OFFSET + index))
-        .filter((rule): rule is NonNullable<typeof rule> => rule !== null)
+        .map((rule, index) => ({ rule, dnrRule: toDnrRule(rule, DNR_RULE_ID_OFFSET + index) }))
+        .filter((entry): entry is DnrEntry => entry.dnrRule !== null)
     : [];
+  /** 需要新增的 DNR 规则列表 */
+  const addRules = entries.map((entry) => entry.dnrRule);
 
-  await browser.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
+  // updateDynamicRules 是全量原子操作：只要有一条 DNR 规则非法（如重定向目标不是绝对
+  // URL），Chrome 会拒绝整批、所有规则都不生效。优先整批提交（最高效），失败再降级为逐条
+  // 注册，从而隔离非法规则、保住其余规则。
+  try {
+    await browser.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
+  } catch (error) {
+    console.error('[req-freedom] 整批同步 DNR 规则失败，降级为逐条注册以隔离非法规则：', error);
+    await syncDnrRulesIndividually(removeRuleIds, entries);
+  }
 }
 
 export default defineBackground(() => {

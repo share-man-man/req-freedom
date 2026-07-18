@@ -164,6 +164,23 @@ function describeEffect(rule: Rule, url: string): string {
 }
 
 /**
+ * 判断字符串是否为带 http/https 协议的绝对 URL
+ *
+ * DNR 的 redirect.url 只接受绝对地址（相对路径会导致整批规则被 Chrome 拒绝）。
+ * @param value 待判断的字符串
+ * @returns 是绝对 http(s) URL 时返回 true
+ */
+function isAbsoluteHttpUrl(value: string): boolean {
+  try {
+    /** 解析后的 URL 对象，非绝对地址会抛错 */
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 校验规则草稿的合法性
  * @param rule 待校验的规则
  * @returns 错误信息；合法时返回 null
@@ -184,8 +201,16 @@ function validateRule(rule: Rule): string | null {
     }
   }
   switch (rule.type) {
-    case RuleType.Redirect:
-      return rule.redirectUrl.trim() ? null : '重定向目标地址不能为空';
+    case RuleType.Redirect: {
+      if (!rule.redirectUrl.trim()) {
+        return '重定向目标地址不能为空';
+      }
+      // 正则匹配可用 \1 等捕获组动态拼装目标，无法静态判定为合法 URL，此处放行
+      if (rule.matchType !== MatchType.Regex && !isAbsoluteHttpUrl(rule.redirectUrl)) {
+        return '重定向目标需为绝对地址，如 http://127.0.0.1:4317/api/redirect-target.json';
+      }
+      return null;
+    }
     case RuleType.MockResponse:
       return rule.statusCode >= 100 && rule.statusCode <= 599
         ? null
@@ -294,7 +319,7 @@ export default function RuleEditor({ rule, isNew, onSave, onCancel }: RuleEditor
         <div className="flex shrink-0 items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs leading-5 text-muted-foreground">
           <Info className="mt-0.5 size-3.5 shrink-0 text-primary" />
           <span>
-            <span className="font-medium text-foreground">作用范围：</span>
+            <span className="font-medium text-foreground">规则说明：</span>
             {RULE_TYPE_SCOPE_HINTS[draft.type]}
           </span>
         </div>
@@ -337,10 +362,17 @@ export default function RuleEditor({ rule, isNew, onSave, onCancel }: RuleEditor
           <Field label="重定向目标">
             <Input
               className="font-mono text-xs"
-              placeholder="正则匹配时支持 \1 捕获组引用"
+              placeholder={
+                draft.matchType === MatchType.Regex
+                  ? '需为绝对地址，支持 \\1 捕获组引用'
+                  : '需为绝对地址，如 http://127.0.0.1:4317/api/redirect-target.json'
+              }
               value={draft.redirectUrl}
               onChange={(e) => setDraft({ ...draft, redirectUrl: e.target.value })}
             />
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              必须填写含协议的绝对地址（http:// 或 https://），相对路径不生效。
+            </p>
           </Field>
         )}
 
