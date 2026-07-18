@@ -7,7 +7,7 @@ export const STORAGE_KEY_GROUPS = 'req-freedom:groups';
 export const STORAGE_KEY_ENABLED = 'req-freedom:enabled';
 
 /** 导入 / 导出文件当前使用的配置 schema 版本。 */
-export const CONFIG_EXPORT_SCHEMA_VERSION = 1;
+export const CONFIG_EXPORT_SCHEMA_VERSION = 2;
 
 /** 导出配置文件的文件名固定前缀。 */
 export const CONFIG_EXPORT_FILE_NAME_PREFIX = 'req-freedom-config';

@@ -9,7 +9,19 @@ import { STORAGE_KEY_ENABLED, STORAGE_KEY_GROUPS } from '@req-freedom/shared';
 export async function getGroups(): Promise<RuleGroup[]> {
   /** storage 查询结果 */
   const result = await browser.storage.local.get(STORAGE_KEY_GROUPS);
-  return (result[STORAGE_KEY_GROUPS] as RuleGroup[] | undefined) ?? [];
+  /** storage 中保存的原始分组列表。 */
+  const storedGroups = (result[STORAGE_KEY_GROUPS] as RuleGroup[] | undefined) ?? [];
+  /** 为旧版本地配置补齐分组更新时间后的列表。 */
+  const groups = storedGroups.map((group) => ({
+    ...group,
+    updatedAt: group.updatedAt ?? new Date().toISOString(),
+  }));
+  /** 是否需要将旧数据的迁移结果写回 storage。 */
+  const needsMigration = groups.some((group, index) => group.updatedAt !== storedGroups[index].updatedAt);
+  if (needsMigration) {
+    await saveGroups(groups);
+  }
+  return groups;
 }
 
 /**

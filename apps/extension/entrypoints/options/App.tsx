@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { ChevronDown, Download, FolderPlus, GripVertical, Pencil, Plus, Trash2, Upload, Zap } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown, FolderPlus, GripVertical, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { ChangeEvent } from 'react';
 import {
   DndContext,
@@ -20,8 +20,8 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { AUTO_DEFAULT_GROUP_NAME } from '@req-freedom/shared';
-import type { Rule, RuleGroup, RuleType } from '@req-freedom/shared';
+import { AUTO_DEFAULT_GROUP_NAME, RuleType } from '@req-freedom/shared';
+import type { Rule, RuleGroup } from '@req-freedom/shared';
 import { getEnabled, getGroups, saveConfiguration, saveGroups } from '@/utils/storage';
 import {
   createConfigurationExport,
@@ -38,6 +38,15 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import RuleEditor from './RuleEditor';
 import RuleTypePicker from './RuleTypePicker';
+import {
+  GROUP_SORT,
+  GROUP_VIEW,
+  RULE_STATUS_FILTER,
+  ManagementStatistics,
+  OptionsPageHeader,
+  RuleManagementToolbar,
+} from './ManagementDashboard';
+import type { GroupSort, GroupView, RuleStatusFilter } from './ManagementDashboard';
 
 /**
  * 规则「表头」与「数据行」共用的网格列模板，保证列对齐。
@@ -59,6 +68,20 @@ const RULE_ROW_GRID =
  * 中途取消则不产生空的默认分组。
  */
 const DEFAULT_GROUP_SENTINEL = '__req-freedom:default-group__';
+
+/** 「最近修改」视图默认展示的分组上限。 */
+const RECENT_GROUP_LIMIT = 5;
+
+/** 规则类型对应的柔和标签颜色，便于扫读不同规则能力。 */
+const RULE_TYPE_BADGE_CLASS: Record<RuleType, string> = {
+  [RuleType.Block]: 'bg-rose-500/10 text-rose-600',
+  [RuleType.Redirect]: 'bg-amber-500/10 text-amber-600',
+  [RuleType.InjectParams]: 'bg-primary/10 text-primary',
+  [RuleType.ModifyHeaders]: 'bg-cyan-500/10 text-cyan-700',
+  [RuleType.MockResponse]: 'bg-violet-500/10 text-violet-600',
+  [RuleType.Delay]: 'bg-orange-500/10 text-orange-600',
+  [RuleType.InsertScript]: 'bg-pink-500/10 text-pink-600',
+};
 
 /**
  * 拖拽仅沿垂直方向移动的修饰器（等价官方 restrictToVerticalAxis）
@@ -89,6 +112,35 @@ function useSortableSensors() {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+}
+
+/**
+ * 将 ISO 时间格式化为用于分组摘要的相对时间。
+ * @param updatedAt 分组最近更新时间
+ * @returns 便于快速扫读的相对时间文案
+ */
+function formatRelativeTime(updatedAt: string): string {
+  /** 解析后的时间戳。 */
+  const timestamp = Date.parse(updatedAt);
+  if (Number.isNaN(timestamp)) {
+    return '暂无记录';
+  }
+  /** 当前时间与目标时间的分钟差，未来时间按刚刚处理。 */
+  const elapsedMinutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
+  if (elapsedMinutes < 1) {
+    return '刚刚更新';
+  }
+  if (elapsedMinutes < 60) {
+    return `${elapsedMinutes} 分钟前更新`;
+  }
+  /** 当前时间与目标时间的小时差。 */
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) {
+    return `${elapsedHours} 小时前更新`;
+  }
+  /** 当前时间与目标时间的天数差。 */
+  const elapsedDays = Math.floor(elapsedHours / 24);
+  return `${elapsedDays} 天前更新`;
 }
 
 /** 规则编辑对话框的状态：正在编辑/新建的规则草稿及其所属分组 */
@@ -174,7 +226,7 @@ function SortableRuleRow({ rule, onToggle, onEdit, onDelete }: SortableRuleRowPr
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       // 拖拽中原行完全透明留出空位，跟随光标的是 DragOverlay 里的副本
-      className={`${RULE_ROW_GRID} group border-t border-border px-3 py-2 transition-colors hover:bg-muted ${
+      className={`${RULE_ROW_GRID} group border-t border-border/80 px-4 py-2.5 transition-colors hover:bg-primary/[0.03] ${
         isDragging ? 'opacity-0' : ''
       }`}
     >
@@ -193,7 +245,10 @@ function SortableRuleRow({ rule, onToggle, onEdit, onDelete }: SortableRuleRowPr
       <div className="min-w-0 truncate text-sm font-medium" title={rule.name}>
         {rule.name}
       </div>
-      <Badge variant="secondary" className="justify-self-start whitespace-nowrap">
+      <Badge
+        variant="secondary"
+        className={`justify-self-start whitespace-nowrap border-transparent ${RULE_TYPE_BADGE_CLASS[rule.type]}`}
+      >
         {RULE_TYPE_LABELS[rule.type]}
       </Badge>
       <span className="whitespace-nowrap text-sm text-muted-foreground">
@@ -312,11 +367,11 @@ function SortableGroupCard({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       // 拖拽中原卡片完全透明留出空位，跟随光标的是外层 DragOverlay 里的副本
-      className={`overflow-hidden ${isDragging ? 'opacity-0' : ''}`}
+      className={`overflow-hidden border-border/80 shadow-sm ${isDragging ? 'opacity-0' : ''}`}
     >
       {/* 分组标题栏：拖拽句柄 · 折叠 · 组开关 · 名称 · 计数 · 增删 */}
       <CardHeader
-        className={`flex-row items-center gap-2 p-3 ${collapsed ? '' : 'border-b border-border'}`}
+        className={`flex-row items-center gap-2 px-4 py-3.5 ${collapsed ? '' : 'border-b border-border/80'}`}
       >
         <button
           type="button"
@@ -344,14 +399,20 @@ function SortableGroupCard({
           title={group.enabled ? '整组停用' : '整组启用'}
         />
         <GroupNameInput value={group.name} onCommit={(name) => onRenameGroup(group.id, name)} />
-        <Badge variant="muted" className="shrink-0">
-          {group.rules.length} 条
+        <Badge variant="secondary" className="shrink-0 border-transparent bg-primary/10 text-primary">
+          {group.rules.length} 条规则
         </Badge>
-        {!group.enabled && (
-          <Badge variant="outline" className="shrink-0 text-muted-foreground">
-            已停用
-          </Badge>
-        )}
+        <Badge
+          variant="secondary"
+          className={`shrink-0 border-transparent ${
+            group.enabled ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'
+          }`}
+        >
+          {group.enabled ? '启用中' : '已停用'}
+        </Badge>
+        <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
+          最近更新 {formatRelativeTime(group.updatedAt)}
+        </span>
         <Button variant="outline" size="sm" className="shrink-0" onClick={() => onAddRule(group.id)}>
           <Plus />
           添加规则
@@ -416,7 +477,7 @@ function SortableGroupCard({
  */
 function RuleColumnsHeader() {
   return (
-    <div className={`${RULE_ROW_GRID} px-3 py-2 text-xs text-muted-foreground`}>
+    <div className={`${RULE_ROW_GRID} bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground`}>
       <span />
       <span className="whitespace-nowrap">启用</span>
       <span className="whitespace-nowrap">名称</span>
@@ -443,7 +504,10 @@ function RuleRowStatic({ rule }: { rule: Rule }) {
       <div className="min-w-0 truncate text-sm font-medium" title={rule.name}>
         {rule.name}
       </div>
-      <Badge variant="secondary" className="justify-self-start whitespace-nowrap">
+      <Badge
+        variant="secondary"
+        className={`justify-self-start whitespace-nowrap border-transparent ${RULE_TYPE_BADGE_CLASS[rule.type]}`}
+      >
         {RULE_TYPE_LABELS[rule.type]}
       </Badge>
       <span className="whitespace-nowrap text-sm text-muted-foreground">
@@ -514,6 +578,16 @@ export default function App() {
   const [transferMessage, setTransferMessage] = useState<string | null>(null);
   /** 隐藏的 JSON 文件选择框，用按钮触发以保持工具栏布局统一。 */
   const importInputRef = useRef<HTMLInputElement>(null);
+  /** 搜索分组名、规则名与匹配内容的关键词。 */
+  const [searchQuery, setSearchQuery] = useState('');
+  /** 分组启用状态筛选。 */
+  const [statusFilter, setStatusFilter] = useState<RuleStatusFilter>(RULE_STATUS_FILTER.All);
+  /** 规则类型筛选。 */
+  const [typeFilter, setTypeFilter] = useState<RuleType | 'all'>('all');
+  /** 分组的派生展示排序方式。 */
+  const [groupSort, setGroupSort] = useState<GroupSort>(GROUP_SORT.UpdatedAt);
+  /** 当前激活的分组视图。 */
+  const [groupView, setGroupView] = useState<GroupView>(GROUP_VIEW.All);
 
   // 初始加载分组
   useEffect(() => {
@@ -526,10 +600,19 @@ export default function App() {
   /**
    * 更新分组列表并持久化
    * @param next 新的分组列表
+   * @param updatedGroupIds 需要刷新最近更新时间的分组 ID
    */
-  const persist = async (next: RuleGroup[]): Promise<void> => {
-    setGroups(next);
-    await saveGroups(next);
+  const persist = async (next: RuleGroup[], updatedGroupIds: readonly string[] = []): Promise<void> => {
+    /** 本次操作发生时刻，用于统一更新受影响分组的摘要时间。 */
+    const updatedAt = new Date().toISOString();
+    /** 需要写入最新更新时间的分组 ID。 */
+    const updatedGroupIdSet = new Set(updatedGroupIds);
+    /** 已附带最新更新时间的持久化数据。 */
+    const groupsWithUpdatedAt = next.map((group) =>
+      updatedGroupIdSet.has(group.id) ? { ...group, updatedAt } : group,
+    );
+    setGroups(groupsWithUpdatedAt);
+    await saveGroups(groupsWithUpdatedAt);
   };
 
   // ---------- 分组操作 ----------
@@ -639,6 +722,7 @@ export default function App() {
   const handleToggleGroup = (id: string): void => {
     void persist(
       groups.map((group) => (group.id === id ? { ...group, enabled: !group.enabled } : group)),
+      [id],
     );
   };
 
@@ -648,7 +732,7 @@ export default function App() {
    * @param name 新名称
    */
   const handleRenameGroup = (id: string, name: string): void => {
-    void persist(groups.map((group) => (group.id === id ? { ...group, name } : group)));
+    void persist(groups.map((group) => (group.id === id ? { ...group, name } : group)), [id]);
   };
 
   /**
@@ -748,7 +832,15 @@ export default function App() {
           : [...withoutRule, rule],
       };
     });
-    void persist(next);
+    /** 原规则所在的分组，跨分组保存时也应刷新其更新时间。 */
+    const sourceGroupId = groups.find((group) =>
+      group.rules.some((item) => item.id === rule.id),
+    )?.id;
+    /** 本次需要更新时间的分组 ID。 */
+    const updatedGroupIds = sourceGroupId
+      ? [sourceGroupId, targetGroupId]
+      : [targetGroupId];
+    void persist(next, updatedGroupIds);
     setRuleDialog(null);
   };
 
@@ -757,11 +849,14 @@ export default function App() {
    * @param ruleId 规则 ID
    */
   const handleDeleteRule = (ruleId: string): void => {
+    /** 被删除规则原本所属的分组。 */
+    const ownerGroupId = groups.find((group) => group.rules.some((rule) => rule.id === ruleId))?.id;
     void persist(
       groups.map((group) => ({
         ...group,
         rules: group.rules.filter((rule) => rule.id !== ruleId),
       })),
+      ownerGroupId ? [ownerGroupId] : [],
     );
   };
 
@@ -770,6 +865,8 @@ export default function App() {
    * @param ruleId 规则 ID
    */
   const handleToggleRule = (ruleId: string): void => {
+    /** 被切换规则所属的分组。 */
+    const ownerGroupId = groups.find((group) => group.rules.some((rule) => rule.id === ruleId))?.id;
     void persist(
       groups.map((group) => ({
         ...group,
@@ -777,6 +874,7 @@ export default function App() {
           rule.id === ruleId ? { ...rule, enabled: !rule.enabled } : rule,
         ),
       })),
+      ownerGroupId ? [ownerGroupId] : [],
     );
   };
 
@@ -788,6 +886,7 @@ export default function App() {
   const handleReorderRules = (groupId: string, nextRules: Rule[]): void => {
     void persist(
       groups.map((group) => (group.id === groupId ? { ...group, rules: nextRules } : group)),
+      [groupId],
     );
   };
 
@@ -811,8 +910,67 @@ export default function App() {
     if (oldIndex === -1 || newIndex === -1) {
       return;
     }
-    void persist(arrayMove(groups, oldIndex, newIndex));
+    void persist(arrayMove(groups, oldIndex, newIndex), [String(active.id), String(over.id)]);
   };
+
+  /** 所有分组内的规则总数。 */
+  const totalRuleCount = groups.reduce((count, group) => count + group.rules.length, 0);
+  /** 当前实际生效的规则数量：分组与规则均为启用才计入。 */
+  const enabledRuleCount = groups.reduce(
+    (count, group) => count + group.rules.filter((rule) => group.enabled && rule.enabled).length,
+    0,
+  );
+  /** 应用于搜索的标准化关键词。 */
+  const normalizedSearchQuery = searchQuery.trim().toLocaleLowerCase();
+  /** 不修改原始 storage 顺序的分组派生展示数据。 */
+  const visibleGroups = useMemo(() => {
+    /** 通过状态、搜索与类型筛选的分组及其规则。 */
+    const filteredGroups = groups.reduce<RuleGroup[]>((result, group) => {
+      /** 当前分组是否匹配启用状态筛选。 */
+      const matchesStatus =
+        statusFilter === RULE_STATUS_FILTER.All ||
+        (statusFilter === RULE_STATUS_FILTER.Enabled && group.enabled) ||
+        (statusFilter === RULE_STATUS_FILTER.Disabled && !group.enabled);
+      if (!matchesStatus) {
+        return result;
+      }
+      /** 搜索词是否命中分组名称。 */
+      const matchesGroupName =
+        !normalizedSearchQuery || group.name.toLocaleLowerCase().includes(normalizedSearchQuery);
+      /** 当前视图中需要展示的组内规则。 */
+      const matchingRules = group.rules.filter((rule) => {
+        /** 规则类型是否命中筛选条件。 */
+        const matchesType = typeFilter === 'all' || rule.type === typeFilter;
+        /** 搜索词是否命中规则名称或匹配内容。 */
+        const matchesRuleSearch =
+          matchesGroupName ||
+          !normalizedSearchQuery ||
+          rule.name.toLocaleLowerCase().includes(normalizedSearchQuery) ||
+          rule.pattern.toLocaleLowerCase().includes(normalizedSearchQuery);
+        return matchesType && matchesRuleSearch;
+      });
+      /** 空分组在无搜索、无类型筛选时保留；有筛选时仅展示含命中规则的分组。 */
+      const shouldShowGroup =
+        matchingRules.length > 0 ||
+        (group.rules.length === 0 && !normalizedSearchQuery && typeFilter === 'all');
+      if (shouldShowGroup) {
+        result.push({ ...group, rules: matchingRules });
+      }
+      return result;
+    }, []);
+    /** 不变更原始数组的排序副本。 */
+    const sortedGroups = [...filteredGroups].sort((first, second) => {
+      if (groupSort === GROUP_SORT.Name) {
+        return first.name.localeCompare(second.name, 'zh-CN');
+      }
+      return Date.parse(second.updatedAt) - Date.parse(first.updatedAt);
+    });
+    return groupView === GROUP_VIEW.RecentlyUpdated
+      ? sortedGroups.slice(0, RECENT_GROUP_LIMIT)
+      : groupView === GROUP_VIEW.Enabled
+        ? sortedGroups.filter((group) => group.enabled)
+        : sortedGroups;
+  }, [groupSort, groupView, groups, normalizedSearchQuery, statusFilter, typeFilter]);
 
   /** 供编辑器「所属分组」下拉使用的分组精简信息 */
   const groupOptions = groups.map((group) => ({ id: group.id, name: group.name }));
@@ -832,59 +990,48 @@ export default function App() {
     : undefined;
 
   return (
-    <div className="min-h-screen">
-      {/* 顶栏 */}
-      <header className="border-b border-border">
-        <div className="mx-auto flex max-w-4xl items-center gap-2 px-6 py-4">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Zap className="size-5" />
-          </span>
-          <div>
-            <h1 className="text-lg font-semibold leading-tight">Req Freedom 规则管理</h1>
-            <p className="text-xs text-muted-foreground">
-              拦截 · 重定向 · 参数注入 · Header · Mock · 延迟 · 脚本注入
-            </p>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-muted/35">
+      <input
+        ref={importInputRef}
+        type="file"
+        accept="application/json,.json"
+        className="hidden"
+        onChange={(event) => void handleImport(event)}
+      />
+      <OptionsPageHeader
+        showAddGroup={groups.length > 0}
+        onAddGroup={handleAddGroup}
+        onImport={handleImportClick}
+        onExport={() => void handleExport()}
+      />
 
-      <main className="mx-auto max-w-4xl px-6 py-6">
-        {/* 工具栏：导入 / 导出与新建分组 */}
-        <section className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm text-muted-foreground">
-              规则按分组管理，可整组启停；单条规则生效需分组与规则同时开启。
-            </p>
-            {transferMessage && (
-              <p className="mt-1 text-xs text-muted-foreground" role="status">
-                {transferMessage}
-              </p>
-            )}
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <input
-              ref={importInputRef}
-              type="file"
-              accept="application/json,.json"
-              className="hidden"
-              onChange={(event) => void handleImport(event)}
+      <main className="mx-auto max-w-[1440px] space-y-5 px-6 py-6">
+        {groups.length > 0 && (
+          <>
+            <ManagementStatistics
+              groupCount={groups.length}
+              ruleCount={totalRuleCount}
+              enabledRuleCount={enabledRuleCount}
             />
-            <Button variant="outline" size="sm" onClick={handleImportClick}>
-              <Upload />
-              导入
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => void handleExport()}>
-              <Download />
-              导出
-            </Button>
-            {groups.length > 0 && (
-              <Button size="sm" onClick={handleAddGroup}>
-                <FolderPlus />
-                新建分组
-              </Button>
-            )}
-          </div>
-        </section>
+            <RuleManagementToolbar
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+              typeFilter={typeFilter}
+              onTypeFilterChange={setTypeFilter}
+              sort={groupSort}
+              onSortChange={setGroupSort}
+              view={groupView}
+              onViewChange={setGroupView}
+            />
+          </>
+        )}
+        {transferMessage && (
+          <p className="rounded-lg border border-border/80 bg-card px-4 py-3 text-sm text-muted-foreground shadow-sm" role="status">
+            {transferMessage}
+          </p>
+        )}
 
         {/* 分组列表（分组与组内规则均支持拖拽排序） */}
         {groups.length === 0 ? (
@@ -909,6 +1056,11 @@ export default function App() {
               </Button>
             </div>
           </div>
+        ) : visibleGroups.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center">
+            <p className="text-sm font-medium">没有找到匹配的规则分组</p>
+            <p className="text-xs text-muted-foreground">调整搜索或筛选条件后再试</p>
+          </div>
         ) : (
           // 分组 DndContext 不用 MeasuringStrategy.Always：分组 droppable 是整张大卡片，
           // 每帧重测会触发布局读取导致掉帧。分组与规则已是独立 context 无嵌套干扰，
@@ -922,11 +1074,11 @@ export default function App() {
             onDragCancel={() => setActiveGroupId(null)}
           >
             <SortableContext
-              items={groups.map((group) => group.id)}
+              items={visibleGroups.map((group) => group.id)}
               strategy={verticalListSortingStrategy}
             >
-              <div className="flex flex-col gap-4">
-                {groups.map((group) => (
+              <div className="flex flex-col gap-3">
+                {visibleGroups.map((group) => (
                   <SortableGroupCard
                     key={group.id}
                     group={group}

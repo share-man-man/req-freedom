@@ -40,10 +40,19 @@ export default function App() {
   /**
    * 更新分组列表并持久化
    * @param next 新的分组列表
+   * @param updatedGroupIds 需要刷新最近更新时间的分组 ID
    */
-  const persist = async (next: RuleGroup[]): Promise<void> => {
-    setGroups(next);
-    await saveGroups(next);
+  const persist = async (next: RuleGroup[], updatedGroupIds: readonly string[] = []): Promise<void> => {
+    /** 本次操作发生时刻，用于刷新受影响分组的摘要时间。 */
+    const updatedAt = new Date().toISOString();
+    /** 需要刷新摘要时间的分组 ID 集合。 */
+    const updatedGroupIdSet = new Set(updatedGroupIds);
+    /** 已写入最新摘要时间的持久化数据。 */
+    const groupsWithUpdatedAt = next.map((group) =>
+      updatedGroupIdSet.has(group.id) ? { ...group, updatedAt } : group,
+    );
+    setGroups(groupsWithUpdatedAt);
+    await saveGroups(groupsWithUpdatedAt);
   };
 
   /**
@@ -55,6 +64,7 @@ export default function App() {
       groups.map((group) =>
         group.id === groupId ? { ...group, enabled: !group.enabled } : group,
       ),
+      [groupId],
     );
   };
 
@@ -63,6 +73,8 @@ export default function App() {
    * @param ruleId 规则 ID
    */
   const handleToggleRule = async (ruleId: string): Promise<void> => {
+    /** 被切换规则所属的分组。 */
+    const ownerGroupId = groups.find((group) => group.rules.some((rule) => rule.id === ruleId))?.id;
     await persist(
       groups.map((group) => ({
         ...group,
@@ -70,6 +82,7 @@ export default function App() {
           rule.id === ruleId ? { ...rule, enabled: !rule.enabled } : rule,
         ),
       })),
+      ownerGroupId ? [ownerGroupId] : [],
     );
   };
 

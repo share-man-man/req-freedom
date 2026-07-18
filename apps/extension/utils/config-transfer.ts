@@ -65,14 +65,16 @@ export function parseConfigurationExport(content: string): ConfigurationExport {
 
   /** 顶层配置对象。 */
   const document = requireRecord(parsed, '配置根节点');
-  if (document.schemaVersion !== CONFIG_EXPORT_SCHEMA_VERSION) {
+  if (document.schemaVersion !== 1 && document.schemaVersion !== CONFIG_EXPORT_SCHEMA_VERSION) {
     throw new Error(
-      `暂不支持 schemaVersion ${String(document.schemaVersion)}，当前仅支持版本 ${CONFIG_EXPORT_SCHEMA_VERSION}。`,
+      `暂不支持 schemaVersion ${String(document.schemaVersion)}，当前仅支持版本 1 和 ${CONFIG_EXPORT_SCHEMA_VERSION}。`,
     );
   }
   if (typeof document.exportedAt !== 'string' || Number.isNaN(Date.parse(document.exportedAt))) {
     throw new Error('配置文件缺少有效的 exportedAt 时间。');
   }
+  /** 已通过格式校验的导出时间。 */
+  const exportedAt = document.exportedAt;
   if (typeof document.enabled !== 'boolean') {
     throw new Error('配置文件中的全局开关 enabled 必须是布尔值。');
   }
@@ -87,13 +89,13 @@ export function parseConfigurationExport(content: string): ConfigurationExport {
   /** 校验并净化后的分组数据。 */
   const groups = document.groups.map((group, index) => {
     /** 当前分组的校验结果。 */
-    const parsedGroup = parseRuleGroup(group, index, groupIds, ruleIds);
+    const parsedGroup = parseRuleGroup(group, index, groupIds, ruleIds, exportedAt);
     return parsedGroup;
   });
 
   return {
     schemaVersion: CONFIG_EXPORT_SCHEMA_VERSION,
-    exportedAt: document.exportedAt,
+    exportedAt,
     enabled: document.enabled,
     groups,
   };
@@ -161,6 +163,7 @@ function parseStringRecord(value: unknown, label: string): Record<string, string
  * @param index 分组在列表中的下标
  * @param groupIds 已使用的分组 ID
  * @param ruleIds 已使用的规则 ID
+ * @param fallbackUpdatedAt 旧版导入文件缺少更新时间时使用的回退时间
  * @returns 已校验分组
  */
 function parseRuleGroup(
@@ -168,6 +171,7 @@ function parseRuleGroup(
   index: number,
   groupIds: Set<string>,
   ruleIds: Set<string>,
+  fallbackUpdatedAt: string,
 ): RuleGroup {
   /** 当前分组对象。 */
   const group = requireRecord(value, `第 ${index + 1} 个分组`);
@@ -186,10 +190,16 @@ function parseRuleGroup(
 
   /** 已校验的组内规则。 */
   const rules = group.rules.map((rule, ruleIndex) => parseRule(rule, id, ruleIndex, ruleIds));
+  /** 分组更新时间；v1 配置没有该字段，使用导出时间补齐。 */
+  const updatedAt =
+    typeof group.updatedAt === 'string' && !Number.isNaN(Date.parse(group.updatedAt))
+      ? group.updatedAt
+      : fallbackUpdatedAt;
   return {
     id,
     name: requireNonEmptyString(group.name, `分组「${id}」的名称`),
     enabled: group.enabled,
+    updatedAt,
     rules,
   };
 }

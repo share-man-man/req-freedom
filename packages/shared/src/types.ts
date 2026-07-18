@@ -143,6 +143,8 @@ export interface RuleGroup {
   name: string;
   /** 分组是否启用；关闭后组内所有规则一律不生效 */
   enabled: boolean;
+  /** 最近一次修改分组或其内部规则的时间（ISO 8601） */
+  updatedAt: string;
   /** 组内规则列表（数组顺序即展示与匹配顺序） */
   rules: Rule[];
 }

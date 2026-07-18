@@ -19,11 +19,14 @@ import { RULE_TYPE_LABELS } from './labels';
  * @returns 预填充好的新分组
  */
 export function createRuleGroup(name: string = DEFAULT_GROUP_NAME): RuleGroup {
+  /** 新分组的创建时间，同时作为首次更新时间。 */
+  const createdAt = new Date().toISOString();
   return {
     id: crypto.randomUUID(),
     name,
     // 新建即启用：建分组通常就是要马上往里放规则并生效
     enabled: true,
+    updatedAt: createdAt,
     rules: [],
   };
 }
