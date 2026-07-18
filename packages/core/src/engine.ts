@@ -23,3 +23,16 @@ export function pickRuleByType<T extends RuleType>(
 ): Extract<Rule, { type: T }> | undefined {
   return rules.find((rule): rule is Extract<Rule, { type: T }> => rule.type === type);
 }
+
+/**
+ * 从规则列表中挑出全部指定类型的规则（用于可叠加生效的场景，如脚本注入）
+ * @param rules 候选规则列表（一般是 findMatchedRules 的结果）
+ * @param type 目标规则类型
+ * @returns 命中的同类型规则列表（保持原有顺序）
+ */
+export function filterRulesByType<T extends RuleType>(
+  rules: Rule[],
+  type: T,
+): Extract<Rule, { type: T }>[] {
+  return rules.filter((rule): rule is Extract<Rule, { type: T }> => rule.type === type);
+}

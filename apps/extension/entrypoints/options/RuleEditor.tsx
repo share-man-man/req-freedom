@@ -2,11 +2,19 @@ import { useState } from 'react';
 import { AlertCircle, CheckCircle2, FlaskConical, XCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { Rule } from '@req-freedom/shared';
-import { HeaderOperation, MatchType, RuleType } from '@req-freedom/shared';
+import {
+  HeaderOperation,
+  InsertScriptCodeType,
+  InsertScriptTiming,
+  MatchType,
+  RuleType,
+} from '@req-freedom/shared';
 import { injectParams, matchUrl } from '@req-freedom/core';
 import {
   HEADER_OPERATION_LABELS,
   HEADER_TARGET_LABELS,
+  INSERT_SCRIPT_CODE_TYPE_LABELS,
+  INSERT_SCRIPT_TIMING_LABELS,
   MATCH_TYPE_LABELS,
   RULE_TYPE_LABELS,
 } from '@/utils/labels';
@@ -129,6 +137,10 @@ function describeEffect(rule: Rule, url: string): string {
       return `返回 HTTP ${rule.statusCode}，响应体：${rule.body.slice(0, 80)}${rule.body.length > 80 ? '…' : ''}`;
     case RuleType.Delay:
       return `请求延迟 ${rule.delayMs} 毫秒后继续`;
+    case RuleType.InsertScript:
+      return `在 ${INSERT_SCRIPT_TIMING_LABELS[rule.timing]} 注入 ${
+        INSERT_SCRIPT_CODE_TYPE_LABELS[rule.codeType]
+      }：${rule.code.slice(0, 80)}${rule.code.length > 80 ? '…' : ''}`;
   }
 }
 
@@ -161,6 +173,8 @@ function validateRule(rule: Rule): string | null {
         : '状态码需在 100 - 599 之间';
     case RuleType.Delay:
       return Number.isFinite(rule.delayMs) && rule.delayMs >= 0 ? null : '延迟时长需为非负数字';
+    case RuleType.InsertScript:
+      return rule.code.trim() ? null : '注入代码不能为空';
     default:
       return null;
   }
@@ -236,8 +250,9 @@ export default function RuleEditor({ rule, isNew, onSave, onCancel }: RuleEditor
         </Field>
 
         <Field label="匹配内容">
-          <Input
-            className="font-mono text-xs"
+          <Textarea
+            autoResize
+            className="break-all font-mono text-xs"
             placeholder="如 example.com/api 或 https://api\.example\.com/(.*)"
             value={draft.pattern}
             onChange={(e) => setDraft({ ...draft, pattern: e.target.value })}
@@ -323,6 +338,60 @@ export default function RuleEditor({ rule, isNew, onSave, onCancel }: RuleEditor
           </Field>
         )}
 
+        {draft.type === RuleType.InsertScript && (
+          <>
+            <Field label="代码类型">
+              <Select
+                value={draft.codeType}
+                onValueChange={(value) =>
+                  setDraft({ ...draft, codeType: value as InsertScriptCodeType })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.values(InsertScriptCodeType).map((codeType) => (
+                    <SelectItem key={codeType} value={codeType}>
+                      {INSERT_SCRIPT_CODE_TYPE_LABELS[codeType]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="注入时机">
+              <Select
+                value={draft.timing}
+                onValueChange={(value) => setDraft({ ...draft, timing: value as InsertScriptTiming })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.values(InsertScriptTiming).map((timing) => (
+                    <SelectItem key={timing} value={timing}>
+                      {INSERT_SCRIPT_TIMING_LABELS[timing]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label={draft.codeType === InsertScriptCodeType.Css ? 'CSS 代码' : 'JS 代码'}>
+              <Textarea
+                className="font-mono text-xs"
+                rows={8}
+                placeholder={
+                  draft.codeType === InsertScriptCodeType.Css
+                    ? 'body { filter: grayscale(1); }'
+                    : "console.log('injected by req-freedom');"
+                }
+                value={draft.code}
+                onChange={(e) => setDraft({ ...draft, code: e.target.value })}
+              />
+            </Field>
+          </>
+        )}
+
         {error && (
           <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             <AlertCircle className="size-4 shrink-0" />
@@ -336,9 +405,10 @@ export default function RuleEditor({ rule, isNew, onSave, onCancel }: RuleEditor
             <FlaskConical className="size-4 text-primary" />
             规则测试
           </div>
-          <div className="flex gap-2">
-            <Input
-              className="h-8 font-mono text-xs"
+          <div className="flex items-start gap-2">
+            <Textarea
+              autoResize
+              className="break-all font-mono text-xs"
               placeholder="输入一个 URL 测试是否命中"
               value={testUrl}
               onChange={(e) => setTestUrl(e.target.value)}

@@ -14,6 +14,28 @@ export enum RuleType {
   MockResponse = 'mock-response',
   /** 延迟模拟 */
   Delay = 'delay',
+  /** 注入自定义 JS / CSS */
+  InsertScript = 'insert-script',
+}
+
+/**
+ * 注入代码的类型（决定以 <script> 还是 <style> 注入）
+ */
+export enum InsertScriptCodeType {
+  /** JavaScript 代码，注入后在页面上下文执行 */
+  JavaScript = 'js',
+  /** CSS 样式，注入后作用于页面 */
+  Css = 'css',
+}
+
+/**
+ * 注入时机（对齐内容脚本 run_at 语义）
+ */
+export enum InsertScriptTiming {
+  /** 文档开始解析时注入，早于页面自身脚本 */
+  DocumentStart = 'document_start',
+  /** DOM 构建完成（DOMContentLoaded）后注入 */
+  DocumentEnd = 'document_end',
 }
 
 /**

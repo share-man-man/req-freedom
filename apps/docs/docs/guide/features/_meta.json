@@ -4,5 +4,6 @@
   "inject-params",
   "modify-headers",
   "mock",
-  "delay"
+  "delay",
+  "insert-script"
 ]

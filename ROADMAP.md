@@ -41,9 +41,10 @@ flowchart LR
 
 ### 待补
 
-- [ ] **P0 · `InsertScript` 注入 JS / CSS**
+- [x] **P0 · `InsertScript` 注入 JS / CSS**
   - 除 ModHeader 外家家都有，实现成本低——MAIN world 通道已经打通，直接复用。
   - 需要字段：注入代码、注入时机（`document_start` / `document_end`）、类型（JS / CSS）。
+  - 已落地：复用 `interceptor.content.ts`（MAIN world），按页面 URL 命中后注入 `<script>` / `<style>`；每次页面加载去重注入一次。文档见 [脚本注入](apps/docs/docs/guide/features/insert-script.md)。
 
 - [ ] **P0 · 网络限速模拟**
   - 现在 `Delay` 只是固定延迟，竞品还能模拟带宽档位（Slow 3G 等）。在 `Delay` 基础上扩展，仅页面补丁通道可精确控制。

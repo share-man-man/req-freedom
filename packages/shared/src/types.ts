@@ -1,4 +1,11 @@
-import type { HeaderOperation, HeaderTarget, MatchType, RuleType } from './enums';
+import type {
+  HeaderOperation,
+  HeaderTarget,
+  InsertScriptCodeType,
+  InsertScriptTiming,
+  MatchType,
+  RuleType,
+} from './enums';
 
 /**
  * 所有规则的公共字段
@@ -89,6 +96,22 @@ export interface DelayRule extends BaseRule {
 }
 
 /**
+ * 脚本 / 样式注入规则
+ *
+ * 按页面 URL 命中，向页面注入自定义 JS 或 CSS。走页面补丁通道（MAIN world），
+ * 匹配的是顶层文档 URL 而非单个请求。
+ */
+export interface InsertScriptRule extends BaseRule {
+  type: RuleType.InsertScript;
+  /** 注入代码的类型（JS / CSS） */
+  codeType: InsertScriptCodeType;
+  /** 注入时机（document_start / document_end） */
+  timing: InsertScriptTiming;
+  /** 要注入的代码内容 */
+  code: string;
+}
+
+/**
  * 规则联合类型（按 type 字段做判别）
  */
 export type Rule =
@@ -97,4 +120,5 @@ export type Rule =
   | InjectParamsRule
   | ModifyHeadersRule
   | MockResponseRule
-  | DelayRule;
+  | DelayRule
+  | InsertScriptRule;

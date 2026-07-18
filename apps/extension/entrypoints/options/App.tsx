@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Ban,
   Clock,
+  Code2,
   FileJson,
   Forward,
   GripVertical,
@@ -31,6 +32,8 @@ import {
   DEFAULT_MOCK_STATUS,
   HeaderOperation,
   HeaderTarget,
+  InsertScriptCodeType,
+  InsertScriptTiming,
   MatchType,
   RuleType,
 } from '@req-freedom/shared';
@@ -58,6 +61,7 @@ const RULE_TYPE_ICONS: Record<RuleType, ReactNode> = {
   [RuleType.ModifyHeaders]: <Pencil />,
   [RuleType.MockResponse]: <FileJson />,
   [RuleType.Delay]: <Clock />,
+  [RuleType.InsertScript]: <Code2 />,
 };
 
 /**
@@ -112,6 +116,16 @@ function createSampleRule(type: RuleType): Rule {
       };
     case RuleType.Delay:
       return { ...base, type, delayMs: 2000 };
+    case RuleType.InsertScript:
+      return {
+        ...base,
+        // 注入按页面 URL 命中，示例默认匹配整个站点
+        pattern: 'example.com',
+        type,
+        codeType: InsertScriptCodeType.JavaScript,
+        timing: InsertScriptTiming.DocumentEnd,
+        code: "console.log('injected by req-freedom');",
+      };
   }
 }
 
@@ -313,7 +327,7 @@ export default function App() {
           <div>
             <h1 className="text-lg font-semibold leading-tight">Req Freedom 规则管理</h1>
             <p className="text-xs text-muted-foreground">
-              拦截 · 重定向 · 参数注入 · Header · Mock · 延迟
+              拦截 · 重定向 · 参数注入 · Header · Mock · 延迟 · 脚本注入
             </p>
           </div>
         </div>
@@ -387,7 +401,11 @@ export default function App() {
 
       {/* 新建 / 编辑规则对话框 */}
       <Dialog open={dialogRule !== null} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent>
+        <DialogContent
+          className="max-w-2xl"
+          // 点击遮罩不关闭，避免长表单编辑到一半误触丢失（仍可用关闭按钮或 Esc 退出）
+          onPointerDownOutside={(e) => e.preventDefault()}
+        >
           {dialogRule && (
             <RuleEditor
               // key 保证切换编辑对象时重建草稿状态

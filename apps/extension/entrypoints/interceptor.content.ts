@@ -1,11 +1,13 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
-import type { Rule } from '@req-freedom/shared';
+import type { InsertScriptRule, Rule } from '@req-freedom/shared';
 import {
   DEFAULT_MOCK_CONTENT_TYPE,
+  InsertScriptCodeType,
+  InsertScriptTiming,
   PAGE_MESSAGE_SOURCE,
   RuleType,
 } from '@req-freedom/shared';
-import { findMatchedRules, pickRuleByType, sleep } from '@req-freedom/core';
+import { filterRulesByType, findMatchedRules, pickRuleByType, sleep } from '@req-freedom/core';
 
 /**
  * 拦截内容脚本（MAIN world）
@@ -22,6 +24,9 @@ export default defineContentScript({
     /** 页面内规则状态（由桥接脚本异步推送，推送到达前为空） */
     const state = { enabled: true, rules: [] as Rule[] };
 
+    /** 已注入的 InsertScript 规则 ID，防止 storage 变更重推时重复注入 */
+    const injectedRuleIds = new Set<string>();
+
     // 监听桥接脚本推送的规则更新
     window.addEventListener('message', (event: MessageEvent) => {
       // 只接受同窗口、带指定来源标识的消息
@@ -30,7 +35,61 @@ export default defineContentScript({
       }
       state.enabled = Boolean(event.data.enabled);
       state.rules = Array.isArray(event.data.rules) ? (event.data.rules as Rule[]) : [];
+      // 规则到达后按需注入命中当前页面的脚本 / 样式
+      applyInsertScripts();
     });
+
+    // ---------- InsertScript 脚本 / 样式注入 ----------
+
+    /**
+     * 把一条 InsertScript 规则的代码注入当前页面
+     *
+     * CSS 走 <style>，JS 走 <script>（注入后代码同步执行，随即移除标签保持 DOM 干净）。
+     * document_start 阶段 document.head 可能尚未生成，回落到 documentElement。
+     * @param rule 注入规则
+     */
+    const injectCode = (rule: InsertScriptRule): void => {
+      /** 注入挂载点：优先 head，document_start 早期回落到 documentElement */
+      const mount = document.head ?? document.documentElement;
+      if (rule.codeType === InsertScriptCodeType.Css) {
+        /** 承载样式的 style 元素 */
+        const style = document.createElement('style');
+        style.textContent = rule.code;
+        mount.appendChild(style);
+        return;
+      }
+      /** 承载脚本的 script 元素 */
+      const script = document.createElement('script');
+      script.textContent = rule.code;
+      mount.appendChild(script);
+      script.remove();
+    };
+
+    /**
+     * 找出命中当前页面 URL 的 InsertScript 规则并按时机注入
+     *
+     * 每条规则每次页面加载只注入一次（injectedRuleIds 去重）；
+     * document_end 且 DOM 未就绪时，延后到 DOMContentLoaded 再注入。
+     */
+    const applyInsertScripts = (): void => {
+      if (!state.enabled) {
+        return;
+      }
+      /** 命中当前页面 URL 的全部规则 */
+      const matched = findMatchedRules(window.location.href, state.rules);
+      for (const rule of filterRulesByType(matched, RuleType.InsertScript)) {
+        if (injectedRuleIds.has(rule.id)) {
+          continue;
+        }
+        // 立即标记，避免重推时重复注入或重复挂载 DOMContentLoaded 监听
+        injectedRuleIds.add(rule.id);
+        if (rule.timing === InsertScriptTiming.DocumentEnd && document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', () => injectCode(rule), { once: true });
+        } else {
+          injectCode(rule);
+        }
+      }
+    };
 
     /**
      * 找出命中 URL 的 Mock 规则与延迟规则

@@ -37,17 +37,17 @@ req-freedom/
                          │         ┌──────────────────────┐
         updateDynamicRules│        │ interceptor.content  │ (MAIN)
                          ▼         │ fetch / XHR 补丁      │
-              ┌────────────────┐   └──────────┬───────────┘
-              │ declarativeNet │              │
+              ┌────────────────┐   │ + 脚本 / 样式注入     │
+              │ declarativeNet │   └──────────┬───────────┘
               │ Request (DNR)  │              │
               └──────┬─────────┘              ▼
-                     │               返回值 Mock、延迟模拟
+                     │           返回值 Mock、延迟模拟、脚本注入
                      ▼
         拦截、重定向、参数注入、Header 改写
 ```
 
 - **DNR 通道**：拦截 / 重定向 / 参数注入 / Header 改写在网络层由浏览器原生执行，性能好、覆盖所有请求（包括页面导航）
-- **页面补丁通道**：返回值 Mock 与延迟模拟无法由 DNR 表达，通过 MAIN world 内容脚本改写 `fetch` 与 `XMLHttpRequest` 实现，仅作用于页面脚本发起的请求
+- **页面补丁通道**：返回值 Mock 与延迟模拟无法由 DNR 表达，通过 MAIN world 内容脚本改写 `fetch` 与 `XMLHttpRequest` 实现，仅作用于页面脚本发起的请求；脚本注入亦复用该通道，按页面 URL 命中后注入自定义 JS / CSS
 
 ## 已知限制（后续迭代）
 
