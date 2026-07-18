@@ -78,9 +78,10 @@ flowchart LR
 
 > 长期看这部分比多加两个规则类型更影响留存——各家都有，我们一项都还没有。
 
-- [ ] **P0 · 规则分组 + 分组开关**
+- [x] **P0 · 规则分组 + 分组开关**
   - 规则一多，没有分组就没法用。XSwitch、Requestly 都有。
   - 数据结构上要先决定：`groupId` 外键，还是嵌套结构。**这项会动 storage schema，越早做迁移成本越低。**
+  - 已落地：采用**嵌套结构**（`RuleGroup { id, name, enabled, rules: Rule[] }`），storage 顶层键 `req-freedom:groups`。生效判定 = 全局开关 && `group.enabled` && `rule.enabled`；`core.collectActiveRules(groups)` 统一扁平化，供 background（DNR）/ bridge（页面注入）/ popup 复用。options 支持分组卡片、组开关、就地重命名、组间/组内拖拽，规则编辑器可改「所属分组」实现跨组移动。
 
 - [ ] **P0 · 导入 / 导出**
   - ModHeader、tweak、XSwitch 全都有，是团队协作共享配置的前提。
