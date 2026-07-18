@@ -37,3 +37,15 @@ export async function getEnabled(): Promise<boolean> {
 export async function setEnabled(enabled: boolean): Promise<void> {
   await browser.storage.local.set({ [STORAGE_KEY_ENABLED]: enabled });
 }
+
+/**
+ * 以一次 storage 写入替换全部可持久化配置，供导入流程使用。
+ * @param groups 要替换的规则分组
+ * @param enabled 要替换的全局开关状态
+ */
+export async function saveConfiguration(groups: RuleGroup[], enabled: boolean): Promise<void> {
+  await browser.storage.local.set({
+    [STORAGE_KEY_GROUPS]: groups,
+    [STORAGE_KEY_ENABLED]: enabled,
+  });
+}

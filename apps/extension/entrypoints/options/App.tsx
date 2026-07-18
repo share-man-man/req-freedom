@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { ChevronDown, FolderPlus, GripVertical, Pencil, Plus, Trash2, Zap } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ChevronDown, Download, FolderPlus, GripVertical, Pencil, Plus, Trash2, Upload, Zap } from 'lucide-react';
+import type { ChangeEvent } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -21,7 +22,12 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { AUTO_DEFAULT_GROUP_NAME } from '@req-freedom/shared';
 import type { Rule, RuleGroup, RuleType } from '@req-freedom/shared';
-import { getGroups, saveGroups } from '@/utils/storage';
+import { getEnabled, getGroups, saveConfiguration, saveGroups } from '@/utils/storage';
+import {
+  createConfigurationExport,
+  getConfigurationExportFileName,
+  parseConfigurationExport,
+} from '@/utils/config-transfer';
 import { createRuleGroup, createSampleRule } from '@/utils/factories';
 import { MATCH_TYPE_LABELS, RULE_TYPE_LABELS } from '@/utils/labels';
 import { Badge } from '@/components/ui/badge';
@@ -504,6 +510,10 @@ export default function App() {
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   /** 已折叠的分组 ID 集合（纯视图状态，不写入 storage，避免无谓触发规则重同步） */
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
+  /** 导入 / 导出结果的就地提示。 */
+  const [transferMessage, setTransferMessage] = useState<string | null>(null);
+  /** 隐藏的 JSON 文件选择框，用按钮触发以保持工具栏布局统一。 */
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   // 初始加载分组
   useEffect(() => {
@@ -529,6 +539,80 @@ export default function App() {
    */
   const handleAddGroup = (): void => {
     void persist([...groups, createRuleGroup()]);
+  };
+
+  // ---------- 导入 / 导出 ----------
+
+  /**
+   * 将当前全部规则与全局开关下载为带 schema 版本的 JSON 文件。
+   */
+  const handleExport = async (): Promise<void> => {
+    try {
+      /** 当前的全局启用状态。 */
+      const enabled = await getEnabled();
+      /** 要写入下载文件的完整配置快照。 */
+      const configuration = createConfigurationExport(groups, enabled);
+      /** 可供浏览器下载的 JSON 文件内容。 */
+      const blob = new Blob([JSON.stringify(configuration, null, 2)], {
+        type: 'application/json;charset=utf-8',
+      });
+      /** 当前下载文件的临时 URL。 */
+      const downloadUrl = URL.createObjectURL(blob);
+      /** 仅用于触发浏览器下载的临时链接元素。 */
+      const downloadLink = document.createElement('a');
+      downloadLink.href = downloadUrl;
+      downloadLink.download = getConfigurationExportFileName(configuration.exportedAt);
+      downloadLink.click();
+      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0);
+      setTransferMessage('配置已导出。');
+    } catch {
+      setTransferMessage('导出失败，请重试。');
+    }
+  };
+
+  /**
+   * 打开 JSON 文件选择框。
+   */
+  const handleImportClick = (): void => {
+    importInputRef.current?.click();
+  };
+
+  /**
+   * 读取、校验并整体替换当前配置。
+   * @param event 文件选择事件
+   */
+  const handleImport = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
+    /** 用户刚选择的配置文件。 */
+    const file = event.target.files?.[0];
+    // 允许用户连续选择同一文件再次导入。
+    event.target.value = '';
+    if (!file) {
+      return;
+    }
+
+    try {
+      /** 文件中的原始 JSON 文本。 */
+      const content = await file.text();
+      /** 已通过结构与 schema 校验的配置。 */
+      const configuration = parseConfigurationExport(content);
+      /** 导入配置中包含的规则总数。 */
+      const ruleCount = configuration.groups.reduce((count, group) => count + group.rules.length, 0);
+      if (
+        !window.confirm(
+          `将导入 ${configuration.groups.length} 个分组、${ruleCount} 条规则，并替换当前全部配置。确定继续吗？`,
+        )
+      ) {
+        return;
+      }
+      await saveConfiguration(configuration.groups, configuration.enabled);
+      setGroups(configuration.groups);
+      setCollapsedGroupIds(new Set());
+      setTransferMessage(`已导入 ${configuration.groups.length} 个分组、${ruleCount} 条规则。`);
+    } catch (error) {
+      /** 便于用户定位问题的导入错误。 */
+      const message = error instanceof Error ? error.message : '导入失败，请确认文件内容后重试。';
+      setTransferMessage(`导入失败：${message}`);
+    }
   };
 
   /**
@@ -765,17 +849,41 @@ export default function App() {
       </header>
 
       <main className="mx-auto max-w-4xl px-6 py-6">
-        {/* 工具栏：新建分组 */}
-        <section className="mb-5 flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            规则按分组管理，可整组启停；单条规则生效需分组与规则同时开启。
-          </p>
-          {groups.length > 0 && (
-            <Button size="sm" onClick={handleAddGroup}>
-              <FolderPlus />
-              新建分组
+        {/* 工具栏：导入 / 导出与新建分组 */}
+        <section className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm text-muted-foreground">
+              规则按分组管理，可整组启停；单条规则生效需分组与规则同时开启。
+            </p>
+            {transferMessage && (
+              <p className="mt-1 text-xs text-muted-foreground" role="status">
+                {transferMessage}
+              </p>
+            )}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <input
+              ref={importInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(event) => void handleImport(event)}
+            />
+            <Button variant="outline" size="sm" onClick={handleImportClick}>
+              <Upload />
+              导入
             </Button>
-          )}
+            <Button variant="outline" size="sm" onClick={() => void handleExport()}>
+              <Download />
+              导出
+            </Button>
+            {groups.length > 0 && (
+              <Button size="sm" onClick={handleAddGroup}>
+                <FolderPlus />
+                新建分组
+              </Button>
+            )}
+          </div>
         </section>
 
         {/* 分组列表（分组与组内规则均支持拖拽排序） */}

@@ -146,3 +146,19 @@ export interface RuleGroup {
   /** 组内规则列表（数组顺序即展示与匹配顺序） */
   rules: Rule[];
 }
+
+/**
+ * 可移植的插件配置文件。
+ *
+ * `schemaVersion` 让后续存储模型变更可通过迁移兼容，而不会把版本差异隐含在规则数据中。
+ */
+export interface ConfigurationExport {
+  /** 配置文件 schema 版本 */
+  schemaVersion: number;
+  /** 导出时间（ISO 8601） */
+  exportedAt: string;
+  /** 全局规则开关 */
+  enabled: boolean;
+  /** 按顺序保存的全部规则分组 */
+  groups: RuleGroup[];
+}

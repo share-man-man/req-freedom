@@ -1,6 +1,7 @@
 [
   "getting-started",
   "architecture",
+  "import-export",
   {
     "type": "dir",
     "name": "features",

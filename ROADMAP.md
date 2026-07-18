@@ -83,9 +83,9 @@ flowchart LR
   - 数据结构上要先决定：`groupId` 外键，还是嵌套结构。**这项会动 storage schema，越早做迁移成本越低。**
   - 已落地：采用**嵌套结构**（`RuleGroup { id, name, enabled, rules: Rule[] }`），storage 顶层键 `req-freedom:groups`。生效判定 = 全局开关 && `group.enabled` && `rule.enabled`；`core.collectActiveRules(groups)` 统一扁平化，供 background（DNR）/ bridge（页面注入）/ popup 复用。options 支持分组卡片、组开关、就地重命名、组间/组内拖拽，规则编辑器可改「所属分组」实现跨组移动。
 
-- [ ] **P0 · 导入 / 导出**
+- [x] **P0 · 导入 / 导出**
   - ModHeader、tweak、XSwitch 全都有，是团队协作共享配置的前提。
-  - 需要 schema version 字段，为后续迁移留出空间。
+  - 已落地：规则管理页可导入 / 导出完整 JSON 配置（全局开关 + 分组 + 规则），使用 `schemaVersion: 1`；导入会完整校验数据并经确认后整体替换，文档见[导入与导出配置](apps/docs/docs/guide/import-export.md)。
 
 - [ ] **P1 · 作用域过滤（tab / 窗口 / 标签组）**
   - ModHeader 支持按 tab、窗口、标签组限定生效范围。

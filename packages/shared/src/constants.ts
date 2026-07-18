@@ -6,6 +6,12 @@ export const STORAGE_KEY_GROUPS = 'req-freedom:groups';
 /** storage 中全局开关的键名 */
 export const STORAGE_KEY_ENABLED = 'req-freedom:enabled';
 
+/** 导入 / 导出文件当前使用的配置 schema 版本。 */
+export const CONFIG_EXPORT_SCHEMA_VERSION = 1;
+
+/** 导出配置文件的文件名固定前缀。 */
+export const CONFIG_EXPORT_FILE_NAME_PREFIX = 'req-freedom-config';
+
 /** 新建分组时的默认名称 */
 export const DEFAULT_GROUP_NAME = '新建分组';
 
