@@ -19,15 +19,25 @@ export const RULE_TYPE_LABELS: Record<RuleType, string> = {
   [RuleType.InsertScript]: '脚本注入',
 };
 
-/** 各规则类型的实际作用范围与主要限制，供规则编辑器降低配置误解。 */
+/**
+ * 各规则类型的说明文案：先讲这条规则做什么，再讲作用范围与主要限制，
+ * 与 request-lab 卡片描述的风格看齐，帮助用户看清自己正在添加的是什么规则、降低配置误解。
+ */
 export const RULE_TYPE_SCOPE_HINTS: Record<RuleType, string> = {
-  [RuleType.Block]: '网络层规则：作用于所有命中的浏览器请求，包括页面导航、脚本、图片与接口请求。',
-  [RuleType.Redirect]: '网络层规则：作用于所有命中的浏览器请求，包括页面导航、脚本、图片与接口请求。',
-  [RuleType.InjectParams]: '网络层规则：作用于所有命中的浏览器请求，包括页面导航、脚本、图片与接口请求。',
-  [RuleType.ModifyHeaders]: '网络层规则：作用于所有命中的浏览器请求；可改请求头或响应头。',
-  [RuleType.MockResponse]: '页面补丁规则：仅拦截当前页面脚本发起的 fetch / XHR，不作用于页面导航或静态资源。',
-  [RuleType.Delay]: '页面补丁规则：仅限速当前页面脚本发起的 fetch / XHR，不作用于页面导航或静态资源。',
-  [RuleType.InsertScript]: '页面规则：按顶层页面 URL 注入 JS / CSS，不匹配单个网络请求。',
+  [RuleType.Block]:
+    '拦截并阻断命中的请求，页面会看到该资源加载失败。作用于所有类型的浏览器请求：页面导航、脚本、图片、接口等。',
+  [RuleType.Redirect]:
+    '把命中的请求重定向到指定目标地址，最终 URL 与响应都会变成目标。作用于所有类型的浏览器请求：页面导航、脚本、图片、接口等。',
+  [RuleType.InjectParams]:
+    '向命中请求的 URL 追加查询参数（如 debug=1），可在日志与 Network 面板看到最终 URL。作用于所有类型的浏览器请求：页面导航、脚本、图片、接口等。',
+  [RuleType.ModifyHeaders]:
+    '对命中请求的请求头或响应头做设置、追加或移除。作用于所有类型的浏览器请求：页面导航、脚本、图片、接口等；完整头信息请在 Network 面板核对。',
+  [RuleType.MockResponse]:
+    '不再真正发出请求，直接用自定义状态码、响应头和响应体返回。仅拦截当前页面脚本发起的 fetch / XHR，不作用于页面导航或静态资源。',
+  [RuleType.Delay]:
+    '对命中请求施加网络延迟或上下行带宽限制，用于模拟弱网、观察 loading 与耗时。仅作用于当前页面脚本发起的 fetch / XHR，不作用于页面导航或静态资源。',
+  [RuleType.InsertScript]:
+    '按页面 URL 注入自定义 JS 或 CSS：JS 可改写页面变量与 DOM，CSS 可改变页面样式。匹配顶层页面地址，不针对单个网络请求。',
 };
 
 /** 网络限速档位的展示文案 */
