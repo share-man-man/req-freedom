@@ -73,10 +73,10 @@ async function requestWithFetch(name, path, options) {
     const response = await fetch(url, options);
     /** 响应文本，用于识别 Mock 或重定向后的内容。 */
     const body = await response.text();
-    /** 便于检查响应 Header 改写的关键响应头列表。 */
-    const headers = ['content-type', 'x-response-patched', 'x-lab-resource']
-      .map((header) => `${header}: ${response.headers.get(header) ?? '(none)'}`)
-      .join('\n');
+    /** 遍历全部可读响应头，便于直接在日志中核对任意 Header 改写。 */
+    const headers =
+      [...response.headers].map(([header, value]) => `${header}: ${value}`).join('\n') ||
+      '(无可读响应头)';
     appendLog({
       name,
       url: response.url || url,
@@ -111,12 +111,14 @@ function requestWithXhr() {
     xhr.open('GET', url);
     xhr.setRequestHeader('X-Lab-Client', 'request-lab-xhr');
     xhr.addEventListener('loadend', () => {
+      /** XHR 可读的全部响应头（原始文本），便于核对 Header 改写。 */
+      const headers = xhr.getAllResponseHeaders().trim() || '(无可读响应头)';
       appendLog({
         name: 'XHR 商品请求',
         url,
         status: xhr.status,
         duration: performance.now() - startedAt,
-        body: xhr.responseText || '(空响应)',
+        body: `${xhr.responseText || '(空响应)'}\n\n${headers}`,
         error: xhr.status < 200 || xhr.status >= 300,
       });
       resolve();
