@@ -1,27 +1,30 @@
 import { useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
-import { Settings2, Zap } from 'lucide-react';
-import type { Rule } from '@req-freedom/shared';
-import { getEnabled, getRules, saveRules, setEnabled } from '@/utils/storage';
+import { ChevronDown, Settings2, Zap } from 'lucide-react';
+import type { RuleGroup } from '@req-freedom/shared';
+import { collectActiveRules } from '@req-freedom/core';
+import { getEnabled, getGroups, saveGroups, setEnabled } from '@/utils/storage';
 import { RULE_TYPE_LABELS } from '@/utils/labels';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 
 /**
- * Popup 主界面：全局开关 + 规则快速启停
+ * Popup 主界面：全局开关 + 按分组快速启停
  */
 export default function App() {
   /** 全局开关状态 */
   const [enabled, setEnabledState] = useState(true);
-  /** 规则列表 */
-  const [rules, setRules] = useState<Rule[]>([]);
+  /** 规则分组列表 */
+  const [groups, setGroups] = useState<RuleGroup[]>([]);
+  /** 已折叠的分组 ID 集合，仅保留在当前弹窗会话中 */
+  const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
 
-  // 初始加载 storage 中的开关与规则
+  // 初始加载 storage 中的开关与分组
   useEffect(() => {
     void (async () => {
       setEnabledState(await getEnabled());
-      setRules(await getRules());
+      setGroups(await getGroups());
     })();
   }, []);
 
@@ -35,16 +38,56 @@ export default function App() {
   };
 
   /**
-   * 切换单条规则的启用状态并持久化
-   * @param id 规则 ID
+   * 更新分组列表并持久化
+   * @param next 新的分组列表
    */
-  const handleToggleRule = async (id: string): Promise<void> => {
-    /** 更新后的规则列表 */
-    const next = rules.map((rule) =>
-      rule.id === id ? { ...rule, enabled: !rule.enabled } : rule,
+  const persist = async (next: RuleGroup[]): Promise<void> => {
+    setGroups(next);
+    await saveGroups(next);
+  };
+
+  /**
+   * 切换整组启用状态
+   * @param groupId 分组 ID
+   */
+  const handleToggleGroup = async (groupId: string): Promise<void> => {
+    await persist(
+      groups.map((group) =>
+        group.id === groupId ? { ...group, enabled: !group.enabled } : group,
+      ),
     );
-    setRules(next);
-    await saveRules(next);
+  };
+
+  /**
+   * 切换单条规则启用状态
+   * @param ruleId 规则 ID
+   */
+  const handleToggleRule = async (ruleId: string): Promise<void> => {
+    await persist(
+      groups.map((group) => ({
+        ...group,
+        rules: group.rules.map((rule) =>
+          rule.id === ruleId ? { ...rule, enabled: !rule.enabled } : rule,
+        ),
+      })),
+    );
+  };
+
+  /**
+   * 切换一个分组的折叠状态，不影响规则的实际启用状态或持久化数据
+   * @param groupId 要折叠或展开的分组 ID
+   */
+  const handleToggleCollapse = (groupId: string): void => {
+    setCollapsedGroupIds((previousGroupIds) => {
+      /** 变更后的折叠分组集合 */
+      const nextGroupIds = new Set(previousGroupIds);
+      if (nextGroupIds.has(groupId)) {
+        nextGroupIds.delete(groupId);
+      } else {
+        nextGroupIds.add(groupId);
+      }
+      return nextGroupIds;
+    });
   };
 
   /**
@@ -54,8 +97,10 @@ export default function App() {
     void browser.runtime.openOptionsPage();
   };
 
-  /** 已启用规则数量 */
-  const activeCount = rules.filter((rule) => rule.enabled).length;
+  /** 当前生效规则数量（分组与规则同时启用，且全局开启） */
+  const activeCount = enabled ? collectActiveRules(groups).length : 0;
+  /** 是否已存在任意规则 */
+  const hasRules = groups.some((group) => group.rules.length > 0);
 
   return (
     <div className="flex flex-col">
@@ -75,40 +120,87 @@ export default function App() {
         <Switch checked={enabled} onCheckedChange={handleToggleGlobal} />
       </header>
 
-      {/* 规则列表 */}
-      <div className="max-h-80 overflow-y-auto p-2">
-        {rules.length === 0 ? (
+      {/* 分组列表 */}
+      <div className="max-h-96 overflow-y-auto p-2">
+        {!hasRules ? (
           <div className="flex flex-col items-center gap-1 px-4 py-10 text-center">
             <p className="text-sm text-muted-foreground">暂无规则</p>
             <p className="text-xs text-muted-foreground/70">去管理页添加你的第一条规则</p>
           </div>
         ) : (
-          <ul className="flex flex-col gap-1">
-            {rules.map((rule) => (
-              <li
-                key={rule.id}
-                className="flex items-center justify-between gap-2 rounded-lg px-2 py-2 transition-colors hover:bg-muted/60"
-              >
-                <div className="flex min-w-0 items-center gap-2">
-                  <Switch
-                    checked={rule.enabled}
-                    onCheckedChange={() => handleToggleRule(rule.id)}
-                  />
-                  <span
-                    className={`truncate text-sm ${
-                      rule.enabled ? 'text-foreground' : 'text-muted-foreground'
-                    }`}
-                    title={rule.name}
-                  >
-                    {rule.name}
-                  </span>
+          <div className="flex flex-col gap-2">
+            {groups.map((group) => (
+              <div key={group.id} className="rounded-lg border border-border">
+                {/* 分组标题行：折叠控制 + 整组开关 */}
+                <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <button
+                      type="button"
+                      className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      title={collapsedGroupIds.has(group.id) ? '展开分组' : '折叠分组'}
+                      aria-expanded={!collapsedGroupIds.has(group.id)}
+                      onClick={() => handleToggleCollapse(group.id)}
+                    >
+                      <ChevronDown
+                        className={`size-3.5 transition-transform ${
+                          collapsedGroupIds.has(group.id) ? '-rotate-90' : ''
+                        }`}
+                      />
+                    </button>
+                    <Switch
+                      checked={group.enabled}
+                      onCheckedChange={() => handleToggleGroup(group.id)}
+                    />
+                    <span
+                      className={`truncate text-sm font-medium ${
+                        group.enabled ? 'text-foreground' : 'text-muted-foreground'
+                      }`}
+                      title={group.name}
+                    >
+                      {group.name}
+                    </span>
+                  </div>
+                  <Badge variant="muted" className="shrink-0">
+                    {group.rules.length} 条
+                  </Badge>
                 </div>
-                <Badge variant={rule.enabled ? 'default' : 'muted'} className="shrink-0">
-                  {RULE_TYPE_LABELS[rule.type]}
-                </Badge>
-              </li>
+
+                {/* 组内规则：整组停用时淡化 */}
+                {!collapsedGroupIds.has(group.id) && group.rules.length > 0 && (
+                  <ul
+                    className={`flex flex-col gap-0.5 border-t border-border p-1 ${
+                      group.enabled ? '' : 'opacity-50'
+                    }`}
+                  >
+                    {group.rules.map((rule) => (
+                      <li
+                        key={rule.id}
+                        className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/60"
+                      >
+                        <div className="flex min-w-0 items-center gap-2">
+                          <Switch
+                            checked={rule.enabled}
+                            onCheckedChange={() => handleToggleRule(rule.id)}
+                          />
+                          <span
+                            className={`truncate text-sm ${
+                              rule.enabled ? 'text-foreground' : 'text-muted-foreground'
+                            }`}
+                            title={rule.name}
+                          >
+                            {rule.name}
+                          </span>
+                        </div>
+                        <Badge variant={rule.enabled ? 'default' : 'muted'} className="shrink-0">
+                          {RULE_TYPE_LABELS[rule.type]}
+                        </Badge>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </div>
 
