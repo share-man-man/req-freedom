@@ -1,23 +1,23 @@
 import { browser } from 'wxt/browser';
-import type { Rule } from '@req-freedom/shared';
-import { STORAGE_KEY_ENABLED, STORAGE_KEY_RULES } from '@req-freedom/shared';
+import type { RuleGroup } from '@req-freedom/shared';
+import { STORAGE_KEY_ENABLED, STORAGE_KEY_GROUPS } from '@req-freedom/shared';
 
 /**
- * 读取全部规则
- * @returns 规则列表，未初始化时返回空数组
+ * 读取全部规则分组
+ * @returns 分组列表，未初始化时返回空数组
  */
-export async function getRules(): Promise<Rule[]> {
+export async function getGroups(): Promise<RuleGroup[]> {
   /** storage 查询结果 */
-  const result = await browser.storage.local.get(STORAGE_KEY_RULES);
-  return (result[STORAGE_KEY_RULES] as Rule[] | undefined) ?? [];
+  const result = await browser.storage.local.get(STORAGE_KEY_GROUPS);
+  return (result[STORAGE_KEY_GROUPS] as RuleGroup[] | undefined) ?? [];
 }
 
 /**
- * 保存全部规则（整体覆盖）
- * @param rules 规则列表
+ * 保存全部规则分组（整体覆盖）
+ * @param groups 分组列表
  */
-export async function saveRules(rules: Rule[]): Promise<void> {
-  await browser.storage.local.set({ [STORAGE_KEY_RULES]: rules });
+export async function saveGroups(groups: RuleGroup[]): Promise<void> {
+  await browser.storage.local.set({ [STORAGE_KEY_GROUPS]: groups });
 }
 
 /**

@@ -129,3 +129,20 @@ export type Rule =
   | MockResponseRule
   | DelayRule
   | InsertScriptRule;
+
+/**
+ * 规则分组：一组规则的收纳容器，可整组启停
+ *
+ * 分组是存储的顶层文档模型：规则嵌套在分组内，数组顺序即展示与匹配顺序。
+ * 一条规则最终是否生效，取决于「全局开关 && 分组 enabled && 规则 enabled」三者同时为真。
+ */
+export interface RuleGroup {
+  /** 分组唯一 ID */
+  id: string;
+  /** 分组名称（展示用） */
+  name: string;
+  /** 分组是否启用；关闭后组内所有规则一律不生效 */
+  enabled: boolean;
+  /** 组内规则列表（数组顺序即展示与匹配顺序） */
+  rules: Rule[];
+}

@@ -1,5 +1,19 @@
-import type { Rule, RuleType } from '@req-freedom/shared';
+import type { Rule, RuleGroup, RuleType } from '@req-freedom/shared';
 import { matchUrl } from './matcher';
+
+/**
+ * 将分组扁平化为「当前生效」的规则列表
+ *
+ * 仅保留启用分组（group.enabled）下的启用规则（rule.enabled），并保持分组顺序与组内顺序。
+ * 全局开关（是否整体停用）由调用方在此之外单独判断。
+ * @param groups 全部规则分组
+ * @returns 扁平化后的生效规则列表
+ */
+export function collectActiveRules(groups: RuleGroup[]): Rule[] {
+  return groups
+    .filter((group) => group.enabled)
+    .flatMap((group) => group.rules.filter((rule) => rule.enabled));
+}
 
 /**
  * 找出命中给定 URL 的所有已启用规则

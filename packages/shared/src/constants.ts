@@ -1,10 +1,16 @@
 import { NetworkThrottlePreset } from './enums';
 
-/** storage 中规则列表的键名 */
-export const STORAGE_KEY_RULES = 'req-freedom:rules';
+/** storage 中规则分组列表的键名（顶层文档模型：分组内嵌套规则） */
+export const STORAGE_KEY_GROUPS = 'req-freedom:groups';
 
 /** storage 中全局开关的键名 */
 export const STORAGE_KEY_ENABLED = 'req-freedom:enabled';
+
+/** 新建分组时的默认名称 */
+export const DEFAULT_GROUP_NAME = '新建分组';
+
+/** 尚无分组时，新建首条规则自动创建的分组名称 */
+export const AUTO_DEFAULT_GROUP_NAME = '默认分组';
 
 /** 页面内 postMessage 通信的来源标识（ISOLATED 内容脚本 -> MAIN world 注入脚本） */
 export const PAGE_MESSAGE_SOURCE = 'req-freedom:bridge';

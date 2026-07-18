@@ -3,9 +3,10 @@ import { defineContentScript } from 'wxt/utils/define-content-script';
 import {
   PAGE_MESSAGE_SOURCE,
   STORAGE_KEY_ENABLED,
-  STORAGE_KEY_RULES,
+  STORAGE_KEY_GROUPS,
 } from '@req-freedom/shared';
-import { getEnabled, getRules } from '@/utils/storage';
+import { collectActiveRules } from '@req-freedom/core';
+import { getEnabled, getGroups } from '@/utils/storage';
 
 /**
  * 桥接内容脚本（ISOLATED world）
@@ -24,8 +25,10 @@ export default defineContentScript({
     const pushRulesToPage = async (): Promise<void> => {
       /** 全局开关状态 */
       const enabled = await getEnabled();
-      /** 全部业务规则 */
-      const rules = await getRules();
+      /** 全部规则分组 */
+      const groups = await getGroups();
+      /** 当前生效规则（启用分组下的启用规则），分组停用状态已在此处过滤 */
+      const rules = collectActiveRules(groups);
       // 通过 postMessage 跨 world 传递（仅当前窗口，不跨源）
       window.postMessage({ source: PAGE_MESSAGE_SOURCE, enabled, rules }, '*');
     };
@@ -38,7 +41,7 @@ export default defineContentScript({
       if (area !== 'local') {
         return;
       }
-      if (STORAGE_KEY_RULES in changes || STORAGE_KEY_ENABLED in changes) {
+      if (STORAGE_KEY_GROUPS in changes || STORAGE_KEY_ENABLED in changes) {
         void pushRulesToPage();
       }
     });
