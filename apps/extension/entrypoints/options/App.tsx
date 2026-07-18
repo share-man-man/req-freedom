@@ -1,144 +1,146 @@
 import { useEffect, useState } from 'react';
-import {
-  Ban,
-  Clock,
-  Code2,
-  FileJson,
-  Forward,
-  GripVertical,
-  Pencil,
-  SlidersHorizontal,
-  Trash2,
-  Zap,
-} from 'lucide-react';
-import type { ReactNode } from 'react';
+import { ChevronDown, FolderPlus, GripVertical, Pencil, Plus, Trash2, Zap } from 'lucide-react';
 import {
   DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  MeasuringStrategy,
   PointerSensor,
   closestCenter,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import type { DragEndEvent } from '@dnd-kit/core';
+import type { DragEndEvent, Modifier } from '@dnd-kit/core';
 import {
   SortableContext,
   arrayMove,
+  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { Rule } from '@req-freedom/shared';
-import {
-  DEFAULT_MOCK_STATUS,
-  DEFAULT_NETWORK_THROTTLE_PRESET,
-  HeaderOperation,
-  HeaderTarget,
-  InsertScriptCodeType,
-  InsertScriptTiming,
-  MatchType,
-  NETWORK_THROTTLE_PRESET_SETTINGS,
-  RuleType,
-} from '@req-freedom/shared';
-import { getRules, saveRules } from '@/utils/storage';
+import { AUTO_DEFAULT_GROUP_NAME } from '@req-freedom/shared';
+import type { Rule, RuleGroup, RuleType } from '@req-freedom/shared';
+import { getGroups, saveGroups } from '@/utils/storage';
+import { createRuleGroup, createSampleRule } from '@/utils/factories';
 import { MATCH_TYPE_LABELS, RULE_TYPE_LABELS } from '@/utils/labels';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import RuleEditor from './RuleEditor';
-
-/** 每种规则类型对应的图标（工具栏按钮复用） */
-const RULE_TYPE_ICONS: Record<RuleType, ReactNode> = {
-  [RuleType.Block]: <Ban />,
-  [RuleType.Redirect]: <Forward />,
-  [RuleType.InjectParams]: <SlidersHorizontal />,
-  [RuleType.ModifyHeaders]: <Pencil />,
-  [RuleType.MockResponse]: <FileJson />,
-  [RuleType.Delay]: <Clock />,
-  [RuleType.InsertScript]: <Code2 />,
-};
+import RuleTypePicker from './RuleTypePicker';
 
 /**
- * 吸附「操作」列的样式：贴右吸附 + 不透明背景遮挡滚动内容 + hover 保持不透明，
- * 仅当表格横向溢出（容器带 data-overflow-x）时在左缘投出向左渐隐的渐变阴影。
+ * 规则「表头」与「数据行」共用的网格列模板，保证列对齐。
+ *
+ * 用 div + CSS Grid 而非原生 <table>：浏览器对 display:table-row 元素的 transform 过渡渲染不可靠，
+ * 会导致 dnd-kit 排序时「瞬间换位、无让位动画」；block/grid 布局才能让排序动画稳定生效。
+ * 列依次为：拖拽柄 · 启用 · 名称 · 类型 · 匹配方式 · 匹配内容 · 操作。
+ *
+ * 「类型」「匹配方式」「操作」使用固定宽度，名称与匹配内容按比例分配余宽；不能使用 auto，
+ * 否则每一行会按自身内容分别计算列宽，导致表头和规则内容无法左对齐。
  */
-const STICKY_ACTION_CLASS =
-  'req-sticky-shadow sticky right-0 bg-card group-hover:bg-muted';
+const RULE_ROW_GRID =
+  'grid grid-cols-[28px_44px_minmax(0,1.4fr)_88px_72px_minmax(0,1fr)_72px] items-center gap-3';
 
 /**
- * 按规则类型生成一条示例规则（作为新建规则的模板）
- * @param type 规则类型
- * @returns 预填充好的新规则
+ * 无分组时新建规则用的「默认分组」占位 ID。
+ *
+ * 只在类型选择器 / 规则编辑器里临时代表一个尚未创建的默认分组；只有在规则真正保存时才落地建组，
+ * 中途取消则不产生空的默认分组。
  */
-function createSampleRule(type: RuleType): Rule {
-  /** 所有规则共享的基础字段 */
-  const base = {
-    id: crypto.randomUUID(),
-    name: `${RULE_TYPE_LABELS[type]}规则`,
-    // 新建即启用：用户建规则通常就是要用它，少一步手动开启
-    enabled: true,
-    matchType: MatchType.Contains,
-    pattern: 'example.com/api',
+const DEFAULT_GROUP_SENTINEL = '__req-freedom:default-group__';
+
+/**
+ * 拖拽仅沿垂直方向移动的修饰器（等价官方 restrictToVerticalAxis）
+ *
+ * 分组与规则都是纵向列表，锁死水平位移可减少无谓的横向抖动，让拖拽更跟手。
+ * @param param0 dnd-kit 传入的当前位移
+ * @returns 清零水平分量后的位移
+ */
+const restrictToVerticalAxis: Modifier = ({ transform }) => ({ ...transform, x: 0 });
+
+/**
+ * dnd-kit 测量配置：拖拽过程中始终重新测量 droppable 位置。
+ *
+ * 默认策略只在拖拽开始时测一次，元素让位后位置就过期，会导致「向下拖瞬间换位、向上拖才有动画」
+ * 这类方向不对称的跳变。改为 Always 每帧重量，让位动画在两个方向都平滑一致。
+ */
+const DND_MEASURING = { droppable: { strategy: MeasuringStrategy.Always } };
+
+/**
+ * 统一的拖拽传感器（指针 + 键盘）。
+ *
+ * 分组列表与各分组的规则列表分别用**独立**的 DndContext，各自调用本 hook 得到一套传感器，
+ * 从而让两层拖拽的碰撞检测彻底隔离、互不干扰。
+ * @returns dnd-kit 传感器集合
+ */
+function useSortableSensors() {
+  return useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+}
+
+/** 规则编辑对话框的状态：正在编辑/新建的规则草稿及其所属分组 */
+interface RuleDialogState {
+  /** 规则所属分组 ID */
+  groupId: string;
+  /** 规则草稿 */
+  rule: Rule;
+  /** 是否为新建 */
+  isNew: boolean;
+}
+
+interface GroupNameInputProps {
+  /** 当前分组名称 */
+  value: string;
+  /** 提交新名称的回调（失焦或回车时触发） */
+  onCommit: (name: string) => void;
+}
+
+/**
+ * 分组名称的就地编辑输入框：本地维护草稿，失焦或回车时才提交，避免逐字写 storage 触发重复同步
+ * @param value 当前分组名称
+ * @param onCommit 提交回调
+ */
+function GroupNameInput({ value, onCommit }: GroupNameInputProps) {
+  /** 输入框内的草稿文本 */
+  const [text, setText] = useState(value);
+
+  // 外部名称变化时（如撤销）同步回草稿
+  useEffect(() => setText(value), [value]);
+
+  /**
+   * 提交草稿：非空且有变化才回调，否则回退到原名称
+   */
+  const commit = (): void => {
+    /** 去除首尾空白后的名称 */
+    const trimmed = text.trim();
+    if (trimmed && trimmed !== value) {
+      onCommit(trimmed);
+    } else {
+      setText(value);
+    }
   };
 
-  switch (type) {
-    case RuleType.Block:
-      return { ...base, type };
-    case RuleType.Redirect:
-      return { ...base, type, redirectUrl: 'http://localhost:3000/api' };
-    case RuleType.InjectParams:
-      return { ...base, type, params: { debug: '1' } };
-    case RuleType.ModifyHeaders:
-      return {
-        ...base,
-        type,
-        headers: [
-          {
-            target: HeaderTarget.Request,
-            operation: HeaderOperation.Set,
-            header: 'X-Req-Freedom',
-            value: '1',
-          },
-        ],
-      };
-    case RuleType.MockResponse:
-      return {
-        ...base,
-        type,
-        statusCode: DEFAULT_MOCK_STATUS,
-        body: JSON.stringify({ code: 0, data: 'mocked by req-freedom' }),
-      };
-    case RuleType.Delay: {
-      /** 新建规则默认使用 Fast 3G，便于立即模拟常见弱网环境。 */
-      const throttleSettings = NETWORK_THROTTLE_PRESET_SETTINGS[DEFAULT_NETWORK_THROTTLE_PRESET];
-      return {
-        ...base,
-        type,
-        throttlePreset: DEFAULT_NETWORK_THROTTLE_PRESET,
-        latencyMs: throttleSettings.latencyMs,
-        downloadKbps: throttleSettings.downloadKbps,
-        uploadKbps: throttleSettings.uploadKbps,
-      };
-    }
-    case RuleType.InsertScript:
-      return {
-        ...base,
-        // 注入按页面 URL 命中，示例默认匹配整个站点
-        pattern: 'example.com',
-        type,
-        codeType: InsertScriptCodeType.JavaScript,
-        timing: InsertScriptTiming.DocumentEnd,
-        code: "console.log('injected by req-freedom');",
-      };
-  }
+  return (
+    <Input
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.currentTarget.blur();
+        }
+      }}
+      className="h-8 flex-1 border-transparent bg-transparent px-2 font-medium shadow-none hover:border-border focus-visible:border-ring"
+      placeholder="分组名称"
+    />
+  );
 }
 
 interface SortableRuleRowProps {
@@ -153,7 +155,7 @@ interface SortableRuleRowProps {
 }
 
 /**
- * 可拖拽排序的规则表格行
+ * 可拖拽排序的规则行（div + Grid 实现，保证 dnd-kit 排序动画顺滑）
  */
 function SortableRuleRow({ rule, onToggle, onEdit, onDelete }: SortableRuleRowProps) {
   /** dnd-kit 排序钩子：提供拖拽句柄监听、位移与拖拽态 */
@@ -162,171 +164,588 @@ function SortableRuleRow({ rule, onToggle, onEdit, onDelete }: SortableRuleRowPr
   });
 
   return (
-    <tr
+    <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`group border-b border-border transition-colors hover:bg-muted ${
-        isDragging ? 'relative z-10 bg-card shadow-lg' : ''
+      // 拖拽中原行完全透明留出空位，跟随光标的是 DragOverlay 里的副本
+      className={`${RULE_ROW_GRID} group border-t border-border px-3 py-2 transition-colors hover:bg-muted ${
+        isDragging ? 'opacity-0' : ''
       }`}
     >
       {/* 拖拽句柄 */}
-      <TableCell className="w-8 pr-0">
-        <button
-          type="button"
-          className="flex cursor-grab touch-none items-center justify-center rounded p-1 text-muted-foreground opacity-50 transition-opacity hover:opacity-100 active:cursor-grabbing"
-          title="拖拽排序"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical className="size-4" />
-        </button>
-      </TableCell>
-      <TableCell>
-        <Switch checked={rule.enabled} onCheckedChange={() => onToggle(rule.id)} />
-      </TableCell>
-      <TableCell className="font-medium">
-        {/* 长名字截断，避免撑宽表格挤压其他列 */}
-        <div className="max-w-[240px] truncate" title={rule.name}>
-          {rule.name}
-        </div>
-      </TableCell>
-      <TableCell>
-        <Badge variant="secondary" className="whitespace-nowrap">
-          {RULE_TYPE_LABELS[rule.type]}
-        </Badge>
-      </TableCell>
-      <TableCell className="whitespace-nowrap text-muted-foreground">
+      <button
+        type="button"
+        className="flex cursor-grab touch-none items-center justify-center rounded p-1 text-muted-foreground opacity-50 transition-opacity hover:opacity-100 active:cursor-grabbing"
+        title="拖拽排序"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="size-4" />
+      </button>
+      <Switch checked={rule.enabled} onCheckedChange={() => onToggle(rule.id)} />
+      {/* 长名字截断，避免撑宽行挤压其他列 */}
+      <div className="min-w-0 truncate text-sm font-medium" title={rule.name}>
+        {rule.name}
+      </div>
+      <Badge variant="secondary" className="whitespace-nowrap">
+        {RULE_TYPE_LABELS[rule.type]}
+      </Badge>
+      <span className="whitespace-nowrap text-sm text-muted-foreground">
         {MATCH_TYPE_LABELS[rule.matchType]}
-      </TableCell>
-      <TableCell>
-        <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
-          {rule.pattern}
-        </code>
-      </TableCell>
-      <TableCell className={STICKY_ACTION_CLASS}>
-        <div className="flex justify-end gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-8"
-            title="编辑"
-            onClick={() => onEdit(rule)}
-          >
-            <Pencil className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-8 text-muted-foreground hover:text-destructive"
-            title="删除"
-            onClick={() => onDelete(rule.id)}
-          >
-            <Trash2 className="size-4" />
-          </Button>
-        </div>
-      </TableCell>
-    </tr>
+      </span>
+      <code
+        className="min-w-0 truncate rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
+        title={rule.pattern}
+      >
+        {rule.pattern}
+      </code>
+      <div className="flex justify-end gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8"
+          title="编辑"
+          onClick={() => onEdit(rule)}
+        >
+          <Pencil className="size-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8 text-muted-foreground hover:text-destructive"
+          title="删除"
+          onClick={() => onDelete(rule.id)}
+        >
+          <Trash2 className="size-4" />
+        </Button>
+      </div>
+    </div>
   );
 }
 
+interface SortableGroupCardProps {
+  /** 分组数据 */
+  group: RuleGroup;
+  /** 切换整组启用状态 */
+  onToggleGroup: (id: string) => void;
+  /** 重命名分组 */
+  onRenameGroup: (id: string, name: string) => void;
+  /** 删除分组 */
+  onDeleteGroup: (id: string) => void;
+  /** 向分组内新增规则（打开类型选择器） */
+  onAddRule: (groupId: string) => void;
+  /** 切换组内单条规则启用状态 */
+  onToggleRule: (ruleId: string) => void;
+  /** 编辑组内规则 */
+  onEditRule: (rule: Rule) => void;
+  /** 删除组内规则 */
+  onDeleteRule: (ruleId: string) => void;
+  /** 组内规则重排后的回调（传入重排后的规则列表） */
+  onReorderRules: (groupId: string, nextRules: Rule[]) => void;
+  /** 是否折叠（折叠后隐藏组内规则列表） */
+  collapsed: boolean;
+  /** 切换折叠状态 */
+  onToggleCollapse: (groupId: string) => void;
+}
+
 /**
- * Options 主界面：规则的增删改、启停与拖拽排序
+ * 分组卡片：整组可拖拽排序（由外层 DndContext 承载）+ 组开关 + 就地重命名 + 增删规则。
+ *
+ * 组内规则用**卡片内部独立的 DndContext**排序：规则行只注册到这个内层 context，
+ * 外层分组 DndContext 完全看不到它们，两层拖拽的碰撞检测因此彻底隔离、互不干扰。
  */
-export default function App() {
-  /** 规则列表 */
-  const [rules, setRules] = useState<Rule[]>([]);
-  /** 对话框中正在编辑/新建的规则草稿，null 表示对话框关闭 */
-  const [dialogRule, setDialogRule] = useState<Rule | null>(null);
-  /** 当前对话框是否为「新建」（决定保存时是追加还是替换） */
-  const [isNewRule, setIsNewRule] = useState(false);
-
-  // 初始加载规则
-  useEffect(() => {
-    void getRules().then(setRules);
-  }, []);
-
-  /** 拖拽传感器：移动超过 5px 才激活，避免影响开关/按钮点击 */
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
-
-  /**
-   * 更新规则列表并持久化
-   * @param next 新的规则列表
-   */
-  const updateRules = async (next: Rule[]): Promise<void> => {
-    setRules(next);
-    await saveRules(next);
-  };
-
-  /**
-   * 打开对话框新建一条指定类型的规则（保存前不写入列表）
-   * @param type 规则类型
-   */
-  const handleAdd = (type: RuleType): void => {
-    setDialogRule(createSampleRule(type));
-    setIsNewRule(true);
-  };
+function SortableGroupCard({
+  group,
+  onToggleGroup,
+  onRenameGroup,
+  onDeleteGroup,
+  onAddRule,
+  onToggleRule,
+  onEditRule,
+  onDeleteRule,
+  onReorderRules,
+  collapsed,
+  onToggleCollapse,
+}: SortableGroupCardProps) {
+  /** dnd-kit 排序钩子：作用于整张分组卡片（仅由标题栏的拖拽句柄触发） */
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: group.id,
+  });
+  /** 组内规则拖拽用的独立传感器 */
+  const ruleSensors = useSortableSensors();
+  /** 组内正在拖拽的规则 ID，用于内层 DragOverlay 预览 */
+  const [activeRuleId, setActiveRuleId] = useState<string | null>(null);
+  /** 组内正在拖拽的规则对象 */
+  const activeRule = activeRuleId
+    ? group.rules.find((rule) => rule.id === activeRuleId)
+    : undefined;
 
   /**
-   * 打开对话框编辑已有规则
-   * @param rule 目标规则
-   */
-  const handleEdit = (rule: Rule): void => {
-    setDialogRule(rule);
-    setIsNewRule(false);
-  };
-
-  /**
-   * 关闭对话框，丢弃未保存的草稿
-   */
-  const closeDialog = (): void => {
-    setDialogRule(null);
-  };
-
-  /**
-   * 保存对话框结果：新建则追加，编辑则替换，然后关闭
-   * @param next 编辑后的规则
-   */
-  const handleSave = (next: Rule): void => {
-    void updateRules(
-      isNewRule ? [...rules, next] : rules.map((rule) => (rule.id === next.id ? next : rule)),
-    );
-    closeDialog();
-  };
-
-  /**
-   * 删除规则
-   * @param id 规则 ID
-   */
-  const handleDelete = (id: string): void => {
-    void updateRules(rules.filter((rule) => rule.id !== id));
-  };
-
-  /**
-   * 切换规则启用状态
-   * @param id 规则 ID
-   */
-  const handleToggle = (id: string): void => {
-    void updateRules(
-      rules.map((rule) => (rule.id === id ? { ...rule, enabled: !rule.enabled } : rule)),
-    );
-  };
-
-  /**
-   * 拖拽结束：按落点重排规则顺序并持久化
+   * 组内规则拖拽结束：在本组内重排
    * @param event dnd-kit 拖拽结束事件
    */
-  const handleDragEnd = (event: DragEndEvent): void => {
+  const handleRuleDragEnd = (event: DragEndEvent): void => {
+    setActiveRuleId(null);
     /** 拖起项与落点项 */
     const { active, over } = event;
     if (!over || active.id === over.id) {
       return;
     }
-    /** 拖起项原下标 */
-    const oldIndex = rules.findIndex((rule) => rule.id === active.id);
-    /** 落点项下标 */
-    const newIndex = rules.findIndex((rule) => rule.id === over.id);
-    void updateRules(arrayMove(rules, oldIndex, newIndex));
+    /** 拖起规则原下标 */
+    const oldIndex = group.rules.findIndex((rule) => rule.id === active.id);
+    /** 落点规则下标 */
+    const newIndex = group.rules.findIndex((rule) => rule.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) {
+      return;
+    }
+    onReorderRules(group.id, arrayMove(group.rules, oldIndex, newIndex));
   };
+
+  return (
+    <Card
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      // 拖拽中原卡片完全透明留出空位，跟随光标的是外层 DragOverlay 里的副本
+      className={`overflow-hidden ${isDragging ? 'opacity-0' : ''}`}
+    >
+      {/* 分组标题栏：拖拽句柄 · 折叠 · 组开关 · 名称 · 计数 · 增删 */}
+      <CardHeader
+        className={`flex-row items-center gap-2 p-3 ${collapsed ? '' : 'border-b border-border'}`}
+      >
+        <button
+          type="button"
+          className="flex cursor-grab touch-none items-center justify-center rounded p-1 text-muted-foreground opacity-50 transition-opacity hover:opacity-100 active:cursor-grabbing"
+          title="拖拽排序分组"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="size-4" />
+        </button>
+        <button
+          type="button"
+          className="flex items-center justify-center rounded p-1 text-muted-foreground transition-colors hover:text-foreground"
+          title={collapsed ? '展开' : '折叠'}
+          aria-expanded={!collapsed}
+          onClick={() => onToggleCollapse(group.id)}
+        >
+          <ChevronDown
+            className={`size-4 transition-transform ${collapsed ? '-rotate-90' : ''}`}
+          />
+        </button>
+        <Switch
+          checked={group.enabled}
+          onCheckedChange={() => onToggleGroup(group.id)}
+          title={group.enabled ? '整组停用' : '整组启用'}
+        />
+        <GroupNameInput value={group.name} onCommit={(name) => onRenameGroup(group.id, name)} />
+        <Badge variant="muted" className="shrink-0">
+          {group.rules.length} 条
+        </Badge>
+        {!group.enabled && (
+          <Badge variant="outline" className="shrink-0 text-muted-foreground">
+            已停用
+          </Badge>
+        )}
+        <Button variant="outline" size="sm" className="shrink-0" onClick={() => onAddRule(group.id)}>
+          <Plus />
+          添加规则
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+          title="删除分组"
+          onClick={() => onDeleteGroup(group.id)}
+        >
+          <Trash2 className="size-4" />
+        </Button>
+      </CardHeader>
+
+      {/* 组内规则列表；折叠时隐藏，整组停用时淡化，提示规则当前不生效 */}
+      {!collapsed && (
+      <CardContent className={`p-0 ${group.enabled ? '' : 'opacity-60'}`}>
+        {group.rules.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+            该分组暂无规则，点击右上角「添加规则」创建
+          </p>
+        ) : (
+          <>
+            <RuleColumnsHeader />
+            {/* 独立于分组的内层 DndContext：只处理本组规则行排序 */}
+            <DndContext
+              sensors={ruleSensors}
+              collisionDetection={closestCenter}
+              measuring={DND_MEASURING}
+              modifiers={[restrictToVerticalAxis]}
+              onDragStart={(event) => setActiveRuleId(String(event.active.id))}
+              onDragEnd={handleRuleDragEnd}
+              onDragCancel={() => setActiveRuleId(null)}
+            >
+              <SortableContext
+                items={group.rules.map((rule) => rule.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {group.rules.map((rule) => (
+                  <SortableRuleRow
+                    key={rule.id}
+                    rule={rule}
+                    onToggle={onToggleRule}
+                    onEdit={onEditRule}
+                    onDelete={onDeleteRule}
+                  />
+                ))}
+              </SortableContext>
+              <DragOverlay>{activeRule ? <RuleRowOverlay rule={activeRule} /> : null}</DragOverlay>
+            </DndContext>
+          </>
+        )}
+      </CardContent>
+      )}
+    </Card>
+  );
+}
+
+/**
+ * 规则列表表头（与数据行共用同一 Grid 模板保证对齐）。真实分组卡片与拖拽预览均复用。
+ */
+function RuleColumnsHeader() {
+  return (
+    <div className={`${RULE_ROW_GRID} px-3 py-2 text-xs text-muted-foreground`}>
+      <span />
+      <span className="whitespace-nowrap">启用</span>
+      <span className="whitespace-nowrap">名称</span>
+      <span className="whitespace-nowrap">类型</span>
+      <span className="whitespace-nowrap">匹配方式</span>
+      <span className="whitespace-nowrap">匹配内容</span>
+      <span className="whitespace-nowrap text-right">操作</span>
+    </div>
+  );
+}
+
+/**
+ * 一条规则的纯展示行（无拖拽、无交互），供拖拽预览 1:1 还原真实行外观。
+ * 控件为纯展示（onCheckedChange 空实现避免受控警告）。
+ * @param rule 规则数据
+ */
+function RuleRowStatic({ rule }: { rule: Rule }) {
+  return (
+    <div className={`${RULE_ROW_GRID} px-3 py-2`}>
+      <span className="flex items-center justify-center p-1 text-muted-foreground opacity-50">
+        <GripVertical className="size-4" />
+      </span>
+      <Switch checked={rule.enabled} onCheckedChange={() => {}} />
+      <div className="min-w-0 truncate text-sm font-medium" title={rule.name}>
+        {rule.name}
+      </div>
+      <Badge variant="secondary" className="whitespace-nowrap">
+        {RULE_TYPE_LABELS[rule.type]}
+      </Badge>
+      <span className="whitespace-nowrap text-sm text-muted-foreground">
+        {MATCH_TYPE_LABELS[rule.matchType]}
+      </span>
+      <code
+        className="min-w-0 truncate rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
+        title={rule.pattern}
+      >
+        {rule.pattern}
+      </code>
+      <div className="flex justify-end gap-1 text-muted-foreground">
+        <span className="flex size-8 items-center justify-center">
+          <Pencil className="size-4" />
+        </span>
+        <span className="flex size-8 items-center justify-center">
+          <Trash2 className="size-4" />
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 拖拽规则时跟随光标的预览：与真实行 1:1 还原（单行浮起样式）。
+ *
+ * DragOverlay 内容仅在拖拽开始时渲染一次、之后整体平移，不存在每帧重渲染，故可做全保真。
+ * @param rule 正在拖拽的规则
+ */
+function RuleRowOverlay({ rule }: { rule: Rule }) {
+  return (
+    <div className="rounded-lg border border-border bg-card shadow-lg">
+      <RuleRowStatic rule={rule} />
+    </div>
+  );
+}
+
+/**
+ * 拖拽分组时跟随光标的预览：等宽高的轻量占位卡片，只展示分组名。
+ *
+ * DragOverlay 会把源卡片的宽高套到本元素（h-full / w-full 填满），因此无需渲染组内规则或分隔线，
+ * 只放分组名做辨识，既轻量又不会出现悬空的横线。
+ * @param group 正在拖拽的分组
+ */
+function GroupCardOverlay({ group }: { group: RuleGroup }) {
+  return (
+    <div className="flex h-full w-full items-center rounded-xl border border-border bg-card px-4 shadow-lg">
+      <span className="truncate text-sm font-medium">{group.name}</span>
+    </div>
+  );
+}
+
+/**
+ * Options 主界面：规则分组的增删改、启停与组内规则拖拽排序
+ */
+export default function App() {
+  /** 规则分组列表 */
+  const [groups, setGroups] = useState<RuleGroup[]>([]);
+  /** 规则编辑对话框状态，null 表示关闭 */
+  const [ruleDialog, setRuleDialog] = useState<RuleDialogState | null>(null);
+  /** 规则类型选择对话框的目标分组 ID，null 表示关闭 */
+  const [pickerGroupId, setPickerGroupId] = useState<string | null>(null);
+  /** 当前正在拖拽的分组 ID，用于渲染外层分组 DragOverlay 预览 */
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  /** 已折叠的分组 ID 集合（纯视图状态，不写入 storage，避免无谓触发规则重同步） */
+  const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
+
+  // 初始加载分组
+  useEffect(() => {
+    void getGroups().then(setGroups);
+  }, []);
+
+  /** 分组列表拖拽用的传感器（与各分组内规则列表的传感器相互独立） */
+  const groupSensors = useSortableSensors();
+
+  /**
+   * 更新分组列表并持久化
+   * @param next 新的分组列表
+   */
+  const persist = async (next: RuleGroup[]): Promise<void> => {
+    setGroups(next);
+    await saveGroups(next);
+  };
+
+  // ---------- 分组操作 ----------
+
+  /**
+   * 新建一个空分组并追加到末尾
+   */
+  const handleAddGroup = (): void => {
+    void persist([...groups, createRuleGroup()]);
+  };
+
+  /**
+   * 切换分组折叠状态（纯视图状态，不持久化）
+   * @param id 分组 ID
+   */
+  const handleToggleCollapse = (id: string): void => {
+    setCollapsedGroupIds((prev) => {
+      /** 下一份折叠集合 */
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  /**
+   * 切换整组启用状态
+   * @param id 分组 ID
+   */
+  const handleToggleGroup = (id: string): void => {
+    void persist(
+      groups.map((group) => (group.id === id ? { ...group, enabled: !group.enabled } : group)),
+    );
+  };
+
+  /**
+   * 重命名分组
+   * @param id 分组 ID
+   * @param name 新名称
+   */
+  const handleRenameGroup = (id: string, name: string): void => {
+    void persist(groups.map((group) => (group.id === id ? { ...group, name } : group)));
+  };
+
+  /**
+   * 删除分组（含组内规则）；非空分组删除前二次确认
+   * @param id 分组 ID
+   */
+  const handleDeleteGroup = (id: string): void => {
+    /** 待删除的分组 */
+    const target = groups.find((group) => group.id === id);
+    if (target && target.rules.length > 0) {
+      // 非空分组会连同规则一起删除，容易误操作，删除前确认
+      if (!window.confirm(`分组「${target.name}」下还有 ${target.rules.length} 条规则，确定要删除整组吗？`)) {
+        return;
+      }
+    }
+    void persist(groups.filter((group) => group.id !== id));
+  };
+
+  // ---------- 规则操作 ----------
+
+  /**
+   * 打开类型选择器，准备向指定分组新增规则
+   * @param groupId 目标分组 ID
+   */
+  const handleAddRule = (groupId: string): void => {
+    setPickerGroupId(groupId);
+  };
+
+  /**
+   * 无分组时直接新建规则：以「默认分组」占位打开类型选择器，保存时才真正建组
+   */
+  const handleAddFirstRule = (): void => {
+    setPickerGroupId(DEFAULT_GROUP_SENTINEL);
+  };
+
+  /**
+   * 选定规则类型后，打开规则编辑器新建规则
+   * @param type 规则类型
+   */
+  const handlePickRuleType = (type: RuleType): void => {
+    if (pickerGroupId === null) {
+      return;
+    }
+    setRuleDialog({ groupId: pickerGroupId, rule: createSampleRule(type), isNew: true });
+    setPickerGroupId(null);
+  };
+
+  /**
+   * 从新建规则编辑器返回规则类型选择器，并保留当前选择的目标分组
+   * @param groupId 当前规则应归属的分组 ID
+   */
+  const handleReturnToRuleTypePicker = (groupId: string): void => {
+    setRuleDialog(null);
+    setPickerGroupId(groupId);
+  };
+
+  /**
+   * 打开规则编辑器编辑已有规则
+   * @param rule 目标规则
+   */
+  const handleEditRule = (rule: Rule): void => {
+    /** 规则所属分组 */
+    const owner = groups.find((group) => group.rules.some((item) => item.id === rule.id));
+    if (!owner) {
+      return;
+    }
+    setRuleDialog({ groupId: owner.id, rule, isNew: false });
+  };
+
+  /**
+   * 保存规则：新建则追加到目标分组，编辑则替换；改选分组时把规则移动到目标分组
+   * @param rule 编辑后的规则
+   * @param targetGroupId 规则应归属的分组 ID
+   */
+  const handleSaveRule = (rule: Rule, targetGroupId: string): void => {
+    // 目标是「默认分组」占位：此刻才真正创建默认分组并放入该规则（取消则不会走到这里，故不留空组）
+    if (targetGroupId === DEFAULT_GROUP_SENTINEL) {
+      void persist([...groups, { ...createRuleGroup(AUTO_DEFAULT_GROUP_NAME), rules: [rule] }]);
+      setRuleDialog(null);
+      return;
+    }
+    /** 应用了增删改与跨组移动后的分组列表 */
+    const next = groups.map((group) => {
+      // 先从当前分组移除同 ID 的旧规则（跨组移动时的“源组删除”）
+      /** 移除旧规则后的组内规则 */
+      const withoutRule = group.rules.filter((item) => item.id !== rule.id);
+      if (group.id !== targetGroupId) {
+        return { ...group, rules: withoutRule };
+      }
+      // 目标分组：原地替换（保持顺序）或追加新规则
+      /** 目标分组是否已含该规则 */
+      const existed = group.rules.some((item) => item.id === rule.id);
+      return {
+        ...group,
+        rules: existed
+          ? group.rules.map((item) => (item.id === rule.id ? rule : item))
+          : [...withoutRule, rule],
+      };
+    });
+    void persist(next);
+    setRuleDialog(null);
+  };
+
+  /**
+   * 删除规则
+   * @param ruleId 规则 ID
+   */
+  const handleDeleteRule = (ruleId: string): void => {
+    void persist(
+      groups.map((group) => ({
+        ...group,
+        rules: group.rules.filter((rule) => rule.id !== ruleId),
+      })),
+    );
+  };
+
+  /**
+   * 切换单条规则启用状态
+   * @param ruleId 规则 ID
+   */
+  const handleToggleRule = (ruleId: string): void => {
+    void persist(
+      groups.map((group) => ({
+        ...group,
+        rules: group.rules.map((rule) =>
+          rule.id === ruleId ? { ...rule, enabled: !rule.enabled } : rule,
+        ),
+      })),
+    );
+  };
+
+  /**
+   * 组内规则重排后写回对应分组
+   * @param groupId 分组 ID
+   * @param nextRules 重排后的组内规则
+   */
+  const handleReorderRules = (groupId: string, nextRules: Rule[]): void => {
+    void persist(
+      groups.map((group) => (group.id === groupId ? { ...group, rules: nextRules } : group)),
+    );
+  };
+
+  // ---------- 分组拖拽排序（外层 DndContext） ----------
+
+  /**
+   * 分组拖拽结束：分组之间重排
+   * @param event dnd-kit 拖拽结束事件
+   */
+  const handleGroupDragEnd = (event: DragEndEvent): void => {
+    setActiveGroupId(null);
+    /** 拖起项与落点项 */
+    const { active, over } = event;
+    if (!over || active.id === over.id) {
+      return;
+    }
+    /** 拖起分组原下标 */
+    const oldIndex = groups.findIndex((group) => group.id === active.id);
+    /** 落点分组下标 */
+    const newIndex = groups.findIndex((group) => group.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) {
+      return;
+    }
+    void persist(arrayMove(groups, oldIndex, newIndex));
+  };
+
+  /** 供编辑器「所属分组」下拉使用的分组精简信息 */
+  const groupOptions = groups.map((group) => ({ id: group.id, name: group.name }));
+  /** 传给编辑器的分组选项：向「默认分组」新建首条规则时注入一个占位选项供下拉展示 */
+  const editorGroupOptions =
+    ruleDialog?.groupId === DEFAULT_GROUP_SENTINEL
+      ? [{ id: DEFAULT_GROUP_SENTINEL, name: AUTO_DEFAULT_GROUP_NAME }, ...groupOptions]
+      : groupOptions;
+  /** 当前类型选择器目标分组的名称（默认分组占位时展示其名称） */
+  const pickerGroupName =
+    pickerGroupId === DEFAULT_GROUP_SENTINEL
+      ? AUTO_DEFAULT_GROUP_NAME
+      : (groups.find((group) => group.id === pickerGroupId)?.name ?? '');
+  /** 正在拖拽的分组，用于外层 DragOverlay 预览 */
+  const activeGroup = activeGroupId
+    ? groups.find((group) => group.id === activeGroupId)
+    : undefined;
 
   return (
     <div className="min-h-screen">
@@ -346,86 +765,114 @@ export default function App() {
       </header>
 
       <main className="mx-auto max-w-4xl px-6 py-6">
-        {/* 工具栏：新建各类型规则 */}
-        <section className="mb-5">
-          <p className="mb-2 text-sm font-medium text-muted-foreground">新建规则</p>
-          <div className="flex flex-wrap gap-2">
-            {Object.values(RuleType).map((type) => (
-              <Button key={type} variant="outline" size="sm" onClick={() => handleAdd(type)}>
-                {RULE_TYPE_ICONS[type]}
-                {RULE_TYPE_LABELS[type]}
-              </Button>
-            ))}
-          </div>
+        {/* 工具栏：新建分组 */}
+        <section className="mb-5 flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            规则按分组管理，可整组启停；单条规则生效需分组与规则同时开启。
+          </p>
+          {groups.length > 0 && (
+            <Button size="sm" onClick={handleAddGroup}>
+              <FolderPlus />
+              新建分组
+            </Button>
+          )}
         </section>
 
-        {/* 规则列表（支持拖拽排序） */}
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
+        {/* 分组列表（分组与组内规则均支持拖拽排序） */}
+        {groups.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-card px-6 py-16 text-center">
+            <span className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <FolderPlus className="size-6" />
+            </span>
+            <div>
+              <p className="text-sm font-medium">还没有规则</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                直接新建规则即可，会自动归入「{AUTO_DEFAULT_GROUP_NAME}」；也可先建分组再收纳
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleAddFirstRule}>
+                <Plus />
+                新建规则
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleAddGroup}>
+                <FolderPlus />
+                新建分组
+              </Button>
+            </div>
+          </div>
+        ) : (
+          // 分组 DndContext 不用 MeasuringStrategy.Always：分组 droppable 是整张大卡片，
+          // 每帧重测会触发布局读取导致掉帧。分组与规则已是独立 context 无嵌套干扰，
+          // 默认 WhileDragging（仅开始时测一次）即可，且省掉每帧测量开销。
           <DndContext
-            sensors={sensors}
+            sensors={groupSensors}
             collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
+            modifiers={[restrictToVerticalAxis]}
+            onDragStart={(event) => setActiveGroupId(String(event.active.id))}
+            onDragEnd={handleGroupDragEnd}
+            onDragCancel={() => setActiveGroupId(null)}
           >
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-8" />
-                  <TableHead className="w-14 whitespace-nowrap">启用</TableHead>
-                  <TableHead className="whitespace-nowrap">名称</TableHead>
-                  <TableHead className="whitespace-nowrap">类型</TableHead>
-                  <TableHead className="whitespace-nowrap">匹配方式</TableHead>
-                  <TableHead className="whitespace-nowrap">匹配内容</TableHead>
-                  <TableHead className="req-sticky-shadow sticky right-0 w-28 whitespace-nowrap bg-card text-right">
-                    操作
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rules.length === 0 && (
-                  <TableRow className="hover:bg-transparent">
-                    <TableCell
-                      colSpan={7}
-                      className="py-12 text-center text-sm text-muted-foreground"
-                    >
-                      暂无规则，点击上方按钮创建
-                    </TableCell>
-                  </TableRow>
-                )}
-                <SortableContext
-                  items={rules.map((rule) => rule.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  {rules.map((rule) => (
-                    <SortableRuleRow
-                      key={rule.id}
-                      rule={rule}
-                      onToggle={handleToggle}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                    />
-                  ))}
-                </SortableContext>
-              </TableBody>
-            </Table>
+            <SortableContext
+              items={groups.map((group) => group.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="flex flex-col gap-4">
+                {groups.map((group) => (
+                  <SortableGroupCard
+                    key={group.id}
+                    group={group}
+                    onToggleGroup={handleToggleGroup}
+                    onRenameGroup={handleRenameGroup}
+                    onDeleteGroup={handleDeleteGroup}
+                    onAddRule={handleAddRule}
+                    onToggleRule={handleToggleRule}
+                    onEditRule={handleEditRule}
+                    onDeleteRule={handleDeleteRule}
+                    onReorderRules={handleReorderRules}
+                    collapsed={collapsedGroupIds.has(group.id)}
+                    onToggleCollapse={handleToggleCollapse}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+
+            {/* 分组拖拽预览：轻量副本跟随光标，真实卡片淡化为占位 */}
+            <DragOverlay>{activeGroup ? <GroupCardOverlay group={activeGroup} /> : null}</DragOverlay>
           </DndContext>
-        </div>
+        )}
       </main>
 
+      {/* 规则类型选择对话框 */}
+      <Dialog
+        open={pickerGroupId !== null}
+        onOpenChange={(open) => !open && setPickerGroupId(null)}
+      >
+        <DialogContent className="max-w-4xl">
+          {pickerGroupId !== null && (
+            <RuleTypePicker groupName={pickerGroupName} onPick={handlePickRuleType} />
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* 新建 / 编辑规则对话框 */}
-      <Dialog open={dialogRule !== null} onOpenChange={(open) => !open && closeDialog()}>
+      <Dialog open={ruleDialog !== null} onOpenChange={(open) => !open && setRuleDialog(null)}>
         <DialogContent
           className="max-w-2xl"
           // 点击遮罩不关闭，避免长表单编辑到一半误触丢失（仍可用关闭按钮或 Esc 退出）
           onPointerDownOutside={(e) => e.preventDefault()}
         >
-          {dialogRule && (
+          {ruleDialog && (
             <RuleEditor
               // key 保证切换编辑对象时重建草稿状态
-              key={dialogRule.id}
-              rule={dialogRule}
-              isNew={isNewRule}
-              onSave={handleSave}
-              onCancel={closeDialog}
+              key={ruleDialog.rule.id}
+              rule={ruleDialog.rule}
+              isNew={ruleDialog.isNew}
+              groups={editorGroupOptions}
+              groupId={ruleDialog.groupId}
+              onSave={handleSaveRule}
+              onBackToTypePicker={handleReturnToRuleTypePicker}
+              onCancel={() => setRuleDialog(null)}
             />
           )}
         </DialogContent>

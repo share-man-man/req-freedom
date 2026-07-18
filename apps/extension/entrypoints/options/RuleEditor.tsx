@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertCircle, CheckCircle2, FlaskConical, Info, XCircle } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle2, FlaskConical, Info, XCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { Rule } from '@req-freedom/shared';
 import {
@@ -41,13 +41,27 @@ import { Textarea } from '@/components/ui/textarea';
 import HeadersEditor from './HeadersEditor';
 import KeyValueEditor from './KeyValueEditor';
 
+/** 供「所属分组」下拉选择的分组精简信息 */
+export interface GroupOption {
+  /** 分组 ID */
+  id: string;
+  /** 分组名称 */
+  name: string;
+}
+
 interface RuleEditorProps {
   /** 待编辑的规则（编辑器内部维护草稿副本，保存前不影响外部） */
   rule: Rule;
   /** 是否为新建（决定标题文案与保存语义） */
   isNew: boolean;
-  /** 保存回调，参数为编辑后的完整规则 */
-  onSave: (rule: Rule) => void;
+  /** 可选分组列表（用于「所属分组」选择与移动规则） */
+  groups: GroupOption[];
+  /** 规则当前所属分组 ID */
+  groupId: string;
+  /** 保存回调，参数为编辑后的完整规则与目标分组 ID */
+  onSave: (rule: Rule, groupId: string) => void;
+  /** 返回规则类型选择器的回调，参数为当前选择的目标分组 ID */
+  onBackToTypePicker: (groupId: string) => void;
   /** 取消回调 */
   onCancel: () => void;
 }
@@ -240,9 +254,19 @@ function validateRule(rule: Rule): string | null {
 /**
  * 规则编辑表单（渲染在对话框内）：公共字段 + 按类型渲染的专属字段 + 命中测试
  */
-export default function RuleEditor({ rule, isNew, onSave, onCancel }: RuleEditorProps) {
+export default function RuleEditor({
+  rule,
+  isNew,
+  groups,
+  groupId,
+  onSave,
+  onBackToTypePicker,
+  onCancel,
+}: RuleEditorProps) {
   /** 编辑中的草稿（深拷贝，避免直接修改外部对象） */
   const [draft, setDraft] = useState<Rule>(() => structuredClone(rule));
+  /** 规则目标所属分组（可在编辑时改为其他分组以移动规则） */
+  const [targetGroupId, setTargetGroupId] = useState<string>(groupId);
   /** 校验错误信息 */
   const [error, setError] = useState<string | null>(null);
   /** 测试输入的 URL */
@@ -291,7 +315,7 @@ export default function RuleEditor({ rule, isNew, onSave, onCancel }: RuleEditor
       setError(message);
       return;
     }
-    onSave(draft);
+    onSave(draft, targetGroupId);
   };
 
   /**
@@ -309,20 +333,52 @@ export default function RuleEditor({ rule, isNew, onSave, onCancel }: RuleEditor
   return (
     <>
       <DialogHeader>
+        {isNew && (
+          <button
+            type="button"
+            className="-ml-1 flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            title="返回选择类型"
+            aria-label="返回选择类型"
+            onClick={() => onBackToTypePicker(targetGroupId)}
+          >
+            <ArrowLeft className="size-4" />
+          </button>
+        )}
         <DialogTitle>{isNew ? '新建规则' : '编辑规则'}</DialogTitle>
         <Badge>{RULE_TYPE_LABELS[draft.type]}</Badge>
+        <span
+          className="group relative flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          title="悬停查看规则说明"
+        >
+          <Info className="size-3.5" aria-hidden="true" />
+          <span
+            role="tooltip"
+            className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-72 -translate-x-1/2 rounded-md border border-border bg-popover px-3 py-2 text-left text-xs leading-5 text-popover-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100"
+          >
+            {RULE_TYPE_SCOPE_HINTS[draft.type]}
+          </span>
+        </span>
       </DialogHeader>
 
       {/* 可滚动的表单主体 */}
       <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
-        {/* 全宽放在表单区，避免长说明挤压标题与规则类型标签。 */}
-        <div className="flex shrink-0 items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs leading-5 text-muted-foreground">
-          <Info className="mt-0.5 size-3.5 shrink-0 text-primary" />
-          <span>
-            <span className="font-medium text-foreground">规则说明：</span>
-            {RULE_TYPE_SCOPE_HINTS[draft.type]}
-          </span>
-        </div>
+        <Field label="所属分组">
+          <Select value={targetGroupId} onValueChange={setTargetGroupId}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {groups.map((group) => (
+                <SelectItem key={group.id} value={group.id}>
+                  {group.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            改选其他分组即可把该规则移动过去。
+          </p>
+        </Field>
 
         <Field label="规则名称">
           <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
@@ -559,8 +615,11 @@ export default function RuleEditor({ rule, isNew, onSave, onCancel }: RuleEditor
           </div>
         )}
 
+        {/* 分隔编辑表单与独立的命中测试工具，避免两者视觉上混为同一区块。 */}
+        <div aria-hidden="true" className="border-t border-border" />
+
         {/* ---------- 命中测试：输入 URL 校验规则是否生效 ---------- */}
-        <div className="mt-1 flex flex-col gap-2 rounded-lg border border-border bg-muted/40 p-3">
+        <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/40 p-3">
           <div className="flex items-center gap-1.5 text-sm font-medium">
             <FlaskConical className="size-4 text-primary" />
             规则测试
