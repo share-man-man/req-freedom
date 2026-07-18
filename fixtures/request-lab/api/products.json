@@ -1,0 +1,8 @@
+{
+  "source": "request-lab",
+  "endpoint": "products",
+  "items": [
+    { "id": "starter", "name": "Starter", "price": 12 },
+    { "id": "pro", "name": "Pro", "price": 48 }
+  ]
+}

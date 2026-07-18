@@ -1,0 +1,5 @@
+{
+  "source": "request-lab",
+  "endpoint": "headers",
+  "note": "请在 Network 面板中检查 X-Lab-Client、X-Remove-Me 和规则修改后的请求/响应头。"
+}

@@ -1,3 +1,5 @@
+import { NetworkThrottlePreset } from './enums';
+
 /** storage 中规则列表的键名 */
 export const STORAGE_KEY_RULES = 'req-freedom:rules';
 
@@ -15,6 +17,54 @@ export const DEFAULT_MOCK_STATUS = 200;
 
 /** Mock 响应的默认 Content-Type */
 export const DEFAULT_MOCK_CONTENT_TYPE = 'application/json';
+
+/** 单个网络档位的传输参数 */
+export interface NetworkThrottleSettings {
+  /** 往返延迟（毫秒） */
+  latencyMs: number;
+  /** 下行带宽（千比特/秒） */
+  downloadKbps: number;
+  /** 上行带宽（千比特/秒） */
+  uploadKbps: number;
+}
+
+/** 网络档位的默认参数；Custom 由用户在规则中单独填写。 */
+export const NETWORK_THROTTLE_PRESET_SETTINGS: Readonly<
+  Record<Exclude<NetworkThrottlePreset, NetworkThrottlePreset.Custom>, NetworkThrottleSettings>
+> = {
+  [NetworkThrottlePreset.Fast3G]: { latencyMs: 150, downloadKbps: 1600, uploadKbps: 750 },
+  [NetworkThrottlePreset.Slow3G]: { latencyMs: 400, downloadKbps: 400, uploadKbps: 400 },
+};
+
+/** 新建网络限速规则时采用的默认档位。 */
+export const DEFAULT_NETWORK_THROTTLE_PRESET = NetworkThrottlePreset.Fast3G;
+
+/** 每字节包含的位数。 */
+export const BITS_PER_BYTE = 8;
+
+/** 每千比特包含的比特数。 */
+export const BITS_PER_KILOBIT = 1000;
+
+/** 限速配置面向用户展示的带宽单位，与 Chrome Network 面板保持一致。 */
+export const NETWORK_SPEED_DISPLAY_UNIT = 'kB/s';
+
+/**
+ * 将内部使用的千比特每秒转换为用户可见的千字节每秒。
+ * @param kbps 千比特每秒（Kbps）
+ * @returns 千字节每秒（kB/s）
+ */
+export function kilobitsPerSecondToKilobytesPerSecond(kbps: number): number {
+  return kbps / BITS_PER_BYTE;
+}
+
+/**
+ * 将用户输入的千字节每秒转换为内部使用的千比特每秒。
+ * @param kilobytesPerSecond 千字节每秒（kB/s）
+ * @returns 千比特每秒（Kbps）
+ */
+export function kilobytesPerSecondToKilobitsPerSecond(kilobytesPerSecond: number): number {
+  return kilobytesPerSecond * BITS_PER_BYTE;
+}
 
 /**
  * declarativeNetRequest 允许对「请求头」执行 append 操作的白名单（全部小写）

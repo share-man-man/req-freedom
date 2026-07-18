@@ -4,6 +4,7 @@ import {
   InsertScriptCodeType,
   InsertScriptTiming,
   MatchType,
+  NetworkThrottlePreset,
   RuleType,
 } from '@req-freedom/shared';
 
@@ -14,8 +15,26 @@ export const RULE_TYPE_LABELS: Record<RuleType, string> = {
   [RuleType.InjectParams]: '参数注入',
   [RuleType.ModifyHeaders]: 'Header 改写',
   [RuleType.MockResponse]: '返回值 Mock',
-  [RuleType.Delay]: '延迟模拟',
+  [RuleType.Delay]: '网络限速',
   [RuleType.InsertScript]: '脚本注入',
+};
+
+/** 各规则类型的实际作用范围与主要限制，供规则编辑器降低配置误解。 */
+export const RULE_TYPE_SCOPE_HINTS: Record<RuleType, string> = {
+  [RuleType.Block]: '网络层规则：作用于所有命中的浏览器请求，包括页面导航、脚本、图片与接口请求。',
+  [RuleType.Redirect]: '网络层规则：作用于所有命中的浏览器请求，包括页面导航、脚本、图片与接口请求。',
+  [RuleType.InjectParams]: '网络层规则：作用于所有命中的浏览器请求，包括页面导航、脚本、图片与接口请求。',
+  [RuleType.ModifyHeaders]: '网络层规则：作用于所有命中的浏览器请求；可改请求头或响应头。',
+  [RuleType.MockResponse]: '页面补丁规则：仅拦截当前页面脚本发起的 fetch / XHR，不作用于页面导航或静态资源。',
+  [RuleType.Delay]: '页面补丁规则：仅限速当前页面脚本发起的 fetch / XHR，不作用于页面导航或静态资源。',
+  [RuleType.InsertScript]: '页面规则：按顶层页面 URL 注入 JS / CSS，不匹配单个网络请求。',
+};
+
+/** 网络限速档位的展示文案 */
+export const NETWORK_THROTTLE_PRESET_LABELS: Record<NetworkThrottlePreset, string> = {
+  [NetworkThrottlePreset.Fast3G]: 'Fast 3G',
+  [NetworkThrottlePreset.Slow3G]: 'Slow 3G',
+  [NetworkThrottlePreset.Custom]: '自定义',
 };
 
 /** 注入代码类型的中文展示名 */

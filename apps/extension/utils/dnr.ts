@@ -48,7 +48,7 @@ function toDnrHeaderOperation(
  * 把单条业务规则转换为 DNR 动态规则
  *
  * 仅 Block / Redirect / InjectParams / ModifyHeaders 可由 DNR 承载；
- * Mock 与 Delay 由页面内 fetch/XHR 补丁实现，返回 null。
+ * Mock 与网络限速由页面内 fetch/XHR 补丁实现，返回 null。
  * @param rule 业务规则
  * @param dnrId 分配给该条 DNR 规则的数字 ID
  * @returns DNR 规则；该类型不适用 DNR 时返回 null
@@ -122,7 +122,7 @@ export function toDnrRule(rule: Rule, dnrId: number): DnrRule | null {
         },
       };
     }
-    // Mock 与延迟在页面内实现，不走 DNR
+    // Mock 与网络限速在页面内实现，不走 DNR
     case RuleType.MockResponse:
     case RuleType.Delay:
     default:

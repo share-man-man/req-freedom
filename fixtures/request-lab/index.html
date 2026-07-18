@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Req Freedom 浏览器扩展功能验证页"
+    />
+    <title>Req Freedom · 请求实验室</title>
+    <link rel="stylesheet" href="./assets/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">LOCAL FIXTURE · REQUEST LAB</p>
+          <h1>Req Freedom 请求实验室</h1>
+          <p class="hero-copy">
+            一个零依赖的静态页面，用来观察规则对浏览器请求和页面行为的影响。
+          </p>
+        </div>
+        <div class="page-status" id="page-status" aria-live="polite">
+          <span class="status-dot"></span>
+          页面脚本已就绪
+        </div>
+      </header>
+
+      <section class="notice" aria-label="使用说明">
+        <strong>使用方式：</strong>使用任意 Node 静态服务托管本目录，打开页面后按卡片中的规则示例配置插件；每次请求的 URL、状态、耗时和响应会显示在下方日志中。Header 改写请同时在 DevTools Network 中查看真实请求/响应头。
+      </section>
+
+      <section class="actions" aria-label="全局操作">
+        <button class="button button-primary" id="run-all" type="button">运行全部请求</button>
+        <button class="button button-secondary" id="clear-log" type="button">清空日志</button>
+        <span class="location" id="location"></span>
+      </section>
+
+      <section class="grid" aria-label="请求验证项目">
+        <article class="card" data-test="basic-fetch">
+          <div class="card-heading">
+            <span class="tag">FETCH</span>
+            <h2>基础请求 / 返回值 Mock</h2>
+          </div>
+          <p>读取用户数据。可将这条请求直接 Mock 成任意状态码、响应头和 JSON 响应体。</p>
+          <code>/api/users.json</code>
+          <details>
+            <summary>Mock 规则示例</summary>
+            <pre>匹配：contains /api/users.json
+状态：503
+响应体：{"code":503,"message":"mocked"}</pre>
+          </details>
+          <button class="button" data-action="basic-fetch" type="button">发起 Fetch</button>
+        </article>
+
+        <article class="card" data-test="xhr-request">
+          <div class="card-heading">
+            <span class="tag">XHR</span>
+            <h2>XHR / 返回值 Mock</h2>
+          </div>
+          <p>使用传统 XMLHttpRequest 请求商品数据，专门验证 XHR 的 Mock 与延迟路径。</p>
+          <code>/api/products.json</code>
+          <details>
+            <summary>Mock 规则示例</summary>
+            <pre>匹配：contains /api/products.json
+状态：200
+响应体：{"source":"xhr-mock","items":[]}</pre>
+          </details>
+          <button class="button" data-action="xhr-request" type="button">发起 XHR</button>
+        </article>
+
+        <article class="card" data-test="redirect">
+          <div class="card-heading">
+            <span class="tag">DNR</span>
+            <h2>重定向</h2>
+          </div>
+          <p>请求 source 文件；重定向后，日志中的最终 URL 和响应内容应变为 target 文件。</p>
+          <code>/api/redirect-source.json → /api/redirect-target.json</code>
+          <details>
+            <summary>重定向规则示例</summary>
+            <pre>匹配：contains /api/redirect-source.json
+目标：当前地址/api/redirect-target.json</pre>
+          </details>
+          <button class="button" data-action="redirect" type="button">测试重定向</button>
+        </article>
+
+        <article class="card" data-test="params">
+          <div class="card-heading">
+            <span class="tag">DNR</span>
+            <h2>参数注入</h2>
+          </div>
+          <p>文件服务会忽略查询参数，但最终请求 URL 会在日志与 Network 面板中清楚显示。</p>
+          <code>/api/params.json?from=lab</code>
+          <details>
+            <summary>参数规则示例</summary>
+            <pre>匹配：contains /api/params.json
+注入：debug=1，environment=local</pre>
+          </details>
+          <button class="button" data-action="params" type="button">测试参数注入</button>
+        </article>
+
+        <article class="card" data-test="headers">
+          <div class="card-heading">
+            <span class="tag">DNR</span>
+            <h2>请求 / 响应 Header</h2>
+          </div>
+          <p>该请求带有初始 Header；页面会回显可读取的响应头，完整请求头请在 Network 中检查。</p>
+          <code>/api/headers.json</code>
+          <details>
+            <summary>Header 规则示例</summary>
+            <pre>请求头 set：X-Req-Freedom = enabled
+响应头 set：X-Response-Patched = true</pre>
+          </details>
+          <button class="button" data-action="headers" type="button">测试 Header</button>
+        </article>
+
+        <article class="card" data-test="slow-response">
+          <div class="card-heading">
+            <span class="tag">FETCH</span>
+            <h2>网络限速 / 延迟</h2>
+          </div>
+          <p>下载约 512 KB 的文本响应。可用 Slow 3G 或自定义延迟观察 loading、耗时和下载过程。</p>
+          <code>/api/slow-response.txt</code>
+          <details>
+            <summary>限速规则示例</summary>
+            <pre>匹配：contains /api/slow-response.txt
+档位：Slow 3G</pre>
+          </details>
+          <button class="button" data-action="slow-response" type="button">测试弱网</button>
+        </article>
+
+        <article class="card" data-test="post-request">
+          <div class="card-heading">
+            <span class="tag">FETCH POST</span>
+            <h2>上行带宽</h2>
+          </div>
+          <p>向静态路径提交约 16 KB JSON。即使服务端返回 404，也可用来验证请求前的上传等待。</p>
+          <code>POST /api/upload-probe</code>
+          <button class="button" data-action="post-request" type="button">提交测试数据</button>
+        </article>
+
+        <article class="card" data-test="asset-block">
+          <div class="card-heading">
+            <span class="tag">RESOURCE</span>
+            <h2>请求拦截</h2>
+          </div>
+          <p>动态加载小图。命中 block 规则后，卡片会显示资源加载失败，Network 也会显示被阻断。</p>
+          <code>/assets/tracker.svg</code>
+          <button class="button" data-action="asset-block" type="button">加载资源</button>
+          <div class="asset-preview" id="asset-preview">尚未加载</div>
+        </article>
+      </section>
+
+      <section class="injection-panel" aria-label="脚本注入验证区">
+        <div>
+          <p class="eyebrow">PAGE PATCH</p>
+          <h2>脚本 / CSS 注入验证区</h2>
+          <p>创建匹配当前页面 URL 的注入规则后刷新页面。JS 可修改 <code>window.__REQ_FREEDOM_LAB__</code> 或此区域 DOM；CSS 可改变此区背景色或整页样式。</p>
+        </div>
+        <div class="injection-target" id="injection-target">
+          <span>等待注入规则生效</span>
+          <strong id="injection-value">window.__REQ_FREEDOM_LAB__ 未设置</strong>
+        </div>
+      </section>
+
+      <section class="log-panel" aria-label="请求日志">
+        <div class="log-heading">
+          <div>
+            <p class="eyebrow">ACTIVITY</p>
+            <h2>请求日志</h2>
+          </div>
+          <span id="log-count">0 条记录</span>
+        </div>
+        <ol class="log-list" id="log-list" aria-live="polite"></ol>
+      </section>
+    </main>
+
+    <script src="./assets/app.js"></script>
+  </body>
+</html>

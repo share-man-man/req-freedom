@@ -19,6 +19,18 @@ export enum RuleType {
 }
 
 /**
+ * 网络限速预设
+ */
+export enum NetworkThrottlePreset {
+  /** Chrome DevTools 常用的 Fast 3G 档位 */
+  Fast3G = 'fast-3g',
+  /** Chrome DevTools 常用的 Slow 3G 档位 */
+  Slow3G = 'slow-3g',
+  /** 由用户分别填写延迟、上下行速率 */
+  Custom = 'custom',
+}
+
+/**
  * 注入代码的类型（决定以 <script> 还是 <style> 注入）
  */
 export enum InsertScriptCodeType {

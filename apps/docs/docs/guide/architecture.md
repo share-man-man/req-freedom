@@ -9,7 +9,7 @@ req-freedom/
 │   │   ├── entrypoints/
 │   │   │   ├── background.ts            # 同步规则到 declarativeNetRequest
 │   │   │   ├── bridge.content.ts        # ISOLATED world，读 storage 并推送规则
-│   │   │   ├── interceptor.content.ts   # MAIN world，fetch/XHR 补丁（Mock、延迟）
+│   │   │   ├── interceptor.content.ts   # MAIN world，fetch/XHR 补丁（Mock、网络限速）
 │   │   │   ├── popup/                   # 快速启停界面
 │   │   │   └── options/                 # 规则管理界面
 │   │   └── utils/          # storage 封装、DNR 规则转换
@@ -41,13 +41,13 @@ req-freedom/
               │ declarativeNet │   └──────────┬───────────┘
               │ Request (DNR)  │              │
               └──────┬─────────┘              ▼
-                     │           返回值 Mock、延迟模拟、脚本注入
+                     │           返回值 Mock、网络限速、脚本注入
                      ▼
         拦截、重定向、参数注入、Header 改写
 ```
 
 - **DNR 通道**：拦截 / 重定向 / 参数注入 / Header 改写在网络层由浏览器原生执行，性能好、覆盖所有请求（包括页面导航）
-- **页面补丁通道**：返回值 Mock 与延迟模拟无法由 DNR 表达，通过 MAIN world 内容脚本改写 `fetch` 与 `XMLHttpRequest` 实现，仅作用于页面脚本发起的请求；脚本注入亦复用该通道，按页面 URL 命中后注入自定义 JS / CSS
+- **页面补丁通道**：返回值 Mock 与网络限速无法由 DNR 表达，通过 MAIN world 内容脚本改写 `fetch` 与 `XMLHttpRequest` 实现，仅作用于页面脚本发起的请求；`fetch` 的响应流可按下行带宽精确交付，XHR 则仅能模拟请求前的延迟和上行带宽；脚本注入亦复用该通道，按页面 URL 命中后注入自定义 JS / CSS
 
 ## 已知限制（后续迭代）
 

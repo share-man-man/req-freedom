@@ -1,0 +1,5 @@
+{
+  "source": "request-lab",
+  "endpoint": "params",
+  "note": "静态服务会忽略查询参数；请在请求 URL 或 Network 面板中确认注入结果。"
+}

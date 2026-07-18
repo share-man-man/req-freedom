@@ -1,0 +1,13 @@
+{
+  "name": "@req-freedom/request-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Req Freedom 本地请求功能验证页",
+  "scripts": {
+    "dev": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

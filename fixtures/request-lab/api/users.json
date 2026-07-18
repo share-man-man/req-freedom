@@ -1,0 +1,8 @@
+{
+  "source": "request-lab",
+  "endpoint": "users",
+  "users": [
+    { "id": 1, "name": "Ada", "role": "admin" },
+    { "id": 2, "name": "Lin", "role": "editor" }
+  ]
+}

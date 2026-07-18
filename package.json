@@ -8,7 +8,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "pnpm --filter @req-freedom/extension dev",
+    "dev": "pnpm --parallel --filter @req-freedom/extension --filter @req-freedom/request-lab dev",
+    "dev:extension": "pnpm --filter @req-freedom/extension dev",
+    "dev:lab": "pnpm --filter @req-freedom/request-lab dev",
     "dev:docs": "pnpm --filter @req-freedom/docs dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck"

@@ -4,6 +4,7 @@ import type {
   InsertScriptCodeType,
   InsertScriptTiming,
   MatchType,
+  NetworkThrottlePreset,
   RuleType,
 } from './enums';
 
@@ -91,8 +92,14 @@ export interface MockResponseRule extends BaseRule {
  */
 export interface DelayRule extends BaseRule {
   type: RuleType.Delay;
-  /** 延迟时长（毫秒） */
-  delayMs: number;
+  /** 网络档位。 */
+  throttlePreset: NetworkThrottlePreset;
+  /** 往返延迟（毫秒）；仅自定义档位使用。 */
+  latencyMs: number;
+  /** 内部下行带宽（千比特/秒）；仅自定义档位使用，0 表示不限制。UI 按 kB/s 展示。 */
+  downloadKbps: number;
+  /** 内部上行带宽（千比特/秒）；仅自定义档位使用，0 表示不限制。UI 按 kB/s 展示。 */
+  uploadKbps: number;
 }
 
 /**

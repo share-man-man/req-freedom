@@ -30,11 +30,13 @@ import { CSS } from '@dnd-kit/utilities';
 import type { Rule } from '@req-freedom/shared';
 import {
   DEFAULT_MOCK_STATUS,
+  DEFAULT_NETWORK_THROTTLE_PRESET,
   HeaderOperation,
   HeaderTarget,
   InsertScriptCodeType,
   InsertScriptTiming,
   MatchType,
+  NETWORK_THROTTLE_PRESET_SETTINGS,
   RuleType,
 } from '@req-freedom/shared';
 import { getRules, saveRules } from '@/utils/storage';
@@ -114,8 +116,18 @@ function createSampleRule(type: RuleType): Rule {
         statusCode: DEFAULT_MOCK_STATUS,
         body: JSON.stringify({ code: 0, data: 'mocked by req-freedom' }),
       };
-    case RuleType.Delay:
-      return { ...base, type, delayMs: 2000 };
+    case RuleType.Delay: {
+      /** 新建规则默认使用 Fast 3G，便于立即模拟常见弱网环境。 */
+      const throttleSettings = NETWORK_THROTTLE_PRESET_SETTINGS[DEFAULT_NETWORK_THROTTLE_PRESET];
+      return {
+        ...base,
+        type,
+        throttlePreset: DEFAULT_NETWORK_THROTTLE_PRESET,
+        latencyMs: throttleSettings.latencyMs,
+        downloadKbps: throttleSettings.downloadKbps,
+        uploadKbps: throttleSettings.uploadKbps,
+      };
+    }
     case RuleType.InsertScript:
       return {
         ...base,

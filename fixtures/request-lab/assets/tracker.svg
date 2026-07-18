@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="72" viewBox="0 0 240 72" role="img" aria-label="请求资源已加载">
+  <rect width="240" height="72" rx="10" fill="#142e49"/>
+  <circle cx="40" cy="36" r="17" fill="#54e0a0"/>
+  <path d="M32 36l6 6 11-13" fill="none" stroke="#082019" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="72" y="42" fill="#e7edf7" font-family="system-ui, sans-serif" font-size="16">资源加载成功</text>
+</svg>

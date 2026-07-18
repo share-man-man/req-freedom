@@ -1,5 +1,5 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
-import type { InsertScriptRule, Rule } from '@req-freedom/shared';
+import type { DelayRule, InsertScriptRule, Rule } from '@req-freedom/shared';
 import {
   DEFAULT_MOCK_CONTENT_TYPE,
   InsertScriptCodeType,
@@ -7,13 +7,21 @@ import {
   PAGE_MESSAGE_SOURCE,
   RuleType,
 } from '@req-freedom/shared';
-import { filterRulesByType, findMatchedRules, pickRuleByType, sleep } from '@req-freedom/core';
+import {
+  filterRulesByType,
+  findMatchedRules,
+  getNetworkRequestDelayMs,
+  getNetworkThrottleSettings,
+  getTransferDurationMs,
+  pickRuleByType,
+  sleep,
+} from '@req-freedom/core';
 
 /**
  * 拦截内容脚本（MAIN world）
  *
  * 在页面自身的 JS 环境中给 fetch / XMLHttpRequest 打补丁，
- * 实现 DNR 无法覆盖的两类能力：返回值 Mock、延迟模拟。
+ * 实现 DNR 无法覆盖的两类能力：返回值 Mock、网络限速模拟。
  * 规则由 bridge.content.ts 通过 postMessage 推送。
  */
 export default defineContentScript({
@@ -121,6 +129,106 @@ export default defineContentScript({
       }
     };
 
+    /**
+     * 尽可能计算请求体字节数，以便在发送前模拟上行带宽。
+     * 流式请求体和 FormData 的 multipart 编码由浏览器生成，无法在不消费请求体的前提下精确获知，故回退为 0。
+     * @param body 任意形式的请求体
+     * @returns 可确定的请求体字节数；未知时返回 0
+     */
+    const getRequestBodyByteLength = (body: unknown): number => {
+      if (typeof body === 'string') {
+        return new TextEncoder().encode(body).byteLength;
+      }
+      if (body instanceof Blob) {
+        return body.size;
+      }
+      if (body instanceof ArrayBuffer) {
+        return body.byteLength;
+      }
+      if (ArrayBuffer.isView(body)) {
+        return body.byteLength;
+      }
+      if (body instanceof URLSearchParams) {
+        return new TextEncoder().encode(body.toString()).byteLength;
+      }
+      return 0;
+    };
+
+    /**
+     * 获取 fetch 请求体大小。Request 输入的 body 不可重复读取，优先使用其 Content-Length 头作保守估计。
+     * @param input fetch 的第一个参数
+     * @param init fetch 的可选初始化参数
+     * @returns 可确定的请求体字节数；未知时返回 0
+     */
+    const getFetchBodyByteLength = (input: RequestInfo | URL, init?: RequestInit): number => {
+      if (init?.body !== undefined) {
+        return getRequestBodyByteLength(init.body);
+      }
+      if (input instanceof Request) {
+        /** 请求头中声明的请求体大小。 */
+        const contentLength = Number(input.headers.get('content-length'));
+        return Number.isFinite(contentLength) && contentLength > 0 ? contentLength : 0;
+      }
+      return 0;
+    };
+
+    /**
+     * 包装 Response 的响应流，按下行带宽逐块交付给页面代码。
+     * @param response 原始响应
+     * @param rule 命中的网络限速规则
+     * @returns 未配置下行带宽时返回原响应，否则返回受限速的响应副本
+     */
+    const throttleResponse = (response: Response, rule: DelayRule | undefined): Response => {
+      if (!rule || !response.body) {
+        return response;
+      }
+      /** 命中规则实际生效的网络参数。 */
+      const settings = getNetworkThrottleSettings(rule);
+      if (settings.downloadKbps === 0) {
+        return response;
+      }
+      /** 原始响应流的读取器。 */
+      const reader = response.body.getReader();
+      /** 用于计算累计下行耗时的开始时间。 */
+      const startedAt = performance.now();
+      /** 已交付给页面的累计字节数。 */
+      let deliveredBytes = 0;
+      /** 按带宽节奏向页面交付数据的流。 */
+      const stream = new ReadableStream<Uint8Array>({
+        async pull(controller) {
+          /** 从原始网络流读到的下一段数据。 */
+          const result = await reader.read();
+          if (result.done) {
+            controller.close();
+            return;
+          }
+          deliveredBytes += result.value.byteLength;
+          /** 以累计字节数计算的目标交付时间。 */
+          const targetElapsedMs = getTransferDurationMs(deliveredBytes, settings.downloadKbps);
+          /** 当前交付还需等待的时长，负值代表读取本身已消耗足够时间。 */
+          const waitMs = Math.max(0, targetElapsedMs - (performance.now() - startedAt));
+          await sleep(waitMs);
+          controller.enqueue(result.value);
+        },
+        async cancel(reason) {
+          await reader.cancel(reason);
+        },
+      });
+      /** 保留原响应元数据的受限速响应。 */
+      const throttledResponse = new Response(stream, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      });
+      // Response 构造器无法接收 url / type / redirected；显式覆盖以保持调用方可观察到的元数据不变。
+      Object.defineProperties(throttledResponse, {
+        url: { value: response.url },
+        type: { value: response.type },
+        redirected: { value: response.redirected },
+      });
+      return throttledResponse;
+    };
+
     // ---------- fetch 补丁 ----------
 
     /** 页面原始 fetch，补丁未命中时回落使用 */
@@ -133,24 +241,33 @@ export default defineContentScript({
       );
       const { mockRule, delayRule } = resolvePageRules(url);
 
-      // 关键步骤：先执行延迟规则
+      // 关键步骤：在请求实际发出前模拟网络往返延迟与上行传输时间
       if (delayRule) {
-        await sleep(delayRule.delayMs);
+        /** 由请求体大小和网络档位共同计算的请求前等待时间。 */
+        const requestDelayMs = getNetworkRequestDelayMs(
+          delayRule,
+          getFetchBodyByteLength(input, init),
+        );
+        await sleep(requestDelayMs);
       }
 
       // 关键步骤：命中 Mock 时直接构造响应，不发起真实请求
       if (mockRule) {
         await sleep(mockRule.delayMs ?? 0);
-        return new Response(mockRule.body, {
+        /** 按网络限速规则交付 Mock 响应，确保 Mock 与真实请求具有一致的弱网表现。 */
+        const response = new Response(mockRule.body, {
           status: mockRule.statusCode,
           headers: {
             'Content-Type': DEFAULT_MOCK_CONTENT_TYPE,
             ...mockRule.responseHeaders,
           },
         });
+        return throttleResponse(response, delayRule);
       }
 
-      return originalFetch(input, init);
+      /** 真实网络响应在响应流层面按下行带宽向页面交付。 */
+      const response = await originalFetch(input, init);
+      return throttleResponse(response, delayRule);
     };
 
     // ---------- XMLHttpRequest 补丁 ----------
@@ -182,8 +299,10 @@ export default defineContentScript({
       /** open 阶段记录的请求 URL */
       const url = xhrUrlMap.get(this) ?? '';
       const { mockRule, delayRule } = resolvePageRules(url);
-      /** 延迟规则与 Mock 自带延迟的总时长 */
-      const totalDelayMs = (delayRule?.delayMs ?? 0) + (mockRule?.delayMs ?? 0);
+      /** 延迟规则与 Mock 自带延迟的总时长。XHR 不暴露可替换的响应流，因此仅模拟请求前的网络延迟与上行带宽。 */
+      const totalDelayMs =
+        (delayRule ? getNetworkRequestDelayMs(delayRule, getRequestBodyByteLength(body)) : 0) +
+        (mockRule?.delayMs ?? 0);
 
       // 关键步骤：命中 Mock 时伪造 XHR 完成态并派发事件，不发起真实请求
       if (mockRule) {

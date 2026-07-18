@@ -1,22 +1,29 @@
 import { useState } from 'react';
-import { AlertCircle, CheckCircle2, FlaskConical, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2, FlaskConical, Info, XCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { Rule } from '@req-freedom/shared';
 import {
   HeaderOperation,
   InsertScriptCodeType,
   InsertScriptTiming,
+  kilobitsPerSecondToKilobytesPerSecond,
+  kilobytesPerSecondToKilobitsPerSecond,
   MatchType,
+  NETWORK_SPEED_DISPLAY_UNIT,
+  NETWORK_THROTTLE_PRESET_SETTINGS,
+  NetworkThrottlePreset,
   RuleType,
 } from '@req-freedom/shared';
-import { injectParams, matchUrl } from '@req-freedom/core';
+import { getNetworkThrottleSettings, injectParams, matchUrl } from '@req-freedom/core';
 import {
   HEADER_OPERATION_LABELS,
   HEADER_TARGET_LABELS,
   INSERT_SCRIPT_CODE_TYPE_LABELS,
   INSERT_SCRIPT_TIMING_LABELS,
   MATCH_TYPE_LABELS,
+  NETWORK_THROTTLE_PRESET_LABELS,
   RULE_TYPE_LABELS,
+  RULE_TYPE_SCOPE_HINTS,
 } from '@/utils/labels';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -136,7 +143,19 @@ function describeEffect(rule: Rule, url: string): string {
     case RuleType.MockResponse:
       return `返回 HTTP ${rule.statusCode}，响应体：${rule.body.slice(0, 80)}${rule.body.length > 80 ? '…' : ''}`;
     case RuleType.Delay:
-      return `请求延迟 ${rule.delayMs} 毫秒后继续`;
+      /** 当前规则实际生效的网络参数。 */
+      const settings = getNetworkThrottleSettings(rule);
+      /** 网络限速效果的各项说明。 */
+      const descriptions = [
+        settings.latencyMs > 0 ? `网络延迟 ${settings.latencyMs}ms` : '',
+        settings.downloadKbps > 0
+          ? `下行 ${kilobitsPerSecondToKilobytesPerSecond(settings.downloadKbps)} ${NETWORK_SPEED_DISPLAY_UNIT}`
+          : '',
+        settings.uploadKbps > 0
+          ? `上行 ${kilobitsPerSecondToKilobytesPerSecond(settings.uploadKbps)} ${NETWORK_SPEED_DISPLAY_UNIT}`
+          : '',
+      ].filter(Boolean);
+      return descriptions.length ? descriptions.join('，') : '不限制网络带宽';
     case RuleType.InsertScript:
       return `在 ${INSERT_SCRIPT_TIMING_LABELS[rule.timing]} 注入 ${
         INSERT_SCRIPT_CODE_TYPE_LABELS[rule.codeType]
@@ -172,7 +191,20 @@ function validateRule(rule: Rule): string | null {
         ? null
         : '状态码需在 100 - 599 之间';
     case RuleType.Delay:
-      return Number.isFinite(rule.delayMs) && rule.delayMs >= 0 ? null : '延迟时长需为非负数字';
+      if (!Object.values(NetworkThrottlePreset).includes(rule.throttlePreset)) {
+        return '网络档位不合法';
+      }
+      if (
+        !Number.isFinite(rule.latencyMs) ||
+        rule.latencyMs < 0 ||
+        !Number.isFinite(rule.downloadKbps) ||
+        rule.downloadKbps < 0 ||
+        !Number.isFinite(rule.uploadKbps) ||
+        rule.uploadKbps < 0
+      ) {
+        return '网络延迟与上下行带宽需为非负数字';
+      }
+      return null;
     case RuleType.InsertScript:
       return rule.code.trim() ? null : '注入代码不能为空';
     default:
@@ -192,6 +224,37 @@ export default function RuleEditor({ rule, isNew, onSave, onCancel }: RuleEditor
   const [testUrl, setTestUrl] = useState<string>(() => guessTestUrl(rule.pattern, rule.matchType));
   /** 最近一次测试结果 */
   const [testResult, setTestResult] = useState<TestResult | null>(null);
+
+  /**
+   * 切换网络限速档位；选择预设时统一写入预设值，避免规则内出现展示档位与实际参数不一致。
+   * @param value 下拉框选中的网络档位
+   */
+  const handleThrottlePresetChange = (value: string): void => {
+    /** 下拉框传入的合法网络档位。 */
+    const throttlePreset = value as NetworkThrottlePreset;
+    if (draft.type !== RuleType.Delay) {
+      return;
+    }
+    if (throttlePreset === NetworkThrottlePreset.Custom) {
+      setDraft({
+        ...draft,
+        throttlePreset,
+        latencyMs: draft.latencyMs,
+        downloadKbps: draft.downloadKbps,
+        uploadKbps: draft.uploadKbps,
+      });
+      return;
+    }
+    /** 所选预设对应的统一网络参数。 */
+    const settings = NETWORK_THROTTLE_PRESET_SETTINGS[throttlePreset];
+    setDraft({
+      ...draft,
+      throttlePreset,
+      latencyMs: settings.latencyMs,
+      downloadKbps: settings.downloadKbps,
+      uploadKbps: settings.uploadKbps,
+    });
+  };
 
   /**
    * 校验并提交保存
@@ -227,6 +290,15 @@ export default function RuleEditor({ rule, isNew, onSave, onCancel }: RuleEditor
 
       {/* 可滚动的表单主体 */}
       <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
+        {/* 全宽放在表单区，避免长说明挤压标题与规则类型标签。 */}
+        <div className="flex shrink-0 items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs leading-5 text-muted-foreground">
+          <Info className="mt-0.5 size-3.5 shrink-0 text-primary" />
+          <span>
+            <span className="font-medium text-foreground">作用范围：</span>
+            {RULE_TYPE_SCOPE_HINTS[draft.type]}
+          </span>
+        </div>
+
         <Field label="规则名称">
           <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
         </Field>
@@ -328,14 +400,70 @@ export default function RuleEditor({ rule, isNew, onSave, onCancel }: RuleEditor
         )}
 
         {draft.type === RuleType.Delay && (
-          <Field label="延迟时长(ms)">
-            <Input
-              type="number"
-              min={0}
-              value={draft.delayMs}
-              onChange={(e) => setDraft({ ...draft, delayMs: Number(e.target.value) })}
-            />
-          </Field>
+          <>
+            <Field label="网络档位">
+              <Select
+                value={draft.throttlePreset}
+                onValueChange={handleThrottlePresetChange}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.values(NetworkThrottlePreset).map((preset) => (
+                    <SelectItem key={preset} value={preset}>
+                      {NETWORK_THROTTLE_PRESET_LABELS[preset]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+
+            {draft.throttlePreset === NetworkThrottlePreset.Custom && (
+              <>
+                <Field label="网络延迟(ms)">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={draft.latencyMs}
+                    onChange={(e) => setDraft({ ...draft, latencyMs: Number(e.target.value) })}
+                  />
+                </Field>
+                <Field label={`下行(${NETWORK_SPEED_DISPLAY_UNIT})`}>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.1"
+                    value={kilobitsPerSecondToKilobytesPerSecond(draft.downloadKbps)}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        downloadKbps: kilobytesPerSecondToKilobitsPerSecond(Number(e.target.value)),
+                      })
+                    }
+                  />
+                </Field>
+                <Field label={`上行(${NETWORK_SPEED_DISPLAY_UNIT})`}>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.1"
+                    value={kilobitsPerSecondToKilobytesPerSecond(draft.uploadKbps)}
+                    onChange={(e) =>
+                      setDraft({
+                        ...draft,
+                        uploadKbps: kilobytesPerSecondToKilobitsPerSecond(Number(e.target.value)),
+                      })
+                    }
+                  />
+                </Field>
+                <p className="-mt-2 text-right text-xs text-muted-foreground">
+                  与 Chrome Network 面板的 {NETWORK_SPEED_DISPLAY_UNIT} 单位一致；0 表示不限制。
+                </p>
+              </>
+            )}
+
+          </>
         )}
 
         {draft.type === RuleType.InsertScript && (

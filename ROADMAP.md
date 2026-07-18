@@ -46,8 +46,8 @@ flowchart LR
   - 需要字段：注入代码、注入时机（`document_start` / `document_end`）、类型（JS / CSS）。
   - 已落地：复用 `interceptor.content.ts`（MAIN world），按页面 URL 命中后注入 `<script>` / `<style>`；每次页面加载去重注入一次。文档见 [脚本注入](apps/docs/docs/guide/features/insert-script.md)。
 
-- [ ] **P0 · 网络限速模拟**
-  - 现在 `Delay` 只是固定延迟，竞品还能模拟带宽档位（Slow 3G 等）。在 `Delay` 基础上扩展，仅页面补丁通道可精确控制。
+- [x] **P0 · 网络限速模拟**
+  - 已落地：支持 Fast 3G、Slow 3G 与自定义网络延迟、上下行带宽；仅页面补丁通道可精确控制。
 
 - [ ] **P1 · `ModifyRequestBody` 改请求体**
   - Requestly 与 tweak 都支持，且都特别强调 GraphQL 场景。
