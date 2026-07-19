@@ -49,10 +49,11 @@ flowchart LR
 - [x] **P0 · 网络限速模拟**
   - 已落地：支持 Fast 3G、Slow 3G 与自定义网络延迟、上下行带宽；仅页面补丁通道可精确控制。
 
-- [ ] **P1 · `ModifyRequestBody` 改请求体**
+- [x] **P1 · `ModifyRequestBody` 改请求体**
   - Requestly 与 tweak 都支持，且都特别强调 GraphQL 场景。
   - **连带影响匹配器**：GraphQL 所有请求同 URL 同 method，只能靠 body 里的 `operationName` 区分，光靠 URL 匹配一定命不中。见「匹配能力增强」。
   - 通道：仅页面补丁。
+  - 已落地：新增 `RuleType.ModifyRequestBody`，两种模式 `RequestBodyMode`（`replace` 整体替换 / `merge-json` JSON 深合并，`core.modifyRequestBody`）。复用 `interceptor.content.ts`（MAIN world），在 `fetch` / `XHR` 发送前改写请求体；Mock 命中时不改写（不发真实请求）。文档见 [改请求体](apps/docs/docs/guide/features/modify-request-body.md)。GraphQL 按 `operationName` 精确命中仍待「请求体匹配」落地。
 
 - [ ] **P1 · 用 JS 动态生成响应**
   - Requestly 与 tweak 都支持；这是「静态 Mock」和「真·Mock 服务器」的分水岭。
