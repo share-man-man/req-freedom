@@ -2,6 +2,7 @@ import {
   Ban,
   Clock,
   Code2,
+  FileCog,
   FileJson,
   Forward,
   Pencil,
@@ -21,6 +22,7 @@ export const RULE_TYPE_ICONS: Record<RuleType, ReactNode> = {
   [RuleType.MockResponse]: <FileJson />,
   [RuleType.Delay]: <Clock />,
   [RuleType.InsertScript]: <Code2 />,
+  [RuleType.ModifyRequestBody]: <FileCog />,
 };
 
 interface RuleTypePickerProps {
@@ -50,7 +52,7 @@ export default function RuleTypePicker({ groupName, onPick }: RuleTypePickerProp
           <button
             key={type}
             type="button"
-            className="flex items-start gap-3 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-primary/40 hover:bg-accent"
+            className="glow-surface glow-surface--hover flex items-start gap-3 rounded-lg border border-border bg-secondary p-4 text-left transition-colors hover:bg-accent"
             onClick={() => onPick(type)}
           >
             <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary [&_svg]:size-4">

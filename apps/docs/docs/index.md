@@ -4,7 +4,7 @@ pageType: home
 hero:
   name: Req Freedom
   text: 浏览器请求调试插件
-  tagline: 请求拦截、重定向、参数注入、Header 改写、返回值 Mock、延迟模拟、脚本注入，一站式全链路能力
+  tagline: 请求拦截、重定向、参数注入、Header 改写、返回值 Mock、延迟模拟、脚本注入、改请求体，一站式全链路能力
   actions:
     - theme: brand
       text: 快速开始
@@ -35,4 +35,7 @@ features:
   - title: 脚本注入
     details: 按页面 URL 注入自定义 JS / CSS，临时改样式、打日志、注入调试工具。
     icon: 🧩
+  - title: 改请求体
+    details: 在请求发出前整体替换或 JSON 深合并请求体，联调时微调接口参数与 GraphQL variables。
+    icon: 🩹
 ---

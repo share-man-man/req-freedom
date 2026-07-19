@@ -9,6 +9,7 @@ import {
   InsertScriptTiming,
   MatchType,
   NETWORK_THROTTLE_PRESET_SETTINGS,
+  RequestBodyMode,
   RuleType,
 } from '@req-freedom/shared';
 import { RULE_TYPE_LABELS } from './labels';
@@ -95,6 +96,14 @@ export function createSampleRule(type: RuleType): Rule {
         codeType: InsertScriptCodeType.JavaScript,
         timing: InsertScriptTiming.DocumentEnd,
         code: "console.log('injected by req-freedom');",
+      };
+    case RuleType.ModifyRequestBody:
+      return {
+        ...base,
+        type,
+        // 默认走 JSON 深合并，对应最常见的 GraphQL / 接口参数微调场景
+        mode: RequestBodyMode.MergeJson,
+        content: JSON.stringify({ injectedBy: 'req-freedom' }, null, 2),
       };
   }
 }

@@ -16,6 +16,18 @@ export enum RuleType {
   Delay = 'delay',
   /** 注入自定义 JS / CSS */
   InsertScript = 'insert-script',
+  /** 改写请求体 */
+  ModifyRequestBody = 'modify-request-body',
+}
+
+/**
+ * 请求体改写模式
+ */
+export enum RequestBodyMode {
+  /** 用静态内容整体替换原请求体 */
+  Replace = 'replace',
+  /** 把 JSON 补丁深合并进原请求体（原请求体须为 JSON 对象） */
+  MergeJson = 'merge-json',
 }
 
 /**

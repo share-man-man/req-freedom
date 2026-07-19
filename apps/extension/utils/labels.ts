@@ -5,6 +5,7 @@ import {
   InsertScriptTiming,
   MatchType,
   NetworkThrottlePreset,
+  RequestBodyMode,
   RuleType,
 } from '@req-freedom/shared';
 
@@ -17,6 +18,7 @@ export const RULE_TYPE_LABELS: Record<RuleType, string> = {
   [RuleType.MockResponse]: '返回值 Mock',
   [RuleType.Delay]: '网络限速',
   [RuleType.InsertScript]: '脚本注入',
+  [RuleType.ModifyRequestBody]: '改请求体',
 };
 
 /**
@@ -38,6 +40,14 @@ export const RULE_TYPE_SCOPE_HINTS: Record<RuleType, string> = {
     '对命中请求施加网络延迟或上下行带宽限制，用于模拟弱网、观察 loading 与耗时。仅作用于当前页面脚本发起的 fetch / XHR，不作用于页面导航或静态资源。',
   [RuleType.InsertScript]:
     '按页面 URL 注入自定义 JS 或 CSS：JS 可改写页面变量与 DOM，CSS 可改变页面样式。匹配顶层页面地址，不针对单个网络请求。',
+  [RuleType.ModifyRequestBody]:
+    '在请求发出前改写其请求体：可整体替换，或把 JSON 补丁深合并进原请求体。仅作用于当前页面脚本发起的 fetch / XHR，不作用于页面导航或静态资源。',
+};
+
+/** 请求体改写模式的中文展示名 */
+export const REQUEST_BODY_MODE_LABELS: Record<RequestBodyMode, string> = {
+  [RequestBodyMode.Replace]: '整体替换',
+  [RequestBodyMode.MergeJson]: 'JSON 深合并',
 };
 
 /** 网络限速档位的展示文案 */

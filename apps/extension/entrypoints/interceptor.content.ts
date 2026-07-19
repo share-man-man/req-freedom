@@ -5,6 +5,7 @@ import {
   InsertScriptCodeType,
   InsertScriptTiming,
   PAGE_MESSAGE_SOURCE,
+  RequestBodyMode,
   RuleType,
 } from '@req-freedom/shared';
 import {
@@ -13,6 +14,7 @@ import {
   getNetworkRequestDelayMs,
   getNetworkThrottleSettings,
   getTransferDurationMs,
+  modifyRequestBody,
   pickRuleByType,
   sleep,
 } from '@req-freedom/core';
@@ -100,19 +102,20 @@ export default defineContentScript({
     };
 
     /**
-     * 找出命中 URL 的 Mock 规则与延迟规则
+     * 找出命中 URL 的 Mock 规则、延迟规则与改请求体规则
      * @param url 绝对化后的请求 URL
-     * @returns Mock 规则与延迟规则（可能均为 undefined）
+     * @returns Mock 规则、延迟规则与改请求体规则（可能均为 undefined）
      */
     const resolvePageRules = (url: string) => {
       if (!state.enabled) {
-        return { mockRule: undefined, delayRule: undefined };
+        return { mockRule: undefined, delayRule: undefined, modifyBodyRule: undefined };
       }
       /** 命中的全部规则 */
       const matched = findMatchedRules(url, state.rules);
       return {
         mockRule: pickRuleByType(matched, RuleType.MockResponse),
         delayRule: pickRuleByType(matched, RuleType.Delay),
+        modifyBodyRule: pickRuleByType(matched, RuleType.ModifyRequestBody),
       };
     };
 
@@ -170,6 +173,59 @@ export default defineContentScript({
         return Number.isFinite(contentLength) && contentLength > 0 ? contentLength : 0;
       }
       return 0;
+    };
+
+    /**
+     * 读取 fetch 请求体的文本形式，供 JSON 深合并使用。
+     * init.body 优先（字符串直取，其余借 Response 解码）；否则回落到 Request 输入的克隆体，避免消费原请求。
+     * @param input fetch 的第一个参数
+     * @param init fetch 的可选初始化参数
+     * @returns 请求体文本；无法读取时返回空串
+     */
+    const readFetchBodyText = async (
+      input: RequestInfo | URL,
+      init?: RequestInit,
+    ): Promise<string> => {
+      if (init?.body != null) {
+        if (typeof init.body === 'string') {
+          return init.body;
+        }
+        try {
+          return await new Response(init.body as BodyInit).text();
+        } catch {
+          return '';
+        }
+      }
+      if (input instanceof Request) {
+        try {
+          // 克隆后再读，保证原始 Request 的 body 不被消费
+          return await input.clone().text();
+        } catch {
+          return '';
+        }
+      }
+      return '';
+    };
+
+    /**
+     * 读取 XHR 请求体的文本形式，供 JSON 深合并使用。
+     * @param body send 收到的请求体
+     * @returns 请求体文本；无法读取（如 Document）时返回空串
+     */
+    const readXhrBodyText = async (
+      body?: Document | XMLHttpRequestBodyInit | null,
+    ): Promise<string> => {
+      if (body == null) {
+        return '';
+      }
+      if (typeof body === 'string') {
+        return body;
+      }
+      try {
+        return await new Response(body as BodyInit).text();
+      } catch {
+        return '';
+      }
     };
 
     /**
@@ -239,7 +295,7 @@ export default defineContentScript({
       const url = toAbsoluteUrl(
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url,
       );
-      const { mockRule, delayRule } = resolvePageRules(url);
+      const { mockRule, delayRule, modifyBodyRule } = resolvePageRules(url);
 
       // 关键步骤：在请求实际发出前模拟网络往返延迟与上行传输时间
       if (delayRule) {
@@ -262,6 +318,20 @@ export default defineContentScript({
             ...mockRule.responseHeaders,
           },
         });
+        return throttleResponse(response, delayRule);
+      }
+
+      // 关键步骤：命中改请求体规则时，在真实请求发出前改写请求体（Mock 不发真实请求，故置于其后）
+      if (modifyBodyRule) {
+        /** 原始请求体文本；Replace 模式无需读取，仅 MergeJson 需要原体做合并。 */
+        const originalBody =
+          modifyBodyRule.mode === RequestBodyMode.MergeJson
+            ? await readFetchBodyText(input, init)
+            : '';
+        /** 按规则改写后的请求体文本。 */
+        const nextBody = modifyRequestBody(modifyBodyRule.mode, modifyBodyRule.content, originalBody);
+        // input 为 Request 时其 method / headers 仍被保留，init.body 仅覆盖请求体
+        const response = await originalFetch(input, { ...init, body: nextBody });
         return throttleResponse(response, delayRule);
       }
 
@@ -298,7 +368,7 @@ export default defineContentScript({
     ) {
       /** open 阶段记录的请求 URL */
       const url = xhrUrlMap.get(this) ?? '';
-      const { mockRule, delayRule } = resolvePageRules(url);
+      const { mockRule, delayRule, modifyBodyRule } = resolvePageRules(url);
       /** 延迟规则与 Mock 自带延迟的总时长。XHR 不暴露可替换的响应流，因此仅模拟请求前的网络延迟与上行带宽。 */
       const totalDelayMs =
         (delayRule ? getNetworkRequestDelayMs(delayRule, getRequestBodyByteLength(body)) : 0) +
@@ -315,6 +385,33 @@ export default defineContentScript({
           this.dispatchEvent(new Event('load'));
           this.dispatchEvent(new Event('loadend'));
         }, totalDelayMs);
+        return;
+      }
+
+      /** 当前 XHR 实例引用，供异步回调内调用原始 send。 */
+      const xhr = this;
+      /**
+       * 按累计延迟发出真实请求。
+       * @param realBody 最终请求体
+       */
+      const dispatchSend = (realBody?: Document | XMLHttpRequestBodyInit | null): void => {
+        if (totalDelayMs > 0) {
+          setTimeout(() => originalSend.call(xhr, realBody), totalDelayMs);
+        } else {
+          originalSend.call(xhr, realBody);
+        }
+      };
+
+      // 关键步骤：命中改请求体规则时，算出新请求体后再按延迟发送
+      if (modifyBodyRule) {
+        // Replace 无需原体，可同步改写；MergeJson 需先（可能异步）读取原始请求体文本
+        if (modifyBodyRule.mode === RequestBodyMode.MergeJson) {
+          void readXhrBodyText(body).then((originalBody) => {
+            dispatchSend(modifyRequestBody(modifyBodyRule.mode, modifyBodyRule.content, originalBody));
+          });
+        } else {
+          dispatchSend(modifyRequestBody(modifyBodyRule.mode, modifyBodyRule.content, ''));
+        }
         return;
       }
 

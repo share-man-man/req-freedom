@@ -33,6 +33,10 @@ h2 { margin-bottom: 8px; font-size: 18px; letter-spacing: -.02em; }
 .card { display: flex; min-height: 288px; flex-direction: column; padding: 19px; border: 1px solid #1e3a57; border-radius: 14px; background: linear-gradient(145deg, #102238e8, #0b1829e8); }
 .card p { color: #a8bbd1; line-height: 1.6; font-size: 14px; }
 .card code, .injection-panel code { color: #83d7fb; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; }
+.card > .button { margin-top: auto; }
+/* 一张卡片承载多个测试入口时，整行按钮统一贴底，与单按钮卡片的底边对齐。 */
+.card > .button-row { display: flex; margin-top: auto; gap: 8px; flex-wrap: wrap; }
+.card > .button-row > .button { flex: 1 1 0; }
 .tag { padding: 4px 7px; border-radius: 5px; background: #183d58; color: #7fd8ff; font-size: 10px; font-weight: 800; letter-spacing: .08em; }
 details { margin: 6px 0 auto; color: #87a3bc; font-size: 13px; }
 summary { cursor: pointer; }

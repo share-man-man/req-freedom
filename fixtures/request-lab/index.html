@@ -140,6 +140,118 @@
           <button class="button" data-action="post-request" type="button">提交测试数据</button>
         </article>
 
+        <article class="card" data-test="modify-request-body">
+          <div class="card-heading">
+            <span class="tag">FETCH / XHR POST</span>
+            <h2>改请求体</h2>
+          </div>
+          <p>向回显端点提交一段已知 JSON，响应会原样返回服务端实际收到的请求体。对比日志里的 <code>receivedBody</code> 即可确认改写是否生效。</p>
+          <code>POST /api/echo</code>
+          <details>
+            <summary>改请求体规则示例</summary>
+            <pre>匹配：contains /api/echo
+模式：JSON 深合并
+内容：{"variables": {"first": 100}}
+
+原始请求体：
+{"query":"ListItems","variables":{"first":10,"after":"cursor-0"}}
+预期 receivedBody：
+{"query":"ListItems","variables":{"first":100,"after":"cursor-0"}}</pre>
+          </details>
+          <div class="button-row">
+            <button class="button" data-action="modify-body-fetch" type="button">Fetch 提交</button>
+            <button class="button" data-action="modify-body-xhr" type="button">XHR 提交</button>
+          </div>
+        </article>
+
+        <article class="card" data-test="methods">
+          <div class="card-heading">
+            <span class="tag">MULTI METHOD</span>
+            <h2>请求方法</h2>
+          </div>
+          <p>同一个 URL 用不同方法各打一次，响应回显服务端实际处理的方法。用于验证按方法过滤的规则只作用于目标方法。</p>
+          <code>/api/methods</code>
+          <div class="button-row">
+            <button class="button" data-action="methods-get" type="button">GET</button>
+            <button class="button" data-action="methods-post" type="button">POST</button>
+            <button class="button" data-action="methods-delete" type="button">DELETE</button>
+          </div>
+        </article>
+
+        <article class="card" data-test="graphql">
+          <div class="card-heading">
+            <span class="tag">GRAPHQL</span>
+            <h2>operationName 区分</h2>
+          </div>
+          <p>两个操作共用同一 URL 和方法，只能靠请求体里的 <code>operationName</code> 区分。响应回显服务端实际收到的操作名与变量。</p>
+          <code>POST /api/graphql</code>
+          <details>
+            <summary>为什么只靠 URL 匹配不够</summary>
+            <pre>ListItems 与 GetUser 的 URL、method 完全相同，
+只有请求体不同。仅按 URL 匹配会同时命中两者，
+需要「请求体匹配」才能只改其中一个。</pre>
+          </details>
+          <div class="button-row">
+            <button class="button" data-action="graphql-list" type="button">ListItems</button>
+            <button class="button" data-action="graphql-user" type="button">GetUser</button>
+          </div>
+        </article>
+
+        <article class="card" data-test="cookies">
+          <div class="card-heading">
+            <span class="tag">COOKIE</span>
+            <h2>Cookie 双向</h2>
+          </div>
+          <p>响应回显收到的 <code>Cookie</code> 请求头，同时下发三条可见性各异的 <code>Set-Cookie</code>。两个方向的改写都能在此核对（首次点击尚无 Cookie 可回显，再点一次即可看到）。</p>
+          <code>GET /api/cookies</code>
+          <details>
+            <summary>三条 Cookie 的可见性</summary>
+            <pre>lab_visible  Path=/     document.cookie 可见
+lab_scoped   Path=/api  仅接口路径回传，页面读不到
+lab_session  HttpOnly   JS 一律读不到，只能在
+                        Network 面板核对</pre>
+          </details>
+          <button class="button" data-action="cookies" type="button">读写 Cookie</button>
+        </article>
+
+        <article class="card" data-test="status">
+          <div class="card-heading">
+            <span class="tag">STATUS</span>
+            <h2>任意状态码</h2>
+          </div>
+          <p>按路径返回指定的 HTTP 状态码，用于验证规则在错误响应下的表现，以及 Mock 覆盖真实错误的效果。</p>
+          <code>/api/status/{code}</code>
+          <div class="button-row">
+            <button class="button" data-action="status-404" type="button">返回 404</button>
+            <button class="button" data-action="status-500" type="button">返回 500</button>
+          </div>
+        </article>
+
+        <article class="card" data-test="cors">
+          <div class="card-heading">
+            <span class="tag">CROSS ORIGIN</span>
+            <h2>跨域 / CORS</h2>
+          </div>
+          <p>请求另一个端口上的服务（不同源）。「被拦」端点故意不发 CORS 头，浏览器会拦下响应；「对照」端点主动放行，用来证明服务确实可达。</p>
+          <code id="cors-base">另一端口的跨域服务</code>
+          <details>
+            <summary>解除 CORS 规则示例</summary>
+            <pre>匹配：contains /api/cross-origin/blocked
+类型：Header 改写
+作用于：响应头
+操作：设置
+Access-Control-Allow-Origin = *
+
+注意：CORS 由浏览器在网络层裁决，
+页面补丁通道看不到被拦下的响应，
+只能用 DNR 通道的响应头改写解除。</pre>
+          </details>
+          <div class="button-row">
+            <button class="button" data-action="cors-blocked" type="button">被拦端点</button>
+            <button class="button" data-action="cors-allowed" type="button">对照端点</button>
+          </div>
+        </article>
+
         <article class="card" data-test="asset-block">
           <div class="card-heading">
             <span class="tag">RESOURCE</span>
@@ -147,8 +259,8 @@
           </div>
           <p>动态加载小图。命中 block 规则后，卡片会显示资源加载失败，Network 也会显示被阻断。</p>
           <code>/assets/tracker.svg</code>
-          <button class="button" data-action="asset-block" type="button">加载资源</button>
           <div class="asset-preview" id="asset-preview">尚未加载</div>
+          <button class="button" data-action="asset-block" type="button">加载资源</button>
         </article>
       </section>
 

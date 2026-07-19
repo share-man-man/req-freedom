@@ -12,6 +12,7 @@ import {
   NETWORK_SPEED_DISPLAY_UNIT,
   NETWORK_THROTTLE_PRESET_SETTINGS,
   NetworkThrottlePreset,
+  RequestBodyMode,
   RuleType,
 } from '@req-freedom/shared';
 import { getNetworkThrottleSettings, injectParams, matchUrl } from '@req-freedom/core';
@@ -22,6 +23,7 @@ import {
   INSERT_SCRIPT_TIMING_LABELS,
   MATCH_TYPE_LABELS,
   NETWORK_THROTTLE_PRESET_LABELS,
+  REQUEST_BODY_MODE_LABELS,
   RULE_TYPE_LABELS,
   RULE_TYPE_SCOPE_HINTS,
 } from '@/utils/labels';
@@ -174,6 +176,13 @@ function describeEffect(rule: Rule, url: string): string {
       return `在 ${INSERT_SCRIPT_TIMING_LABELS[rule.timing]} 注入 ${
         INSERT_SCRIPT_CODE_TYPE_LABELS[rule.codeType]
       }：${rule.code.slice(0, 80)}${rule.code.length > 80 ? '…' : ''}`;
+    case RuleType.ModifyRequestBody: {
+      /** 改写内容的截断预览。 */
+      const preview = `${rule.content.slice(0, 80)}${rule.content.length > 80 ? '…' : ''}`;
+      return rule.mode === RequestBodyMode.Replace
+        ? `整体替换请求体为：${preview}`
+        : `将 JSON 深合并进请求体：${preview}`;
+    }
   }
 }
 
@@ -246,6 +255,19 @@ function validateRule(rule: Rule): string | null {
       return null;
     case RuleType.InsertScript:
       return rule.code.trim() ? null : '注入代码不能为空';
+    case RuleType.ModifyRequestBody:
+      if (!rule.content.trim()) {
+        return '改写内容不能为空';
+      }
+      // JSON 深合并模式必须保证补丁本身是合法 JSON，否则运行时会被静默跳过
+      if (rule.mode === RequestBodyMode.MergeJson) {
+        try {
+          JSON.parse(rule.content);
+        } catch {
+          return 'JSON 深合并模式下改写内容需为合法 JSON';
+        }
+      }
+      return null;
     default:
       return null;
   }
@@ -604,6 +626,46 @@ export default function RuleEditor({
                 value={draft.code}
                 onChange={(e) => setDraft({ ...draft, code: e.target.value })}
               />
+            </Field>
+          </>
+        )}
+
+        {draft.type === RuleType.ModifyRequestBody && (
+          <>
+            <Field label="改写模式">
+              <Select
+                value={draft.mode}
+                onValueChange={(value) => setDraft({ ...draft, mode: value as RequestBodyMode })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.values(RequestBodyMode).map((mode) => (
+                    <SelectItem key={mode} value={mode}>
+                      {REQUEST_BODY_MODE_LABELS[mode]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label={draft.mode === RequestBodyMode.Replace ? '新请求体' : 'JSON 补丁'}>
+              <Textarea
+                className="font-mono text-xs"
+                rows={8}
+                placeholder={
+                  draft.mode === RequestBodyMode.Replace
+                    ? '{"code": 0, "data": {}}'
+                    : '{"variables": {"first": 100}}'
+                }
+                value={draft.content}
+                onChange={(e) => setDraft({ ...draft, content: e.target.value })}
+              />
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                {draft.mode === RequestBodyMode.Replace
+                  ? '用上面的内容整体替换原请求体，原内容会被丢弃。'
+                  : '把上面的 JSON 深合并进原请求体（原体须为 JSON 对象）；同名字段覆盖，对象递归合并。原体或补丁非合法 JSON 时不改写。'}
+              </p>
             </Field>
           </>
         )}
