@@ -5,6 +5,7 @@ import type {
   InsertScriptTiming,
   MatchType,
   NetworkThrottlePreset,
+  RequestBodyMode,
   RuleType,
 } from './enums';
 
@@ -119,6 +120,20 @@ export interface InsertScriptRule extends BaseRule {
 }
 
 /**
+ * 请求体改写规则
+ *
+ * 在请求真正发出前改写其请求体。走页面补丁通道（MAIN world），仅作用于页面脚本
+ * 发起的 fetch / XHR；浏览器原生请求（页面导航、静态资源）拿不到请求体，不在作用范围内。
+ */
+export interface ModifyRequestBodyRule extends BaseRule {
+  type: RuleType.ModifyRequestBody;
+  /** 改写模式：整体替换 / JSON 深合并 */
+  mode: RequestBodyMode;
+  /** 改写内容：Replace 模式为新的请求体文本；MergeJson 模式为要深合并进原请求体的 JSON 文本 */
+  content: string;
+}
+
+/**
  * 规则联合类型（按 type 字段做判别）
  */
 export type Rule =
@@ -128,7 +143,8 @@ export type Rule =
   | ModifyHeadersRule
   | MockResponseRule
   | DelayRule
-  | InsertScriptRule;
+  | InsertScriptRule
+  | ModifyRequestBodyRule;
 
 /**
  * 规则分组：一组规则的收纳容器，可整组启停
