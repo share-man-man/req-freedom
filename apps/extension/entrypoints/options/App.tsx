@@ -72,16 +72,19 @@ const DEFAULT_GROUP_SENTINEL = '__req-freedom:default-group__';
 /** 「最近修改」视图默认展示的分组上限。 */
 const RECENT_GROUP_LIMIT = 5;
 
-/** 规则类型对应的柔和标签颜色，便于扫读不同规则能力。 */
+/**
+ * 规则类型对应的柔和标签颜色：15% 色底 + 随明暗翻转的强调文字（--accent-* 见 style.css），
+ * 浅色/深色两套下都保证对比度与扫读性。
+ */
 const RULE_TYPE_BADGE_CLASS: Record<RuleType, string> = {
-  [RuleType.Block]: 'bg-rose-500/10 text-rose-600',
-  [RuleType.Redirect]: 'bg-amber-500/10 text-amber-600',
-  [RuleType.InjectParams]: 'bg-primary/10 text-primary',
-  [RuleType.ModifyHeaders]: 'bg-cyan-500/10 text-cyan-700',
-  [RuleType.MockResponse]: 'bg-violet-500/10 text-violet-600',
-  [RuleType.Delay]: 'bg-orange-500/10 text-orange-600',
-  [RuleType.InsertScript]: 'bg-pink-500/10 text-pink-600',
-  [RuleType.ModifyRequestBody]: 'bg-teal-500/10 text-teal-600',
+  [RuleType.Block]: 'bg-rose-500/15 text-[var(--accent-rose)]',
+  [RuleType.Redirect]: 'bg-amber-500/15 text-[var(--accent-amber)]',
+  [RuleType.InjectParams]: 'bg-indigo-500/15 text-[var(--accent-indigo)]',
+  [RuleType.ModifyHeaders]: 'bg-cyan-500/15 text-[var(--accent-cyan)]',
+  [RuleType.MockResponse]: 'bg-violet-500/15 text-[var(--accent-violet)]',
+  [RuleType.Delay]: 'bg-orange-500/15 text-[var(--accent-orange)]',
+  [RuleType.InsertScript]: 'bg-pink-500/15 text-[var(--accent-pink)]',
+  [RuleType.ModifyRequestBody]: 'bg-teal-500/15 text-[var(--accent-teal)]',
 };
 
 /**
@@ -368,7 +371,7 @@ function SortableGroupCard({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       // 拖拽中原卡片完全透明留出空位，跟随光标的是外层 DragOverlay 里的副本
-      className={`overflow-hidden border-border/80 shadow-sm ${isDragging ? 'opacity-0' : ''}`}
+      className={`glow-surface overflow-hidden border-border/80 shadow-sm ${isDragging ? 'opacity-0' : ''}`}
     >
       {/* 分组标题栏：拖拽句柄 · 折叠 · 组开关 · 名称 · 计数 · 增删 */}
       <CardHeader
@@ -414,7 +417,7 @@ function SortableGroupCard({
         <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
           最近更新 {formatRelativeTime(group.updatedAt)}
         </span>
-        <Button variant="outline" size="sm" className="shrink-0" onClick={() => onAddRule(group.id)}>
+        <Button size="sm" className="shrink-0" onClick={() => onAddRule(group.id)}>
           <Plus />
           添加规则
         </Button>
@@ -991,7 +994,7 @@ export default function App() {
     : undefined;
 
   return (
-    <div className="min-h-screen bg-muted/35">
+    <div className="min-h-screen">
       <input
         ref={importInputRef}
         type="file"

@@ -64,10 +64,10 @@ export function OptionsPageHeader({
   onExport,
 }: OptionsPageHeaderProps) {
   return (
-    <header className="border-b border-border/80 bg-background/95">
+    <header className="sticky top-0 z-40 border-b border-border/80 bg-background/70 backdrop-blur-xl">
       <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-6 px-6 py-4">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm">
+          <span className="aurora-badge flex size-11 shrink-0 items-center justify-center rounded-2xl shadow-lg shadow-primary/20">
             <Zap className="size-6" strokeWidth={2.25} />
           </span>
           <div className="min-w-0">
@@ -87,7 +87,7 @@ export function OptionsPageHeader({
             导出规则
           </Button>
           {showAddGroup && (
-            <Button onClick={onAddGroup}>
+            <Button variant="outline" onClick={onAddGroup}>
               <FolderPlus />
               新建分组
             </Button>
@@ -120,21 +120,21 @@ export function ManagementStatistics({
     <section className="grid gap-4 md:grid-cols-3" aria-label="规则统计">
       <StatisticCard
         icon={<FolderPlus className="size-6" />}
-        iconClassName="bg-violet-500/10 text-violet-600"
+        iconClassName="bg-violet-500/15 text-[var(--accent-violet)]"
         label="分组"
         value={groupCount}
         suffix="个分组"
       />
       <StatisticCard
         icon={<ListChecks className="size-6" />}
-        iconClassName="bg-primary/10 text-primary"
+        iconClassName="bg-indigo-500/15 text-[var(--accent-indigo)]"
         label="规则"
         value={ruleCount}
         suffix="条规则"
       />
       <StatisticCard
         icon={<ToggleRight className="size-6" />}
-        iconClassName="bg-success/10 text-success"
+        iconClassName="bg-emerald-500/15 text-[var(--accent-emerald)]"
         label="已启用"
         value={enabledRuleCount}
         suffix="条规则"
@@ -162,7 +162,7 @@ interface StatisticCardProps {
  */
 function StatisticCard({ icon, iconClassName, label, value, suffix }: StatisticCardProps) {
   return (
-    <Card className="border-border/80 shadow-sm">
+    <Card className="glow-surface border-border/80 shadow-sm">
       <CardContent className="flex items-center gap-4 p-5">
         <span className={`flex size-11 items-center justify-center rounded-xl ${iconClassName}`}>
           {icon}
@@ -219,7 +219,7 @@ export function RuleManagementToolbar({
   onViewChange,
 }: RuleManagementToolbarProps) {
   return (
-    <section className="rounded-2xl border border-border/80 bg-card p-4 shadow-sm" aria-label="规则筛选">
+    <section className="glow-surface rounded-2xl border border-border/80 bg-card p-4 shadow-sm" aria-label="规则筛选">
       <div className="flex flex-wrap items-center gap-3">
         <label className="relative min-w-64 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

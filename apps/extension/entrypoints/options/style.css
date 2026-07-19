@@ -1,6 +1,304 @@
-/* Options 样式：仅引入全局主题（Tailwind + shadcn 令牌），具体样式走工具类 */
+/* Options 样式：配置管理页的 Vercel / Turborepo（Geist 设计系统）风格（仅作用于本页，弹窗不受影响）。
+ *
+ * 设计取自 vercel/turborepo 文档站实测源码，核心三件事：
+ * 1) 令牌：实心卡片 + 低透明度细边 + 单一 Vercel 蓝强调；浅/深两套，跟随系统自动切换
+ * 2) 背景：两坨大半径、重度模糊（blur 120px）的低透明度光斑（蓝 + 品紫），即 turborepo 的 side lights
+ * 3) 流光：卡片描边用「旋转的锥形渐变」（蓝→紫→品红），经 mask 只留 1px 边环，即 turborepo 的 counter-border
+ */
 @import '../../assets/theme.css';
+
+/**
+ * Geist 令牌覆盖：浅色为默认，深色在 prefers-color-scheme: dark 下切换（跟随系统）。
+ *
+ * 覆盖写在 @import 之后，凭源码顺序压过 theme.css 里的 :root 与暗色块。取值对齐 turborepo 文档站：
+ * 卡片是「实心」表面（不是半透明玻璃），边框是低透明度细线；主色统一为 Vercel 蓝。
+ * 与明暗相关的令牌（背景/卡片/边框/聚焦环、氛围光强度）在下方 @media 暗色块里改写。
+ */
+:root {
+  /* 原生控件（滚动条 / 表单）跟随系统明暗 */
+  color-scheme: light dark;
+  /* 圆角贴近 Vercel/Linear 观感 */
+  --radius: 0.75rem;
+
+  /* 主色：Vercel 蓝，明暗通用 */
+  --primary: oklch(57.61% 0.2508 258.23);
+  --primary-foreground: oklch(1 0 0);
+
+  /* ---- 浅色（默认） ---- */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --success: oklch(0.62 0.17 152);
+  --warning: oklch(0.75 0.16 75);
+
+  /* 低对比边框：浅色用半透明黑 */
+  --border: oklch(0 0 0 / 10%);
+  --input: oklch(0 0 0 / 14%);
+  /* 聚焦环：半透明中性色（非蓝），沿用 border-ring / ring-ring 工具类即得玻璃质感描边；浅色用半透明黑 */
+  --ring: oklch(0 0 0 / 32%);
+
+  /* 背景氛围光强度：浅色更淡，避免脏底 */
+  --aurora-opacity: 0.1;
+
+  /*
+   * 浅色画布承受不住深色模式的高亮霓虹色：改用更沉稳的墨蓝、紫与莓红。
+   * 这组颜色只用于流光、标识和光晕；深色模式仍保留更明亮的高能量配色。
+   */
+  --glow-blue: #2469b2;
+  --glow-violet: #7651b5;
+  --glow-rose: #be4f76;
+  --glow-shadow: rgb(36 105 178 / 0.3);
+  --dialog-glow-shadow: rgb(36 105 178 / 0.28);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* ---- 深色（对齐 turborepo .dark 令牌：实心近黑背景 + 略亮深灰卡片） ---- */
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+
+    --destructive: oklch(0.704 0.191 22.216);
+    --destructive-foreground: oklch(0.985 0 0);
+    --success: oklch(0.7 0.16 152);
+    --warning: oklch(0.8 0.16 75);
+
+    /* 低对比边框：深色用半透明白 */
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    /* 聚焦环：深色用半透明白 */
+    --ring: oklch(1 0 0 / 45%);
+
+    --aurora-opacity: 0.16;
+
+    /* 深色背景下恢复清亮的霓虹流光，保持足够的边缘对比度。 */
+    --glow-blue: #2a8af6;
+    --glow-violet: #8b5cf6;
+    --glow-rose: #e92a67;
+    --glow-shadow: rgb(42 138 246 / 0.55);
+    --dialog-glow-shadow: rgb(42 138 246 / 0.5);
+  }
+}
+
+/**
+ * 规则类型 / 统计徽标的强调文字色：跟随系统明暗翻转，保证两套配色下都够对比。
+ *
+ * 背景仍用 bg-*-500/15 的低透明度色底（明暗自适应）；这里只翻转「文字色」：
+ * - 深色：沿用 Tailwind 的 *-300（在深底上够亮）
+ * - 浅色：把 *-300 兑入黑色压暗（在浅底上够深）
+ * *-300 原值在此留一份自有副本（--c-*-300），避免依赖 Tailwind 的按需变量输出。
+ */
+:root {
+  --c-rose-300: oklch(81% 0.117 11.638);
+  --c-amber-300: oklch(87.9% 0.169 91.605);
+  --c-indigo-300: oklch(78.5% 0.115 274.713);
+  --c-cyan-300: oklch(86.5% 0.127 207.078);
+  --c-violet-300: oklch(81.1% 0.111 293.571);
+  --c-orange-300: oklch(83.7% 0.128 66.29);
+  --c-pink-300: oklch(82.3% 0.12 346.018);
+  --c-teal-300: oklch(85.5% 0.138 181.071);
+  --c-emerald-300: oklch(84.5% 0.143 164.978);
+
+  --accent-rose: light-dark(color-mix(in oklab, var(--c-rose-300) 60%, #000), var(--c-rose-300));
+  --accent-amber: light-dark(color-mix(in oklab, var(--c-amber-300) 60%, #000), var(--c-amber-300));
+  --accent-indigo: light-dark(color-mix(in oklab, var(--c-indigo-300) 62%, #000), var(--c-indigo-300));
+  --accent-cyan: light-dark(color-mix(in oklab, var(--c-cyan-300) 60%, #000), var(--c-cyan-300));
+  --accent-violet: light-dark(color-mix(in oklab, var(--c-violet-300) 62%, #000), var(--c-violet-300));
+  --accent-orange: light-dark(color-mix(in oklab, var(--c-orange-300) 60%, #000), var(--c-orange-300));
+  --accent-pink: light-dark(color-mix(in oklab, var(--c-pink-300) 60%, #000), var(--c-pink-300));
+  --accent-teal: light-dark(color-mix(in oklab, var(--c-teal-300) 60%, #000), var(--c-teal-300));
+  --accent-emerald: light-dark(color-mix(in oklab, var(--c-emerald-300) 60%, #000), var(--c-emerald-300));
+}
 
 body {
   margin: 0;
+}
+
+/**
+ * 背景氛围光（side lights）：两坨大半径、重度模糊的渐变光斑固定在视口顶部两侧。
+ * 复刻 turborepo 首页 leftLights/rightLights：蓝色在左、品紫在右，blur 120px + 低 opacity，
+ * 只在页面顶部晕开一层冷暖对比的光，不喧宾夺主。
+ */
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  top: -240px;
+  z-index: -1;
+  width: 46vw;
+  height: 560px;
+  pointer-events: none;
+  border-radius: 100%;
+  filter: blur(120px);
+  /* 强度跟随明暗（浅色更淡） */
+  opacity: var(--aurora-opacity, 0.14);
+}
+
+/* 左上：蓝 */
+body::before {
+  left: -8vw;
+  transform: rotate(-12deg);
+  background: linear-gradient(180deg, #77b8ff 0%, rgba(42, 138, 246, 0.5) 100%);
+}
+
+/* 右上：品紫 */
+body::after {
+  right: -8vw;
+  transform: rotate(12deg);
+  background: linear-gradient(180deg, #c06bd6 0%, rgba(168, 83, 186, 0.5) 100%);
+}
+
+/**
+ * 旋转锥形渐变角度变量。
+ * Chrome 扩展环境完整支持 @property，可直接对角度做补间动画，实现描边流光的旋转。
+ */
+@property --glow-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+/**
+ * 卡片描边流光（counter-border）：::before 是一整圈锥形渐变，用 mask 掏空内部只留 1px 边环。
+ *
+ * 关键：去掉 Card 自带的灰边（border: 0），让「流光描边」直接充当卡片边框 —— 否则灰边在最外、
+ * 流光环在 padding-box（内 1px），两者圆角半径不同，转角处会错位留缝，即所见「流光线条与阴影间隔」。
+ * 去掉灰边后 ::before 的 inset:0 即落在卡片真实边缘，与外扩阴影齐平、无缝。
+ * 常态即有可见渐变描边（opacity .4）；hover 时转亮并旋转，同时外扩一层柔和光晕向背景发光。
+ */
+.glow-surface {
+  position: relative;
+  isolation: isolate;
+  border: 0;
+  transition: box-shadow 0.4s ease;
+}
+
+.glow-surface::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.4;
+  transition: opacity 0.4s ease;
+  /* 整圈无断口的渐变，作为卡片唯一的边（颜色随明暗主题切换） */
+  background: conic-gradient(
+    from var(--glow-angle),
+    var(--glow-blue),
+    var(--glow-violet),
+    var(--glow-rose),
+    var(--glow-violet),
+    var(--glow-blue)
+  );
+  /* 只在 1px 边框区域显示：内容盒与边框盒两层遮罩相减 */
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.glow-surface:hover {
+  /* 仅一层柔和外发光（不再叠加紧贴 1px 蓝环，避免与流光描边形成第二条错位线） */
+  box-shadow: 0 16px 64px -28px var(--glow-shadow);
+}
+
+.glow-surface:hover::before {
+  opacity: 1;
+  animation: glow-rotate 6s linear infinite;
+}
+
+/* 仅 hover 才显描边的变体（用于规则类型这种成组的可点卡片，静态时保持干净）。 */
+.glow-surface--hover::before {
+  opacity: 0;
+}
+
+/* 去掉真实边后，这类卡片静态时用内描边维持边界（浅色下 bg-secondary 对比很弱，需要它） */
+.glow-surface--hover {
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+@keyframes glow-rotate {
+  to {
+    --glow-angle: 360deg;
+  }
+}
+
+/**
+ * 对话框描边流光：让渐变「直接充当」模态边框，并自动旋转。
+ *
+ * 之前用 ::before 掏空描边，会与模态自身的灰边形成两条错位的 1px 线（中间有间隔）。
+ * 改用「背景裁剪」：padding-box 铺卡片底色、border-box 铺整圈锥形渐变，1px 边框区即是渐变本身，
+ * 因此只有一条边、不再有灰边与流光边的双层间隔。锥形渐变绕一圈无断口，配合 --glow-angle 旋转即成流光。
+ * 作用域仅限配置管理页文档；Radix 对话框内容 role="dialog"，规则类型选择 / 规则编辑表单都在其中。
+ */
+[role='dialog'] {
+  /* 隐去 shadcn 默认灰边，边框改由下面的渐变承担（仍保留 1px 边宽） */
+  border-color: transparent;
+  background:
+    linear-gradient(var(--card), var(--card)) padding-box,
+    conic-gradient(
+        from var(--glow-angle),
+        var(--glow-blue),
+        var(--glow-violet),
+        var(--glow-rose),
+        var(--glow-violet),
+        var(--glow-blue)
+      )
+      border-box;
+  animation: glow-rotate 6s linear infinite;
+  /* 与 .glow-surface:hover 一致的柔和外发光：模态四周晕开一层蓝色模糊光 + 深度阴影 */
+  box-shadow:
+    0 24px 70px -24px var(--dialog-glow-shadow),
+    0 16px 50px -20px rgba(0, 0, 0, 0.45);
+}
+
+/**
+ * 顶部产品标识：蓝→紫→品红的渐变图标，呼应描边流光的配色。
+ */
+.aurora-badge {
+  background-image: linear-gradient(
+    135deg,
+    var(--glow-blue) 0%,
+    var(--glow-violet) 55%,
+    var(--glow-rose) 100%
+  );
+  color: #ffffff;
+}
+
+/* 尊重减少动效偏好：停掉描边旋转与过渡 */
+@media (prefers-reduced-motion: reduce) {
+  .glow-surface,
+  .glow-surface::before {
+    transition: none;
+  }
+
+  .glow-surface:hover::before,
+  [role='dialog'] {
+    animation: none;
+  }
 }
