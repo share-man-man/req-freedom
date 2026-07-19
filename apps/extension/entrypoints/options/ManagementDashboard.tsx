@@ -73,7 +73,7 @@ export function OptionsPageHeader({
           <div className="min-w-0">
             <h1 className="truncate text-xl font-semibold tracking-tight">Req Freedom 规则管理</h1>
             <p className="mt-0.5 truncate text-sm text-muted-foreground">
-              拦截 · 重定向 · 参数注入 · Header · Mock · 延迟 · 脚本注入
+              拦截 · 重定向 · 参数注入 · Header · Mock · 延迟 · 脚本注入 · 改请求体
             </p>
           </div>
         </div>

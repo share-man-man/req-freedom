@@ -2,6 +2,7 @@ import {
   Ban,
   Clock,
   Code2,
+  FileCog,
   FileJson,
   Forward,
   Pencil,
@@ -21,6 +22,7 @@ export const RULE_TYPE_ICONS: Record<RuleType, ReactNode> = {
   [RuleType.MockResponse]: <FileJson />,
   [RuleType.Delay]: <Clock />,
   [RuleType.InsertScript]: <Code2 />,
+  [RuleType.ModifyRequestBody]: <FileCog />,
 };
 
 interface RuleTypePickerProps {

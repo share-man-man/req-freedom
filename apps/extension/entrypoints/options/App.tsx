@@ -81,6 +81,7 @@ const RULE_TYPE_BADGE_CLASS: Record<RuleType, string> = {
   [RuleType.MockResponse]: 'bg-violet-500/10 text-violet-600',
   [RuleType.Delay]: 'bg-orange-500/10 text-orange-600',
   [RuleType.InsertScript]: 'bg-pink-500/10 text-pink-600',
+  [RuleType.ModifyRequestBody]: 'bg-teal-500/10 text-teal-600',
 };
 
 /**

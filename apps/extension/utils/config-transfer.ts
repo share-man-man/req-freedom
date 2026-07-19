@@ -13,6 +13,7 @@ import {
   InsertScriptTiming,
   MatchType,
   NetworkThrottlePreset,
+  RequestBodyMode,
   RuleType,
 } from '@req-freedom/shared';
 
@@ -309,6 +310,27 @@ function parseRule(value: unknown, groupId: string, index: number, ruleIds: Set<
         timing: rule.timing as InsertScriptTiming,
         code: requireNonEmptyString(rule.code, `规则「${id}」的 code`),
       };
+    case RuleType.ModifyRequestBody: {
+      if (!Object.values(RequestBodyMode).includes(rule.mode as RequestBodyMode)) {
+        throw new Error(`规则「${id}」的 mode 不合法。`);
+      }
+      /** 已校验的改写内容。 */
+      const content = requireNonEmptyString(rule.content, `规则「${id}」的 content`);
+      // JSON 深合并模式的补丁必须是合法 JSON，避免导入后运行时被静默跳过
+      if (rule.mode === RequestBodyMode.MergeJson) {
+        try {
+          JSON.parse(content);
+        } catch {
+          throw new Error(`规则「${id}」的 content 在 JSON 深合并模式下必须是合法 JSON。`);
+        }
+      }
+      return {
+        ...base,
+        type: RuleType.ModifyRequestBody,
+        mode: rule.mode as RequestBodyMode,
+        content,
+      };
+    }
   }
 
   // 防御性兜底：即使未来新增枚举值但遗漏了上方分支，也绝不导入未知规则。
