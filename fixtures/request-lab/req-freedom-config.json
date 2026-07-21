@@ -1,0 +1,362 @@
+{
+  "schemaVersion": 2,
+  "exportedAt": "2026-07-19T00:00:00.000Z",
+  "enabled": true,
+  "groups": [
+    {
+      "id": "grp-mock",
+      "name": "01 返回值 Mock（基础 Fetch / XHR）",
+      "enabled": true,
+      "updatedAt": "2026-07-19T00:00:00.000Z",
+      "rules": [
+        {
+          "id": "rule-mock-users",
+          "name": "Mock /api/users.json 为 503",
+          "enabled": true,
+          "type": "mock-response",
+          "matchType": "contains",
+          "pattern": "/api/users.json",
+          "statusCode": 503,
+          "responseHeaders": {
+            "Content-Type": "application/json",
+            "X-Mocked-By": "req-freedom"
+          },
+          "body": "{\"code\":503,\"message\":\"mocked\"}"
+        },
+        {
+          "id": "rule-mock-products",
+          "name": "Mock /api/products.json（XHR 路径）",
+          "enabled": true,
+          "type": "mock-response",
+          "matchType": "contains",
+          "pattern": "/api/products.json",
+          "statusCode": 200,
+          "responseHeaders": {
+            "Content-Type": "application/json",
+            "X-Mocked-By": "req-freedom-xhr"
+          },
+          "body": "{\"source\":\"xhr-mock\",\"items\":[]}",
+          "delayMs": 300
+        }
+      ]
+    },
+    {
+      "id": "grp-redirect",
+      "name": "02 重定向",
+      "enabled": true,
+      "updatedAt": "2026-07-19T00:00:00.000Z",
+      "rules": [
+        {
+          "id": "rule-redirect-source",
+          "name": "redirect-source → redirect-target",
+          "enabled": true,
+          "type": "redirect",
+          "matchType": "contains",
+          "pattern": "/api/redirect-source.json",
+          "redirectUrl": "http://127.0.0.1:4317/api/redirect-target.json"
+        }
+      ]
+    },
+    {
+      "id": "grp-params",
+      "name": "03 参数注入",
+      "enabled": true,
+      "updatedAt": "2026-07-19T00:00:00.000Z",
+      "rules": [
+        {
+          "id": "rule-inject-params",
+          "name": "/api/params.json 注入 debug 与 environment",
+          "enabled": true,
+          "type": "inject-params",
+          "matchType": "contains",
+          "pattern": "/api/params.json",
+          "params": {
+            "debug": "1",
+            "environment": "local"
+          }
+        }
+      ]
+    },
+    {
+      "id": "grp-headers",
+      "name": "04 请求 / 响应 Header",
+      "enabled": true,
+      "updatedAt": "2026-07-19T00:00:00.000Z",
+      "rules": [
+        {
+          "id": "rule-headers-both",
+          "name": "/api/headers.json 双向 Header 改写",
+          "enabled": true,
+          "type": "modify-headers",
+          "matchType": "contains",
+          "pattern": "/api/headers.json",
+          "headers": [
+            {
+              "target": "request",
+              "operation": "set",
+              "header": "X-Req-Freedom",
+              "value": "enabled"
+            },
+            {
+              "target": "request",
+              "operation": "remove",
+              "header": "X-Remove-Me"
+            },
+            {
+              "target": "response",
+              "operation": "set",
+              "header": "X-Response-Patched",
+              "value": "true"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "grp-throttle",
+      "name": "05 网络限速（下行 / 上行）",
+      "enabled": true,
+      "updatedAt": "2026-07-19T00:00:00.000Z",
+      "rules": [
+        {
+          "id": "rule-throttle-download",
+          "name": "大响应走 Slow 3G",
+          "enabled": true,
+          "type": "delay",
+          "matchType": "contains",
+          "pattern": "/api/slow-response.txt",
+          "throttlePreset": "slow-3g",
+          "latencyMs": 400,
+          "downloadKbps": 400,
+          "uploadKbps": 400
+        },
+        {
+          "id": "rule-throttle-upload",
+          "name": "上行带宽：POST 上传限速",
+          "enabled": true,
+          "type": "delay",
+          "matchType": "contains",
+          "pattern": "/api/upload-probe",
+          "throttlePreset": "custom",
+          "latencyMs": 200,
+          "downloadKbps": 0,
+          "uploadKbps": 128
+        }
+      ]
+    },
+    {
+      "id": "grp-request-body",
+      "name": "06 改请求体",
+      "enabled": true,
+      "updatedAt": "2026-07-19T00:00:00.000Z",
+      "rules": [
+        {
+          "id": "rule-body-merge-echo",
+          "name": "/api/echo JSON 深合并 first=100",
+          "enabled": true,
+          "type": "modify-request-body",
+          "matchType": "contains",
+          "pattern": "/api/echo",
+          "mode": "merge-json",
+          "content": "{\"variables\":{\"first\":100}}"
+        },
+        {
+          "id": "rule-body-replace-graphql",
+          "name": "/api/graphql 整体替换请求体（演示无法按 operationName 区分）",
+          "enabled": false,
+          "type": "modify-request-body",
+          "matchType": "contains",
+          "pattern": "/api/graphql",
+          "mode": "replace",
+          "content": "{\"operationName\":\"ListItems\",\"query\":\"query ListItems { items { id } }\",\"variables\":{\"first\":1}}"
+        }
+      ]
+    },
+    {
+      "id": "grp-methods-graphql",
+      "name": "07 请求方法 / GraphQL 端点",
+      "enabled": true,
+      "updatedAt": "2026-07-19T00:00:00.000Z",
+      "rules": [
+        {
+          "id": "rule-methods-header",
+          "name": "/api/methods 打标（GET/POST/DELETE 均命中）",
+          "enabled": true,
+          "type": "modify-headers",
+          "matchType": "contains",
+          "pattern": "/api/methods",
+          "headers": [
+            {
+              "target": "request",
+              "operation": "set",
+              "header": "X-Req-Freedom-Method-Probe",
+              "value": "matched"
+            },
+            {
+              "target": "response",
+              "operation": "set",
+              "header": "X-Method-Probe-Patched",
+              "value": "true"
+            }
+          ]
+        },
+        {
+          "id": "rule-graphql-header",
+          "name": "/api/graphql 打标（两个操作均命中）",
+          "enabled": true,
+          "type": "modify-headers",
+          "matchType": "contains",
+          "pattern": "/api/graphql",
+          "headers": [
+            {
+              "target": "response",
+              "operation": "set",
+              "header": "X-Graphql-Patched",
+              "value": "true"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "grp-cookies",
+      "name": "08 Cookie 双向",
+      "enabled": true,
+      "updatedAt": "2026-07-19T00:00:00.000Z",
+      "rules": [
+        {
+          "id": "rule-cookies",
+          "name": "/api/cookies 追加请求 Cookie 与响应 Set-Cookie",
+          "enabled": true,
+          "type": "modify-headers",
+          "matchType": "contains",
+          "pattern": "/api/cookies",
+          "headers": [
+            {
+              "target": "request",
+              "operation": "append",
+              "header": "Cookie",
+              "value": "lab_from_rule=1"
+            },
+            {
+              "target": "response",
+              "operation": "append",
+              "header": "Set-Cookie",
+              "value": "lab_rule_issued=1; Path=/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "grp-status",
+      "name": "09 任意状态码",
+      "enabled": true,
+      "updatedAt": "2026-07-19T00:00:00.000Z",
+      "rules": [
+        {
+          "id": "rule-status-404-to-200",
+          "name": "把 404 Mock 成 200",
+          "enabled": true,
+          "type": "mock-response",
+          "matchType": "contains",
+          "pattern": "/api/status/404",
+          "statusCode": 200,
+          "responseHeaders": {
+            "Content-Type": "application/json"
+          },
+          "body": "{\"recovered\":true,\"origin\":404}"
+        },
+        {
+          "id": "rule-status-500-to-200",
+          "name": "把 500 Mock 成 200",
+          "enabled": true,
+          "type": "mock-response",
+          "matchType": "contains",
+          "pattern": "/api/status/500",
+          "statusCode": 200,
+          "responseHeaders": {
+            "Content-Type": "application/json"
+          },
+          "body": "{\"recovered\":true,\"origin\":500}"
+        }
+      ]
+    },
+    {
+      "id": "grp-cors",
+      "name": "10 跨域 / CORS",
+      "enabled": true,
+      "updatedAt": "2026-07-19T00:00:00.000Z",
+      "rules": [
+        {
+          "id": "rule-cors-unblock",
+          "name": "为被拦端点补 CORS 响应头",
+          "enabled": true,
+          "type": "modify-headers",
+          "matchType": "contains",
+          "pattern": "/api/cross-origin/blocked",
+          "headers": [
+            {
+              "target": "response",
+              "operation": "set",
+              "header": "Access-Control-Allow-Origin",
+              "value": "*"
+            },
+            {
+              "target": "response",
+              "operation": "set",
+              "header": "Access-Control-Allow-Headers",
+              "value": "*"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "grp-block",
+      "name": "11 请求拦截",
+      "enabled": true,
+      "updatedAt": "2026-07-19T00:00:00.000Z",
+      "rules": [
+        {
+          "id": "rule-block-tracker",
+          "name": "拦截 tracker.svg",
+          "enabled": true,
+          "type": "block",
+          "matchType": "wildcard",
+          "pattern": "*/assets/tracker.svg*"
+        }
+      ]
+    },
+    {
+      "id": "grp-inject",
+      "name": "12 脚本 / CSS 注入",
+      "enabled": true,
+      "updatedAt": "2026-07-19T00:00:00.000Z",
+      "rules": [
+        {
+          "id": "rule-inject-js",
+          "name": "document_start 写入 window.__REQ_FREEDOM_LAB__",
+          "enabled": true,
+          "type": "insert-script",
+          "matchType": "contains",
+          "pattern": "127.0.0.1:4317",
+          "codeType": "js",
+          "timing": "document_start",
+          "code": "window.__REQ_FREEDOM_LAB__ = '注入脚本已生效 @ ' + new Date().toISOString();"
+        },
+        {
+          "id": "rule-inject-css",
+          "name": "document_end 改注入区背景",
+          "enabled": true,
+          "type": "insert-script",
+          "matchType": "contains",
+          "pattern": "127.0.0.1:4317",
+          "codeType": "css",
+          "timing": "document_end",
+          "code": "#injection-target { background: linear-gradient(135deg, #22c55e, #0ea5e9) !important; color: #fff !important; }"
+        }
+      ]
+    }
+  ]
+}
