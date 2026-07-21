@@ -107,11 +107,12 @@ flowchart LR
   - 粘贴 cURL → 自动生成 Redirect / Mock；导入 HAR → 批量生成 Mock。Requestly 有，对 mock 场景是利器。
   - 与上面的「导入 / 导出」同批做，复用 schema，边际成本低。
 
-- [ ] **P1 · 内嵌代码编辑器（CodeMirror 6）**
+- [x] **P1 · 内嵌代码编辑器（CodeMirror 6）**
   - 现在 `MockResponse.body` 用的是原生 `Textarea`，无高亮、无格式化。后续 `InsertScript`（注入 JS/CSS）、JS 动态生成响应、`ModifyRequestBody` 都要编辑代码/JSON，缺一个统一的编辑器组件。
   - 选型：用 **CodeMirror 6** 而非 Monaco。Monaco 的 Web Worker 语言服务与 MV3 的 CSP（`worker-src` / `script-src`）相性差、包体积 MB 级；CodeMirror 6 可按语言 tree-shake（几十~百 KB），MV3 下直接可跑，且当前只需 JSON/JS/CSS 高亮 + 格式化，用不到 Monaco 的 IntelliSense。
   - 落地：封装 `components/ui/code-editor`，`language` 传 `json` / `javascript` / `css`，按需引入 `@codemirror/lang-*`。先替换 `MockResponse.body` 的 `Textarea`，后续规则类型复用。
   - 若将来某功能确实需要 Monaco 级补全（如 JS 生成响应的 `req` 类型提示），再针对该功能单独评估。
+  - 已落地：封装 `components/ui/code-editor`，支持 JSON / JavaScript / CSS 的语法高亮、行号、括号匹配、缩进与格式化；`MockResponse.body` 已切换为 JSON 编辑器，后续规则类型可直接复用。
 
 - [ ] **P2 · JSONC 配置模式**
   - XSwitch 的核心产品决策：不做表单化 UI，而是一大段可注释、可 diff、可粘贴分享的配置文本。

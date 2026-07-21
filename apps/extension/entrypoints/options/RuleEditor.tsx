@@ -39,6 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { CodeEditor } from '@/components/ui/code-editor';
 import { Textarea } from '@/components/ui/textarea';
 import HeadersEditor from './HeadersEditor';
 import KeyValueEditor from './KeyValueEditor';
@@ -492,12 +493,12 @@ export default function RuleEditor({
               />
             </Field>
             <Field label="响应体">
-              <Textarea
-                className="font-mono text-xs"
-                rows={6}
+              <CodeEditor
+                language="json"
                 placeholder='{"code": 0, "data": {}}'
                 value={draft.body}
-                onChange={(e) => setDraft({ ...draft, body: e.target.value })}
+                onChange={(body) => setDraft({ ...draft, body })}
+                ariaLabel="Mock 响应体 JSON 编辑器"
               />
             </Field>
             <Field label="附加响应头">
