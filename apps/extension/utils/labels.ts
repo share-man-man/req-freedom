@@ -1,4 +1,5 @@
 import {
+  BodyMatchType,
   HeaderOperation,
   HeaderTarget,
   InsertScriptCodeType,
@@ -69,6 +70,20 @@ export const INSERT_SCRIPT_CODE_TYPE_LABELS: Record<InsertScriptCodeType, string
 export const INSERT_SCRIPT_TIMING_LABELS: Record<InsertScriptTiming, string> = {
   [InsertScriptTiming.DocumentStart]: '文档开始 (document_start)',
   [InsertScriptTiming.DocumentEnd]: '文档就绪 (document_end)',
+};
+
+/** 请求体匹配方式的中文展示名 */
+export const BODY_MATCH_TYPE_LABELS: Record<BodyMatchType, string> = {
+  [BodyMatchType.Contains]: '包含子串',
+  [BodyMatchType.Regex]: '正则',
+  [BodyMatchType.GraphQlOperation]: 'GraphQL 操作名',
+};
+
+/** 请求体匹配值输入框的占位提示，随匹配方式变化。 */
+export const BODY_MATCH_VALUE_PLACEHOLDERS: Record<BodyMatchType, string> = {
+  [BodyMatchType.Contains]: '请求体需包含的子串',
+  [BodyMatchType.Regex]: '匹配请求体的正则，如 "mutation\\\\s+Login"',
+  [BodyMatchType.GraphQlOperation]: 'operationName，如 GetUser',
 };
 
 /** 匹配方式的中文展示名 */

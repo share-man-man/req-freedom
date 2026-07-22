@@ -20,6 +20,7 @@ import {
 } from '@req-freedom/shared';
 import {
   filterActionsByType,
+  filterRulesByBody,
   filterRulesByChannel,
   findMatchedRules,
   getNetworkRequestDelayMs,
@@ -27,6 +28,7 @@ import {
   getTransferDurationMs,
   modifyRequestBody,
   pickActionByType,
+  rulesNeedBody,
   sleep,
 } from '@req-freedom/core';
 
@@ -144,25 +146,34 @@ export default defineContentScript({
     };
 
     /**
-     * 找出命中 URL 的 Mock 规则、延迟规则与改请求体规则
+     * 按 URL + 方法 + 通道初筛命中的页面补丁规则（同步，不含请求体条件）
+     *
+     * 请求体条件需要读取请求体后二次过滤，成本较高，故与这一步分离：
+     * 无请求体条件时可直接使用初筛结果，避免无谓地读取请求体。
      * @param url 绝对化后的请求 URL
-     * @returns Mock 规则、延迟规则与改请求体规则（可能均为 undefined）
+     * @param method 请求方法
+     * @returns 命中 URL + 方法的页面补丁规则列表
      */
-    const resolvePageRules = (url: string, method: string) => {
+    const resolveCandidateRules = (url: string, method: string): Rule[] => {
       if (!state.enabled) {
-        return { mockRule: undefined, delayRule: undefined, modifyBodyRule: undefined };
+        return [];
       }
-      /** 命中的全部规则 */
-      const matched = filterRulesByChannel(
+      return filterRulesByChannel(
         findMatchedRules(url, method, state.rules),
         RuleExecutionChannel.PagePatch,
       );
-      return {
-        mockRule: pickActionByType(matched, RuleActionType.MockResponse),
-        delayRule: pickActionByType(matched, RuleActionType.Delay),
-        modifyBodyRule: pickActionByType(matched, RuleActionType.ModifyRequestBody),
-      };
     };
+
+    /**
+     * 从（已完成请求体二次过滤的）规则集中挑出 Mock / 延迟 / 改请求体动作
+     * @param rules 已命中的页面补丁规则
+     * @returns Mock 规则、延迟规则与改请求体规则（可能均为 undefined）
+     */
+    const pickPageActions = (rules: Rule[]) => ({
+      mockRule: pickActionByType(rules, RuleActionType.MockResponse),
+      delayRule: pickActionByType(rules, RuleActionType.Delay),
+      modifyBodyRule: pickActionByType(rules, RuleActionType.ModifyRequestBody),
+    });
 
     /**
      * 把相对 URL 转成绝对 URL，便于统一匹配
@@ -507,7 +518,13 @@ export default defineContentScript({
       );
       /** 当前 fetch 实际使用的 HTTP 方法。 */
       const method = getFetchMethod(input, init);
-      const { mockRule, delayRule, modifyBodyRule } = resolvePageRules(url, method);
+      /** URL + 方法初筛命中的页面补丁规则。 */
+      const candidateRules = resolveCandidateRules(url, method);
+      // 含请求体匹配条件时，读取一次请求体后按条件二次过滤；否则沿用初筛结果，避免多余读取
+      const activeRules = rulesNeedBody(candidateRules)
+        ? filterRulesByBody(candidateRules, await readFetchBodyText(input, init))
+        : candidateRules;
+      const { mockRule, delayRule, modifyBodyRule } = pickPageActions(activeRules);
 
       // 关键步骤：在请求实际发出前模拟网络往返延迟与上行传输时间
       if (delayRule) {
@@ -635,104 +652,123 @@ export default defineContentScript({
       const requestMetadata = xhrRequestMap.get(this);
       /** open 阶段记录的请求 URL。 */
       const url = requestMetadata?.url ?? '';
-      const { mockRule, delayRule, modifyBodyRule } = resolvePageRules(
-        url,
-        requestMetadata?.method ?? 'GET',
-      );
-      /** 延迟规则与 Mock 自带延迟的总时长。XHR 不暴露可替换的响应流，因此仅模拟请求前的网络延迟与上行带宽。 */
-      const totalDelayMs =
-        (delayRule ? getNetworkRequestDelayMs(delayRule, getRequestBodyByteLength(body)) : 0) +
-        (mockRule?.delayMs ?? 0);
+      /** open 阶段记录的请求方法。 */
+      const method = requestMetadata?.method ?? 'GET';
+      /** URL + 方法初筛命中的页面补丁规则。 */
+      const candidateRules = resolveCandidateRules(url, method);
 
-      // 关键步骤：命中 Mock 时伪造 XHR 完成态并派发事件，不发起真实请求
-      if (mockRule) {
-        /** 让伪造的 XHR 完成，并保持与静态 Mock 相同的事件顺序。 */
-        const dispatchMockResponse = (mockBody: string): void => {
-          setTimeout(() => {
-            Object.defineProperty(this, 'readyState', { value: XMLHttpRequest.DONE });
-            Object.defineProperty(this, 'status', { value: mockRule.statusCode });
-            Object.defineProperty(this, 'responseText', { value: mockBody });
-            Object.defineProperty(this, 'response', { value: mockBody });
-            this.dispatchEvent(new Event('readystatechange'));
-            this.dispatchEvent(new Event('load'));
-            this.dispatchEvent(new Event('loadend'));
-          }, totalDelayMs);
-        };
-        if (mockRule.mode === MockResponseMode.Dynamic) {
-          void readXhrBodyText(body).then(async (requestBody) => {
-            /** 动态 Mock 函数生成的响应体。 */
-            const mockBody = await resolveMockBody(
-              mockRule,
-              createDynamicRequestContext(
-                url,
-                requestMetadata?.method ?? 'GET',
-                requestMetadata?.headers ?? {},
-                requestBody,
-              ),
-            );
-            dispatchMockResponse(mockBody);
-          });
-        } else {
-          dispatchMockResponse(mockRule.body);
-        }
-        return;
-      }
-
-      /** 当前 XHR 实例引用，供异步回调内调用原始 send。 */
-      const xhr = this;
       /**
-       * 按累计延迟发出真实请求。
-       * @param realBody 最终请求体
+       * 依据（已完成请求体二次过滤的）命中规则执行 Mock / 延迟 / 改请求体 / 真实发送。
+       *
+       * 以箭头函数承载，`this` 仍指向当前 XHR 实例；请求体二次过滤是否发生不影响这段逻辑。
+       * @param activeRules 请求体条件也已命中的规则集
        */
-      const dispatchSend = (realBody?: Document | XMLHttpRequestBodyInit | null): void => {
-        if (totalDelayMs > 0) {
-          setTimeout(() => originalSend.call(xhr, realBody), totalDelayMs);
-        } else {
-          originalSend.call(xhr, realBody);
+      const proceed = (activeRules: Rule[]): void => {
+        const { mockRule, delayRule, modifyBodyRule } = pickPageActions(activeRules);
+        /** 延迟规则与 Mock 自带延迟的总时长。XHR 不暴露可替换的响应流，因此仅模拟请求前的网络延迟与上行带宽。 */
+        const totalDelayMs =
+          (delayRule ? getNetworkRequestDelayMs(delayRule, getRequestBodyByteLength(body)) : 0) +
+          (mockRule?.delayMs ?? 0);
+
+        // 关键步骤：命中 Mock 时伪造 XHR 完成态并派发事件，不发起真实请求
+        if (mockRule) {
+          /** 让伪造的 XHR 完成，并保持与静态 Mock 相同的事件顺序。 */
+          const dispatchMockResponse = (mockBody: string): void => {
+            setTimeout(() => {
+              Object.defineProperty(this, 'readyState', { value: XMLHttpRequest.DONE });
+              Object.defineProperty(this, 'status', { value: mockRule.statusCode });
+              Object.defineProperty(this, 'responseText', { value: mockBody });
+              Object.defineProperty(this, 'response', { value: mockBody });
+              this.dispatchEvent(new Event('readystatechange'));
+              this.dispatchEvent(new Event('load'));
+              this.dispatchEvent(new Event('loadend'));
+            }, totalDelayMs);
+          };
+          if (mockRule.mode === MockResponseMode.Dynamic) {
+            void readXhrBodyText(body).then(async (requestBody) => {
+              /** 动态 Mock 函数生成的响应体。 */
+              const mockBody = await resolveMockBody(
+                mockRule,
+                createDynamicRequestContext(
+                  url,
+                  requestMetadata?.method ?? 'GET',
+                  requestMetadata?.headers ?? {},
+                  requestBody,
+                ),
+              );
+              dispatchMockResponse(mockBody);
+            });
+          } else {
+            dispatchMockResponse(mockRule.body);
+          }
+          return;
         }
+
+        /** 当前 XHR 实例引用，供异步回调内调用原始 send。 */
+        const xhr = this;
+        /**
+         * 按累计延迟发出真实请求。
+         * @param realBody 最终请求体
+         */
+        const dispatchSend = (realBody?: Document | XMLHttpRequestBodyInit | null): void => {
+          if (totalDelayMs > 0) {
+            setTimeout(() => originalSend.call(xhr, realBody), totalDelayMs);
+          } else {
+            originalSend.call(xhr, realBody);
+          }
+        };
+
+        // 关键步骤：命中改请求体规则时，算出新请求体后再按延迟发送
+        if (modifyBodyRule && requestMetadata?.method !== 'GET' && requestMetadata?.method !== 'HEAD') {
+          // 静态 Replace 无需原体；JSON 深合并与动态模式需先（可能异步）读取原始请求体文本。
+          if (
+            modifyBodyRule.sourceMode === RequestBodySourceMode.Dynamic ||
+            modifyBodyRule.mode === RequestBodyMode.MergeJson
+          ) {
+            void readXhrBodyText(body).then(async (originalBody) => {
+              /** 动态模式执行函数，静态模式沿用既有 JSON 深合并。 */
+              const nextBody =
+                modifyBodyRule.sourceMode === RequestBodySourceMode.Dynamic
+                  ? await executeDynamicRequestBody(
+                      modifyBodyRule.functionCode ?? '',
+                      createDynamicRequestContext(
+                        url,
+                        requestMetadata?.method ?? 'GET',
+                        requestMetadata?.headers ?? {},
+                        originalBody,
+                      ),
+                      originalBody,
+                    )
+                  : modifyRequestBody(
+                      modifyBodyRule.mode,
+                      modifyBodyRule.content,
+                      originalBody,
+                    );
+              dispatchSend(nextBody);
+            });
+          } else {
+            dispatchSend(modifyRequestBody(modifyBodyRule.mode, modifyBodyRule.content, ''));
+          }
+          return;
+        }
+
+        // 仅延迟：推迟真实 send
+        if (totalDelayMs > 0) {
+          setTimeout(() => originalSend.call(this, body), totalDelayMs);
+          return;
+        }
+
+        originalSend.call(this, body);
       };
 
-      // 关键步骤：命中改请求体规则时，算出新请求体后再按延迟发送
-      if (modifyBodyRule && requestMetadata?.method !== 'GET' && requestMetadata?.method !== 'HEAD') {
-        // 静态 Replace 无需原体；JSON 深合并与动态模式需先（可能异步）读取原始请求体文本。
-        if (
-          modifyBodyRule.sourceMode === RequestBodySourceMode.Dynamic ||
-          modifyBodyRule.mode === RequestBodyMode.MergeJson
-        ) {
-          void readXhrBodyText(body).then(async (originalBody) => {
-            /** 动态模式执行函数，静态模式沿用既有 JSON 深合并。 */
-            const nextBody =
-              modifyBodyRule.sourceMode === RequestBodySourceMode.Dynamic
-                ? await executeDynamicRequestBody(
-                    modifyBodyRule.functionCode ?? '',
-                    createDynamicRequestContext(
-                      url,
-                      requestMetadata?.method ?? 'GET',
-                      requestMetadata?.headers ?? {},
-                      originalBody,
-                    ),
-                    originalBody,
-                  )
-                : modifyRequestBody(
-                    modifyBodyRule.mode,
-                    modifyBodyRule.content,
-                    originalBody,
-                  );
-            dispatchSend(nextBody);
-          });
-        } else {
-          dispatchSend(modifyRequestBody(modifyBodyRule.mode, modifyBodyRule.content, ''));
-        }
+      // 含请求体匹配条件时，先读取一次请求体做二次过滤再执行；否则直接沿用初筛结果
+      if (rulesNeedBody(candidateRules)) {
+        void readXhrBodyText(body).then((bodyText) =>
+          proceed(filterRulesByBody(candidateRules, bodyText)),
+        );
         return;
       }
-
-      // 仅延迟：推迟真实 send
-      if (totalDelayMs > 0) {
-        setTimeout(() => originalSend.call(this, body), totalDelayMs);
-        return;
-      }
-
-      return originalSend.call(this, body);
+      proceed(candidateRules);
     };
   },
 });

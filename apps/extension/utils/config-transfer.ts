@@ -1,5 +1,6 @@
-import type { ConfigurationExport, HeaderModification, Rule, RuleAction, RuleGroup } from '@req-freedom/shared';
+import type { BodyMatcher, ConfigurationExport, HeaderModification, Rule, RuleAction, RuleGroup } from '@req-freedom/shared';
 import {
+  BodyMatchType,
   CONFIG_EXPORT_FILE_NAME_PREFIX,
   CONFIG_EXPORT_SCHEMA_VERSION,
   HeaderOperation,
@@ -154,6 +155,8 @@ function parseRule(value: unknown, groupId: string, index: number, ruleIds: Set<
   if (rule.matchType === MatchType.Regex) { try { new RegExp(pattern); } catch { throw new Error(`规则「${id}」的正则表达式语法错误。`); } }
   /** 执行通道。 */
   const channel = rule.channel as RuleExecutionChannel;
+  /** 已校验的请求体匹配条件（缺省表示不按请求体收敛）。 */
+  const bodyMatch = rule.bodyMatch === undefined ? undefined : parseBodyMatch(rule.bodyMatch, id, channel);
   /** 已校验动作。 */
   const actions = rule.actions.map((action, actionIndex) => parseAction(action, id, actionIndex, channel));
   /** 不能同时执行的 DNR 路由动作数量。 */
@@ -162,7 +165,25 @@ function parseRule(value: unknown, groupId: string, index: number, ruleIds: Set<
   if (rule.methods.length === 0 || rule.methods.includes(HttpMethod.Get) || rule.methods.includes(HttpMethod.Head)) {
     if (actions.some((action) => action.type === RuleActionType.ModifyRequestBody)) throw new Error(`规则「${id}」的 GET / HEAD 不能改请求体。`);
   }
-  return { id, name: requireString(rule.name, `规则「${id}」的名称`), enabled: rule.enabled, channel, methods: rule.methods as HttpMethod[], matchType: rule.matchType as MatchType, pattern, actions };
+  return { id, name: requireString(rule.name, `规则「${id}」的名称`), enabled: rule.enabled, channel, methods: rule.methods as HttpMethod[], matchType: rule.matchType as MatchType, ...(bodyMatch ? { bodyMatch } : {}), pattern, actions };
+}
+
+/**
+ * 校验请求体匹配条件。
+ * @param value 待校验的请求体匹配条件
+ * @param ruleId 所属规则 ID
+ * @param channel 规则执行通道（请求体条件仅页面补丁通道可用）
+ * @returns 已校验的请求体匹配条件
+ */
+function parseBodyMatch(value: unknown, ruleId: string, channel: RuleExecutionChannel): BodyMatcher {
+  if (channel !== RuleExecutionChannel.PagePatch) throw new Error(`规则「${ruleId}」的请求体匹配仅页面补丁通道可用。`);
+  /** 请求体匹配对象。 */
+  const bodyMatch = requireRecord(value, `规则「${ruleId}」的请求体匹配`);
+  if (!Object.values(BodyMatchType).includes(bodyMatch.type as BodyMatchType)) throw new Error(`规则「${ruleId}」的请求体匹配方式不合法。`);
+  /** 匹配值。 */
+  const matchValue = requireString(bodyMatch.value, `规则「${ruleId}」的请求体匹配值`);
+  if (bodyMatch.type === BodyMatchType.Regex) { try { new RegExp(matchValue); } catch { throw new Error(`规则「${ruleId}」的请求体匹配正则语法错误。`); } }
+  return { type: bodyMatch.type as BodyMatchType, value: matchValue };
 }
 
 /**
