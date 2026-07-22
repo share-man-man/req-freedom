@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, CheckCircle2, FlaskConical, Info, Trash2, XCircle } from 'lucide-react';
 import type { ReactNode, Ref } from 'react';
-import type { Rule, RuleAction } from '@req-freedom/shared';
+import type { BodyMatcher, Rule, RuleAction } from '@req-freedom/shared';
 import { matchUrl } from '@req-freedom/core';
 import {
+  BodyMatchType,
   DEFAULT_DYNAMIC_MOCK_FUNCTION_CODE,
   DEFAULT_DYNAMIC_REQUEST_BODY_FUNCTION_CODE,
   DEFAULT_MOCK_BODY_TYPE,
@@ -38,6 +39,8 @@ import { CodeEditor, type CodeEditorLanguage } from '@/components/ui/code-editor
 import HeadersEditor from './HeadersEditor';
 import KeyValueEditor from './KeyValueEditor';
 import {
+  BODY_MATCH_TYPE_LABELS,
+  BODY_MATCH_VALUE_PLACEHOLDERS,
   INSERT_SCRIPT_CODE_TYPE_LABELS,
   INSERT_SCRIPT_TIMING_LABELS,
   MATCH_TYPE_LABELS,
@@ -71,6 +74,8 @@ const EXCLUSIVE_DNR_ACTIONS = [RuleActionType.Block, RuleActionType.Redirect, Ru
 const EXCLUSIVE_PAGE_ACTIONS = [RuleActionType.InsertScript] as const;
 /** 可携带请求体的 HTTP 方法（改请求体动作专用）。 */
 const BODY_METHODS = [HttpMethod.Post, HttpMethod.Put, HttpMethod.Patch, HttpMethod.Delete, HttpMethod.Options] as const;
+/** 请求体条件下拉里「不启用」选项的哨兵值（不与任何 BodyMatchType 冲突）。 */
+const BODY_MATCH_OFF = 'off';
 
 /** 静态 Mock 响应体类型 → CodeEditor 高亮语言；HTML/XML/文本无内置高亮，回退纯文本。 */
 const MOCK_BODY_TYPE_EDITOR_LANGUAGE: Record<MockBodyType, CodeEditorLanguage> = {
@@ -180,26 +185,8 @@ interface FieldProps { label: string; children: ReactNode; error?: string; inner
  * @param props 字段标签、控件、校验错误与滚动锚点 ref
  */
 function Field({ label, children, error, innerRef }: FieldProps) {
-  return <div ref={innerRef} className="grid grid-cols-[64px_1fr] items-center gap-4"><Label className={error ? 'text-destructive' : 'text-muted-foreground'}>{label}</Label><div>{children}{error && <p className="mt-1 text-xs text-destructive">{error}</p>}</div></div>;
-}
-
-interface SectionProps { title: string; desc?: string; children: ReactNode; }
-
-/**
- * 表单分区：以标题分隔「执行动作」与「命中条件」两块语义。
- * 省略 desc 时只渲染标题，不带说明小字与分隔线。
- * @param props 分区标题、可选说明与内容
- */
-function Section({ title, desc, children }: SectionProps) {
-  return <section className="space-y-4">
-    {desc
-      ? <div className="border-b border-border pb-2">
-          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-          <p className="mt-0.5 text-xs text-muted-foreground">{desc}</p>
-        </div>
-      : <h3 className="text-sm font-semibold text-foreground">{title}</h3>}
-    {children}
-  </section>;
+  // 标签与表单项等高（h-9）且顶对齐：行不再整体垂直居中，标签固定贴合首行控件高度
+  return <div ref={innerRef} className="grid grid-cols-[80px_1fr] items-start gap-4"><Label className={`flex h-9 items-center ${error ? 'text-destructive' : 'text-muted-foreground'}`}>{label}</Label><div>{children}{error && <p className="mt-1 text-xs text-destructive">{error}</p>}</div></div>;
 }
 
 /**
@@ -301,6 +288,10 @@ function validateRule(rule: Rule): ValidationError | null {
   /** 是否有不允许 body 的方法。 */
   const hasBodylessMethod = rule.methods.length === 0 || rule.methods.includes(HttpMethod.Get) || rule.methods.includes(HttpMethod.Head);
   if (hasBodylessMethod && rule.actions.some((action) => action.type === RuleActionType.ModifyRequestBody)) return { field: 'methods', message: '改请求体需选择 POST / PUT / PATCH / DELETE / OPTIONS' };
+  if (rule.bodyMatch !== undefined) {
+    if (!rule.bodyMatch.value.trim()) return { field: 'bodyMatch', message: '请求体匹配值不能为空' };
+    if (rule.bodyMatch.type === BodyMatchType.Regex) { try { new RegExp(rule.bodyMatch.value); } catch { return { field: 'bodyMatch', message: '请求体匹配正则语法错误' }; } }
+  }
   /** 当前选择的 DNR 路由动作数量。 */
   const exclusiveDnrCount = rule.actions.filter((action) => EXCLUSIVE_DNR_ACTIONS.includes(action.type as (typeof EXCLUSIVE_DNR_ACTIONS)[number])).length;
   if (exclusiveDnrCount > 1) return { field: 'actions', message: '拦截、重定向和参数注入只能选择其中一项' };
@@ -364,6 +355,14 @@ export default function RuleEditor({ rule, isNew, groups, groupId, onSave, onCan
     const methods = draft.methods.includes(method) ? draft.methods.filter((item) => item !== method) : [...draft.methods, method];
     setDraft({ ...draft, methods });
   };
+  // 请求体条件仅页面补丁通道能读到请求体；按页面 URL 命中的脚本注入也没有可匹配的请求体
+  /** 当前规则是否支持请求体匹配条件。 */
+  const supportsBodyMatch = draft.channel === RuleExecutionChannel.PagePatch && !draft.actions.some((action) => action.type === RuleActionType.InsertScript);
+  /**
+   * 更新请求体匹配条件；传 undefined 表示关闭条件。
+   * @param bodyMatch 新的请求体匹配条件
+   */
+  const setBodyMatch = (bodyMatch: BodyMatcher | undefined): void => setDraft({ ...draft, bodyMatch });
   /**
    * 切换动作显示；动作所属通道由动作类型自动推导，并同步收敛请求方法。
    * @param type 动作类型
@@ -413,8 +412,12 @@ export default function RuleEditor({ rule, isNew, groups, groupId, onSave, onCan
    * 执行保存。
    */
   const handleSave = (): void => {
+    // 通道 / 动作变化后可能残留不再适用的请求体条件，保存前统一剥离，避免带着隐藏条件落库
+    /** 剥离不适用请求体条件后的规则草稿。 */
+    const normalized = { ...draft };
+    if (!supportsBodyMatch) delete normalized.bodyMatch;
     /** 校验结果。 */
-    const validation = validateRule(draft);
+    const validation = validateRule(normalized);
     if (validation) {
       setError(validation);
       // 出错项是某个动作时，先聚焦它、并把左栏 tab 切到其通道——右侧仅挂载当前 tab 的聚焦动作，不切过去就滚不到
@@ -428,7 +431,7 @@ export default function RuleEditor({ rule, isNew, groups, groupId, onSave, onCan
       requestAnimationFrame(() => fieldRefs.current[validation.field]?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
       return;
     }
-    onSave(draft, targetGroupId);
+    onSave(normalized, targetGroupId);
   };
 
   return <div className="flex max-h-[82vh] min-h-0 flex-1 flex-col overflow-hidden">
@@ -441,8 +444,8 @@ export default function RuleEditor({ rule, isNew, groups, groupId, onSave, onCan
         <Field label="规则名称" error={error?.field === 'name' ? error.message : undefined} innerRef={registerField('name')}><Input aria-invalid={error?.field === 'name'} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></Field>
       </div>
 
-      {/* 第一步：这条规则要做什么 */}
-      <Section title="执行动作">
+      {/* 第一步：这条规则要做什么（动作工作台自带通道标签页，无需额外标题） */}
+      <section className="space-y-4">
         <div ref={registerField('actions')}>
           <ActionWorkbench
             draft={draft}
@@ -459,22 +462,25 @@ export default function RuleEditor({ rule, isNew, groups, groupId, onSave, onCan
           />
           {error?.field === 'actions' && <p className="mt-2 text-xs text-destructive">{error.message}</p>}
         </div>
-      </Section>
+      </section>
 
       {/* 第二步：对哪些请求生效 */}
-      <Section title="命中条件" desc="以下条件对上面所有动作统一生效">
-        {/* 匹配方式与匹配内容同行：方式为短下拉占窄列，内容为输入 + 测试占其余空间 */}
-        <div className="grid grid-cols-[180px_1fr] gap-4">
-          <Field label="匹配方式"><Select value={draft.matchType} onValueChange={(value) => setDraft({ ...draft, matchType: value as MatchType })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(MatchType).map((type) => <SelectItem key={type} value={type}>{MATCH_TYPE_LABELS[type]}</SelectItem>)}</SelectContent></Select></Field>
-          <Field label="匹配内容" error={error?.field === 'pattern' ? error.message : undefined} innerRef={registerField('pattern')}>
-            <div className="flex items-center gap-2">
-              <Input className="flex-1" aria-invalid={error?.field === 'pattern'} value={draft.pattern} onChange={(event) => setDraft({ ...draft, pattern: event.target.value })} />
-              <MatchTester draft={draft} />
-            </div>
-          </Field>
-        </div>
+      <section className="space-y-4">
+        {/* 匹配方式与匹配内容各占一行，与请求方法 / 请求体匹配的行式布局保持一致 */}
+        <Field label="匹配方式"><Select value={draft.matchType} onValueChange={(value) => setDraft({ ...draft, matchType: value as MatchType })}><SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger><SelectContent>{Object.values(MatchType).map((type) => <SelectItem key={type} value={type}>{MATCH_TYPE_LABELS[type]}</SelectItem>)}</SelectContent></Select></Field>
+        <Field label="匹配内容" error={error?.field === 'pattern' ? error.message : undefined} innerRef={registerField('pattern')}>
+          <div className="flex items-center gap-2">
+            <Input className="flex-1" aria-invalid={error?.field === 'pattern'} value={draft.pattern} onChange={(event) => setDraft({ ...draft, pattern: event.target.value })} />
+            <MatchTester draft={draft} />
+          </div>
+        </Field>
         <Field label="请求方法" error={error?.field === 'methods' ? error.message : undefined} innerRef={registerField('methods')}><MethodPicker draft={draft} onToggle={toggleMethod} onSelectAll={() => setDraft({ ...draft, methods: [] })} /></Field>
-      </Section>
+        {supportsBodyMatch && (
+          <Field label="请求体匹配" error={error?.field === 'bodyMatch' ? error.message : undefined} innerRef={registerField('bodyMatch')}>
+            <BodyMatchEditor value={draft.bodyMatch} invalid={error?.field === 'bodyMatch'} onChange={setBodyMatch} />
+          </Field>
+        )}
+      </section>
     </div>
     <DialogFooter><Button variant="outline" onClick={onCancel}>取消</Button><Button onClick={handleSave}>保存</Button></DialogFooter>
   </div>;
@@ -607,11 +613,12 @@ function ActionWorkbench({ draft, focusedType, channelTab, onChannelTab, onToggl
         const hasSelection = !activeTab && draft.actions.length > 0 && draft.channel === group.channel;
         return <button key={group.channel} type="button" onClick={() => onChannelTab(group.channel)} className={`relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${activeTab ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
           {group.title}
-          {/* 通道说明：文字右侧 info 图标，悬停浮出气泡 */}
+          {/* 通道说明 + 组合约束：文字右侧 info 图标，悬停浮出气泡 */}
           <span className="group/hint relative inline-flex">
             <Info className="size-3 text-muted-foreground" />
-            <span className="pointer-events-none absolute left-0 top-full z-50 mt-1.5 w-56 rounded-md border border-border bg-popover px-2.5 py-1.5 text-left text-[11px] font-normal leading-snug text-popover-foreground opacity-0 shadow-md transition-opacity group-hover/hint:opacity-100">
-              {group.hint}
+            <span className="pointer-events-none absolute left-0 top-full z-50 mt-1.5 w-64 space-y-1 rounded-md border border-border bg-popover px-2.5 py-1.5 text-left text-[11px] font-normal leading-snug text-popover-foreground opacity-0 shadow-md transition-opacity group-hover/hint:opacity-100">
+              <span className="block">{group.hint}</span>
+              <span className="block text-muted-foreground">{group.note}</span>
             </span>
           </span>
           {hasSelection && <span className="size-1.5 rounded-full bg-primary" />}
@@ -634,14 +641,18 @@ function ActionWorkbench({ draft, focusedType, channelTab, onChannelTab, onToggl
             // 行本身不能嵌套按钮，故拆成「主区按钮 + 删除按钮」两个兄弟节点，外层 div 承载选中/悬停底色
             return <div key={type} className={`group flex items-center rounded-md pr-1 transition-colors ${active ? 'bg-primary/10' : 'hover:bg-muted/50'}`}>
               {/* 主区：未选中 → 勾选并聚焦（onToggle 内部会聚焦）；已选中 → 仅切换聚焦 */}
-              <button type="button" onClick={() => selectedAction ? onFocus(type) : onToggle(type)} className="flex min-w-0 flex-1 flex-col items-start gap-0.5 px-2.5 py-1.5 text-left">
-                <span className={`flex w-full items-center gap-1.5 text-sm font-medium ${selectedAction ? 'text-foreground' : 'text-muted-foreground'}`}>
-                  {hasError
-                    ? <span className="size-1.5 shrink-0 rounded-full bg-destructive" />
-                    : <Check className={`size-3.5 shrink-0 ${selectedAction ? 'text-primary' : 'text-transparent'}`} />}
-                  <span className="truncate">{RULE_ACTION_TYPE_LABELS[type]}</span>
+              <button type="button" onClick={() => selectedAction ? onFocus(type) : onToggle(type)} className="flex min-w-0 flex-1 items-center gap-1.5 px-2.5 py-1.5 text-left">
+                {hasError
+                  ? <span className="size-1.5 shrink-0 rounded-full bg-destructive" />
+                  : <Check className={`size-3.5 shrink-0 ${selectedAction ? 'text-primary' : 'text-transparent'}`} />}
+                <span className={`truncate text-sm font-medium ${selectedAction ? 'text-foreground' : 'text-muted-foreground'}`}>{RULE_ACTION_TYPE_LABELS[type]}</span>
+                {/* 动作说明移入 hover 气泡：默认展示动作用途，已选时展示当前配置预览 */}
+                <span className="group/desc relative inline-flex shrink-0">
+                  <Info className="size-3 text-muted-foreground" />
+                  <span className="pointer-events-none absolute left-0 top-full z-50 mt-1.5 w-56 rounded-md border border-border bg-popover px-2.5 py-1.5 text-left text-[11px] font-normal leading-snug text-popover-foreground opacity-0 shadow-md transition-opacity group-hover/desc:opacity-100">
+                    {selectedAction ? describeAction(selectedAction) : ACTION_DESCRIPTIONS[type]}
+                  </span>
                 </span>
-                <span className="w-full truncate pl-5 text-[11px] leading-snug text-muted-foreground">{selectedAction ? describeAction(selectedAction) : ACTION_DESCRIPTIONS[type]}</span>
               </button>
               {/* 删除入口：仅已选动作可删；聚焦行常显，其余行悬停浮现 */}
               {selectedAction && (
@@ -653,8 +664,6 @@ function ActionWorkbench({ draft, focusedType, channelTab, onChannelTab, onToggl
             </div>;
           })}
         </div>
-        {/* 组合约束：放在选项下方（通道说明已挪到 tab 的 hover 气泡） */}
-        <p className="mt-2 px-1 text-[11px] text-muted-foreground">{currentGroup.note}</p>
       </div>
       {/* 右列：聚焦动作的参数编辑器（detail）；当前 tab 未选任何动作时给出引导 */}
       <div className="min-w-0">
@@ -695,6 +704,36 @@ function MethodPicker({ draft, onToggle, onSelectAll }: MethodPickerProps) {
       {methods.map((method) => <Button key={method} size="sm" variant={draft.methods.includes(method) ? 'default' : 'outline'} onClick={() => onToggle(method)}>{method}</Button>)}
     </div>
     {hasRequestBody && <p className="mt-1.5 text-xs text-muted-foreground">改请求体只作用于可携带请求体的方法，已自动排除 GET / HEAD 与「全部」。</p>}
+  </div>;
+}
+
+interface BodyMatchEditorProps {
+  /** 当前请求体匹配条件；undefined 表示未启用。 */
+  value?: BodyMatcher;
+  /** 值输入框是否标红（校验失败）。 */
+  invalid?: boolean;
+  /** 条件变更回调；传 undefined 表示关闭条件。 */
+  onChange: (value: BodyMatcher | undefined) => void;
+}
+
+/**
+ * 请求体命中条件编辑器：在 URL + 方法之外，按请求体子串 / 正则 / GraphQL 操作名进一步收敛。
+ * 选「不限制请求体」即关闭条件；切换匹配方式时保留已填的匹配值。
+ * @param props 请求体条件、校验标红与变更回调
+ */
+function BodyMatchEditor({ value, invalid, onChange }: BodyMatchEditorProps) {
+  return <div className="space-y-1.5">
+    <div className="flex items-center gap-2">
+      <Select value={value?.type ?? BODY_MATCH_OFF} onValueChange={(next) => onChange(next === BODY_MATCH_OFF ? undefined : { type: next as BodyMatchType, value: value?.value ?? '' })}>
+        <SelectTrigger className="w-40 shrink-0"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value={BODY_MATCH_OFF}>不限制请求体</SelectItem>
+          {Object.values(BodyMatchType).map((type) => <SelectItem key={type} value={type}>{BODY_MATCH_TYPE_LABELS[type]}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      {value && <Input className="flex-1 font-mono text-xs" aria-invalid={invalid} placeholder={BODY_MATCH_VALUE_PLACEHOLDERS[value.type]} value={value.value} onChange={(event) => onChange({ ...value, value: event.target.value })} />}
+    </div>
+    <p className="text-xs text-muted-foreground">只按页面脚本 fetch / XHR 的请求体收敛；GraphQL 同 URL 的多个操作可用「操作名」精确区分。</p>
   </div>;
 }
 
