@@ -30,6 +30,12 @@ h2 { margin-bottom: 8px; font-size: 18px; letter-spacing: -.02em; }
 .button-secondary { background: transparent; }
 .location { overflow: hidden; color: #7994ae; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(255px, 1fr)); gap: 14px; }
+/* 规则分组：与配置表单的动作选择面板保持相同的分组、顺序与文案 */
+.rule-group + .rule-group { margin-top: 40px; }
+.group-heading { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #1e3a57; }
+.group-heading h2 { margin-bottom: 6px; }
+.group-hint { margin: 0; color: #9db2c8; line-height: 1.55; font-size: 13px; }
+.group-note { margin: 6px 0 0; color: #6f89a2; font-size: 12px; }
 .card { display: flex; min-height: 288px; flex-direction: column; padding: 19px; border: 1px solid #1e3a57; border-radius: 14px; background: linear-gradient(145deg, #102238e8, #0b1829e8); }
 .card p { color: #a8bbd1; line-height: 1.6; font-size: 14px; }
 .card code, .injection-panel code { color: #83d7fb; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; }

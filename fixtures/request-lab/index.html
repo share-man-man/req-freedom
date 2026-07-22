@@ -36,207 +36,100 @@
         <span class="location" id="location"></span>
       </section>
 
-      <section class="grid" aria-label="请求验证项目">
-        <article class="card" data-test="basic-fetch">
-          <div class="card-heading">
-            <span class="tag">FETCH</span>
-            <h2>基础请求 / 返回值 Mock</h2>
+      <section aria-label="请求验证项目">
+        <!-- 分组与卡片顺序对齐配置表单的动作选择面板：网络层（DNR）→ 页面内补丁 → 脚本注入（下方独立验证区） -->
+        <div class="rule-group">
+          <div class="group-heading">
+            <p class="eyebrow">NETWORK LAYER · DNR</p>
+            <h2>网络层</h2>
+            <p class="group-hint">作用于全部请求（含页面导航、静态资源），但读不到请求体。</p>
+            <p class="group-note">拦截 / 重定向 / 参数注入三选一，Header 改写可叠加。</p>
           </div>
-          <p>读取用户数据。可将这条请求直接 Mock 成任意状态码、响应头和 JSON 响应体。</p>
-          <code>/api/users.json</code>
-          <details>
-            <summary>Mock 规则示例</summary>
-            <pre>匹配：contains /api/users.json
-状态：503
-响应体：{"code":503,"message":"mocked"}</pre>
-          </details>
-          <button class="button" data-action="basic-fetch" type="button">发起 Fetch</button>
-        </article>
+          <div class="grid">
+            <article class="card" data-test="asset-block">
+              <div class="card-heading">
+                <span class="tag">RESOURCE</span>
+                <h2>请求拦截</h2>
+              </div>
+              <p>动态加载小图。命中 block 规则后，卡片会显示资源加载失败，Network 也会显示被阻断。</p>
+              <code>/assets/tracker.svg</code>
+              <div class="asset-preview" id="asset-preview">尚未加载</div>
+              <button class="button" data-action="asset-block" type="button">加载资源</button>
+            </article>
 
-        <article class="card" data-test="xhr-request">
-          <div class="card-heading">
-            <span class="tag">XHR</span>
-            <h2>XHR / 返回值 Mock</h2>
-          </div>
-          <p>使用传统 XMLHttpRequest 请求商品数据，专门验证 XHR 的 Mock 与延迟路径。</p>
-          <code>/api/products.json</code>
-          <details>
-            <summary>Mock 规则示例</summary>
-            <pre>匹配：contains /api/products.json
-状态：200
-响应体：{"source":"xhr-mock","items":[]}</pre>
-          </details>
-          <button class="button" data-action="xhr-request" type="button">发起 XHR</button>
-        </article>
-
-        <article class="card" data-test="redirect">
-          <div class="card-heading">
-            <span class="tag">DNR</span>
-            <h2>重定向</h2>
-          </div>
-          <p>请求 source 文件；重定向后，日志中的最终 URL 和响应内容应变为 target 文件。</p>
-          <code>/api/redirect-source.json → /api/redirect-target.json</code>
-          <details>
-            <summary>重定向规则示例</summary>
-            <pre>匹配：contains /api/redirect-source.json
+            <article class="card" data-test="redirect">
+              <div class="card-heading">
+                <span class="tag">DNR</span>
+                <h2>重定向</h2>
+              </div>
+              <p>请求 source 文件；重定向后，日志中的最终 URL 和响应内容应变为 target 文件。</p>
+              <code>/api/redirect-source.json → http://127.0.0.1:4317/api/redirect-target.json</code>
+              <details>
+                <summary>重定向规则示例</summary>
+                <pre>匹配：contains /api/redirect-source.json
 目标：http://127.0.0.1:4317/api/redirect-target.json
 （须填含协议的绝对地址，端口以当前页面为准）</pre>
-          </details>
-          <button class="button" data-action="redirect" type="button">测试重定向</button>
-        </article>
+              </details>
+              <button class="button" data-action="redirect" type="button">测试重定向</button>
+            </article>
 
-        <article class="card" data-test="params">
-          <div class="card-heading">
-            <span class="tag">DNR</span>
-            <h2>参数注入</h2>
-          </div>
-          <p>文件服务会忽略查询参数，但最终请求 URL 会在日志与 Network 面板中清楚显示。</p>
-          <code>/api/params.json?from=lab</code>
-          <details>
-            <summary>参数规则示例</summary>
-            <pre>匹配：contains /api/params.json
+            <article class="card" data-test="params">
+              <div class="card-heading">
+                <span class="tag">DNR</span>
+                <h2>参数注入</h2>
+              </div>
+              <p>文件服务会忽略查询参数，但最终请求 URL 会在日志与 Network 面板中清楚显示。</p>
+              <code>/api/params.json?from=lab</code>
+              <details>
+                <summary>参数规则示例</summary>
+                <pre>匹配：contains /api/params.json
 注入：debug=1，environment=local</pre>
-          </details>
-          <button class="button" data-action="params" type="button">测试参数注入</button>
-        </article>
+              </details>
+              <button class="button" data-action="params" type="button">测试参数注入</button>
+            </article>
 
-        <article class="card" data-test="headers">
-          <div class="card-heading">
-            <span class="tag">DNR</span>
-            <h2>请求 / 响应 Header</h2>
-          </div>
-          <p>该请求带有初始 Header；页面会回显可读取的响应头，完整请求头请在 Network 中检查。</p>
-          <code>/api/headers.json</code>
-          <details>
-            <summary>Header 规则示例</summary>
-            <pre>请求头 set：X-Req-Freedom = enabled
+            <article class="card" data-test="headers">
+              <div class="card-heading">
+                <span class="tag">DNR</span>
+                <h2>请求 / 响应 Header</h2>
+              </div>
+              <p>该请求带有初始 Header；页面会回显可读取的响应头，完整请求头请在 Network 中检查。</p>
+              <code>/api/headers.json</code>
+              <details>
+                <summary>Header 规则示例</summary>
+                <pre>请求头 set：X-Req-Freedom = enabled
 响应头 set：X-Response-Patched = true</pre>
-          </details>
-          <button class="button" data-action="headers" type="button">测试 Header</button>
-        </article>
+              </details>
+              <button class="button" data-action="headers" type="button">测试 Header</button>
+            </article>
 
-        <article class="card" data-test="slow-response">
-          <div class="card-heading">
-            <span class="tag">FETCH</span>
-            <h2>网络限速 / 延迟</h2>
-          </div>
-          <p>下载约 512 KB 的文本响应。可用 Slow 3G 或自定义延迟观察 loading、耗时和下载过程。</p>
-          <code>/api/slow-response.txt</code>
-          <details>
-            <summary>限速规则示例</summary>
-            <pre>匹配：contains /api/slow-response.txt
-档位：Slow 3G</pre>
-          </details>
-          <button class="button" data-action="slow-response" type="button">测试弱网</button>
-        </article>
-
-        <article class="card" data-test="post-request">
-          <div class="card-heading">
-            <span class="tag">FETCH POST</span>
-            <h2>上行带宽</h2>
-          </div>
-          <p>向静态路径提交约 16 KB JSON。即使服务端返回 404，也可用来验证请求前的上传等待。</p>
-          <code>POST /api/upload-probe</code>
-          <button class="button" data-action="post-request" type="button">提交测试数据</button>
-        </article>
-
-        <article class="card" data-test="modify-request-body">
-          <div class="card-heading">
-            <span class="tag">FETCH / XHR POST</span>
-            <h2>改请求体</h2>
-          </div>
-          <p>向回显端点提交一段已知 JSON，响应会原样返回服务端实际收到的请求体。对比日志里的 <code>receivedBody</code> 即可确认改写是否生效。</p>
-          <code>POST /api/echo</code>
-          <details>
-            <summary>改请求体规则示例</summary>
-            <pre>匹配：contains /api/echo
-模式：JSON 深合并
-内容：{"variables": {"first": 100}}
-
-原始请求体：
-{"query":"ListItems","variables":{"first":10,"after":"cursor-0"}}
-预期 receivedBody：
-{"query":"ListItems","variables":{"first":100,"after":"cursor-0"}}</pre>
-          </details>
-          <div class="button-row">
-            <button class="button" data-action="modify-body-fetch" type="button">Fetch 提交</button>
-            <button class="button" data-action="modify-body-xhr" type="button">XHR 提交</button>
-          </div>
-        </article>
-
-        <article class="card" data-test="methods">
-          <div class="card-heading">
-            <span class="tag">MULTI METHOD</span>
-            <h2>请求方法</h2>
-          </div>
-          <p>同一个 URL 用不同方法各打一次，响应回显服务端实际处理的方法。用于验证按方法过滤的规则只作用于目标方法。</p>
-          <code>/api/methods</code>
-          <div class="button-row">
-            <button class="button" data-action="methods-get" type="button">GET</button>
-            <button class="button" data-action="methods-post" type="button">POST</button>
-            <button class="button" data-action="methods-delete" type="button">DELETE</button>
-          </div>
-        </article>
-
-        <article class="card" data-test="graphql">
-          <div class="card-heading">
-            <span class="tag">GRAPHQL</span>
-            <h2>operationName 区分</h2>
-          </div>
-          <p>两个操作共用同一 URL 和方法，只能靠请求体里的 <code>operationName</code> 区分。响应回显服务端实际收到的操作名与变量。</p>
-          <code>POST /api/graphql</code>
-          <details>
-            <summary>为什么只靠 URL 匹配不够</summary>
-            <pre>ListItems 与 GetUser 的 URL、method 完全相同，
-只有请求体不同。仅按 URL 匹配会同时命中两者，
-需要「请求体匹配」才能只改其中一个。</pre>
-          </details>
-          <div class="button-row">
-            <button class="button" data-action="graphql-list" type="button">ListItems</button>
-            <button class="button" data-action="graphql-user" type="button">GetUser</button>
-          </div>
-        </article>
-
-        <article class="card" data-test="cookies">
-          <div class="card-heading">
-            <span class="tag">COOKIE</span>
-            <h2>Cookie 双向</h2>
-          </div>
-          <p>响应回显收到的 <code>Cookie</code> 请求头，同时下发三条可见性各异的 <code>Set-Cookie</code>。两个方向的改写都能在此核对（首次点击尚无 Cookie 可回显，再点一次即可看到）。</p>
-          <code>GET /api/cookies</code>
-          <details>
-            <summary>三条 Cookie 的可见性</summary>
-            <pre>lab_visible  Path=/     document.cookie 可见
+            <article class="card" data-test="cookies">
+              <div class="card-heading">
+                <span class="tag">COOKIE</span>
+                <h2>Cookie 双向</h2>
+              </div>
+              <p>响应回显收到的 <code>Cookie</code> 请求头，同时下发三条可见性各异的 <code>Set-Cookie</code>。两个方向的改写都能在此核对（首次点击尚无 Cookie 可回显，再点一次即可看到）。</p>
+              <code>GET /api/cookies</code>
+              <details>
+                <summary>三条 Cookie 的可见性</summary>
+                <pre>lab_visible  Path=/     document.cookie 可见
 lab_scoped   Path=/api  仅接口路径回传，页面读不到
 lab_session  HttpOnly   JS 一律读不到，只能在
                         Network 面板核对</pre>
-          </details>
-          <button class="button" data-action="cookies" type="button">读写 Cookie</button>
-        </article>
+              </details>
+              <button class="button" data-action="cookies" type="button">读写 Cookie</button>
+            </article>
 
-        <article class="card" data-test="status">
-          <div class="card-heading">
-            <span class="tag">STATUS</span>
-            <h2>任意状态码</h2>
-          </div>
-          <p>按路径返回指定的 HTTP 状态码，用于验证规则在错误响应下的表现，以及 Mock 覆盖真实错误的效果。</p>
-          <code>/api/status/{code}</code>
-          <div class="button-row">
-            <button class="button" data-action="status-404" type="button">返回 404</button>
-            <button class="button" data-action="status-500" type="button">返回 500</button>
-          </div>
-        </article>
-
-        <article class="card" data-test="cors">
-          <div class="card-heading">
-            <span class="tag">CROSS ORIGIN</span>
-            <h2>跨域 / CORS</h2>
-          </div>
-          <p>请求另一个端口上的服务（不同源）。「被拦」端点故意不发 CORS 头，浏览器会拦下响应；「对照」端点主动放行，用来证明服务确实可达。</p>
-          <code id="cors-base">另一端口的跨域服务</code>
-          <details>
-            <summary>解除 CORS 规则示例</summary>
-            <pre>匹配：contains /api/cross-origin/blocked
+            <article class="card" data-test="cors">
+              <div class="card-heading">
+                <span class="tag">CROSS ORIGIN</span>
+                <h2>跨域 / CORS</h2>
+              </div>
+              <p>请求另一个端口上的服务（不同源）。「被拦」端点故意不发 CORS 头，浏览器会拦下响应；「对照」端点主动放行，用来证明服务确实可达。</p>
+              <code id="cors-base">另一端口的跨域服务</code>
+              <details>
+                <summary>解除 CORS 规则示例</summary>
+                <pre>匹配：contains /api/cross-origin/blocked
 类型：Header 改写
 作用于：响应头
 操作：设置
@@ -245,28 +138,156 @@ Access-Control-Allow-Origin = *
 注意：CORS 由浏览器在网络层裁决，
 页面补丁通道看不到被拦下的响应，
 只能用 DNR 通道的响应头改写解除。</pre>
-          </details>
-          <div class="button-row">
-            <button class="button" data-action="cors-blocked" type="button">被拦端点</button>
-            <button class="button" data-action="cors-allowed" type="button">对照端点</button>
-          </div>
-        </article>
+              </details>
+              <div class="button-row">
+                <button class="button" data-action="cors-blocked" type="button">被拦端点</button>
+                <button class="button" data-action="cors-allowed" type="button">对照端点</button>
+              </div>
+            </article>
 
-        <article class="card" data-test="asset-block">
-          <div class="card-heading">
-            <span class="tag">RESOURCE</span>
-            <h2>请求拦截</h2>
+            <article class="card" data-test="methods">
+              <div class="card-heading">
+                <span class="tag">MULTI METHOD</span>
+                <h2>请求方法</h2>
+              </div>
+              <p>同一个 URL 用不同方法各打一次，响应回显服务端实际处理的方法。用于验证按方法过滤的规则只作用于目标方法。</p>
+              <code>/api/methods</code>
+              <div class="button-row">
+                <button class="button" data-action="methods-get" type="button">GET</button>
+                <button class="button" data-action="methods-post" type="button">POST</button>
+                <button class="button" data-action="methods-delete" type="button">DELETE</button>
+              </div>
+            </article>
           </div>
-          <p>动态加载小图。命中 block 规则后，卡片会显示资源加载失败，Network 也会显示被阻断。</p>
-          <code>/assets/tracker.svg</code>
-          <div class="asset-preview" id="asset-preview">尚未加载</div>
-          <button class="button" data-action="asset-block" type="button">加载资源</button>
-        </article>
+        </div>
+
+        <div class="rule-group">
+          <div class="group-heading">
+            <p class="eyebrow">PAGE PATCH · FETCH / XHR</p>
+            <h2>页面内补丁</h2>
+            <p class="group-hint">仅作用于页面脚本发起的 fetch / XHR，可读写请求体与响应。</p>
+            <p class="group-note">返回值 Mock / 限速 / 改请求体可叠加；脚本注入需单独使用（见下方验证区）。</p>
+          </div>
+          <div class="grid">
+            <article class="card" data-test="basic-fetch">
+              <div class="card-heading">
+                <span class="tag">FETCH</span>
+                <h2>基础请求 / 返回值 Mock</h2>
+              </div>
+              <p>读取用户数据。可将这条请求直接 Mock 成任意状态码、响应头和 JSON 响应体。</p>
+              <code>/api/users.json</code>
+              <details>
+                <summary>Mock 规则示例</summary>
+                <pre>匹配：contains /api/users.json
+状态：503
+响应体：{"code":503,"message":"mocked"}</pre>
+              </details>
+              <button class="button" data-action="basic-fetch" type="button">发起 Fetch</button>
+            </article>
+
+            <article class="card" data-test="xhr-request">
+              <div class="card-heading">
+                <span class="tag">XHR</span>
+                <h2>XHR / 返回值 Mock</h2>
+              </div>
+              <p>使用传统 XMLHttpRequest 请求商品数据，专门验证 XHR 的 Mock 与延迟路径。</p>
+              <code>/api/products.json</code>
+              <details>
+                <summary>Mock 规则示例</summary>
+                <pre>匹配：contains /api/products.json
+状态：200
+响应体：{"source":"xhr-mock","items":[]}</pre>
+              </details>
+              <button class="button" data-action="xhr-request" type="button">发起 XHR</button>
+            </article>
+
+            <article class="card" data-test="status">
+              <div class="card-heading">
+                <span class="tag">STATUS</span>
+                <h2>任意状态码</h2>
+              </div>
+              <p>按路径返回指定的 HTTP 状态码，用于验证规则在错误响应下的表现，以及 Mock 覆盖真实错误的效果。</p>
+              <code>/api/status/{code}</code>
+              <div class="button-row">
+                <button class="button" data-action="status-404" type="button">返回 404</button>
+                <button class="button" data-action="status-500" type="button">返回 500</button>
+              </div>
+            </article>
+
+            <article class="card" data-test="slow-response">
+              <div class="card-heading">
+                <span class="tag">FETCH</span>
+                <h2>网络限速 / 延迟</h2>
+              </div>
+              <p>下载约 512 KB 的文本响应。可用 Slow 3G 或自定义延迟观察 loading、耗时和下载过程。</p>
+              <code>/api/slow-response.txt</code>
+              <details>
+                <summary>限速规则示例</summary>
+                <pre>匹配：contains /api/slow-response.txt
+档位：Slow 3G</pre>
+              </details>
+              <button class="button" data-action="slow-response" type="button">测试弱网</button>
+            </article>
+
+            <article class="card" data-test="post-request">
+              <div class="card-heading">
+                <span class="tag">FETCH POST</span>
+                <h2>上行带宽</h2>
+              </div>
+              <p>向静态路径提交约 16 KB JSON。即使服务端返回 404，也可用来验证请求前的上传等待。</p>
+              <code>POST /api/upload-probe</code>
+              <button class="button" data-action="post-request" type="button">提交测试数据</button>
+            </article>
+
+            <article class="card" data-test="modify-request-body">
+              <div class="card-heading">
+                <span class="tag">FETCH / XHR POST</span>
+                <h2>改请求体</h2>
+              </div>
+              <p>向回显端点提交一段已知 JSON，响应会原样返回服务端实际收到的请求体。对比日志里的 <code>receivedBody</code> 即可确认改写是否生效。</p>
+              <code>POST /api/echo</code>
+              <details>
+                <summary>改请求体规则示例</summary>
+                <pre>匹配：contains /api/echo
+模式：JSON 深合并
+内容：{"variables": {"first": 100}}
+
+原始请求体：
+{"query":"ListItems","variables":{"first":10,"after":"cursor-0"}}
+预期 receivedBody：
+{"query":"ListItems","variables":{"first":100,"after":"cursor-0"}}</pre>
+              </details>
+              <div class="button-row">
+                <button class="button" data-action="modify-body-fetch" type="button">Fetch 提交</button>
+                <button class="button" data-action="modify-body-xhr" type="button">XHR 提交</button>
+              </div>
+            </article>
+
+            <article class="card" data-test="graphql">
+              <div class="card-heading">
+                <span class="tag">GRAPHQL</span>
+                <h2>operationName 区分</h2>
+              </div>
+              <p>两个操作共用同一 URL 和方法，只能靠请求体里的 <code>operationName</code> 区分。响应回显服务端实际收到的操作名与变量。</p>
+              <code>POST /api/graphql</code>
+              <details>
+                <summary>为什么只靠 URL 匹配不够</summary>
+                <pre>ListItems 与 GetUser 的 URL、method 完全相同，
+只有请求体不同。仅按 URL 匹配会同时命中两者，
+需要「请求体匹配」才能只改其中一个。</pre>
+              </details>
+              <div class="button-row">
+                <button class="button" data-action="graphql-list" type="button">ListItems</button>
+                <button class="button" data-action="graphql-user" type="button">GetUser</button>
+              </div>
+            </article>
+          </div>
+        </div>
       </section>
 
       <section class="injection-panel" aria-label="脚本注入验证区">
         <div>
-          <p class="eyebrow">PAGE PATCH</p>
+          <p class="eyebrow">PAGE PATCH · SCRIPT</p>
           <h2>脚本 / CSS 注入验证区</h2>
           <p>创建匹配当前页面 URL 的注入规则后刷新页面。JS 可修改 <code>window.__REQ_FREEDOM_LAB__</code> 或此区域 DOM；CSS 可改变此区背景色或整页样式。</p>
         </div>

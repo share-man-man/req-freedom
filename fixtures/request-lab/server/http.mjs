@@ -1,8 +1,8 @@
 /** JSON 响应统一使用的内容类型。 */
-export const JSON_CONTENT_TYPE = 'application/json; charset=utf-8';
+const JSON_CONTENT_TYPE = 'application/json; charset=utf-8';
 
 /** 读取请求体的默认字节上限，避免异常输入撑爆内存。 */
-export const MAX_REQUEST_BODY_BYTES = 1024 * 1024;
+const MAX_REQUEST_BODY_BYTES = 1024 * 1024;
 
 /**
  * 发送 JSON 响应。
