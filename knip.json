@@ -1,0 +1,22 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    "apps/extension": {
+      "entry": ["components/ui/**"]
+    },
+    "apps/docs": {
+      "entry": ["rspress.config.ts"],
+      "project": ["**/*.{ts,tsx}"]
+    },
+    "packages/shared": {
+      "includeEntryExports": true
+    },
+    "packages/core": {
+      "includeEntryExports": true
+    },
+    "fixtures/request-lab": {
+      "entry": ["assets/app.js"],
+      "project": ["**/*.{mjs,js}"]
+    }
+  }
+}

@@ -13,9 +13,11 @@
     "dev:lab": "pnpm --filter @req-freedom/request-lab dev",
     "dev:docs": "pnpm --filter @req-freedom/docs dev",
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "knip": "knip"
   },
   "devDependencies": {
+    "knip": "^6.27.0",
     "typescript": "^5.8.3"
   }
 }
