@@ -1,28 +1,28 @@
 # AGENTS.md
 
-## Project overview
+## 项目概述
 
-Req Freedom is a browser request-debugging extension. It is a pnpm workspace monorepo built with Node.js 22, TypeScript, WXT (Manifest V3), React 19, and Rspress.
+Req Freedom 是一个浏览器请求调试插件。项目采用 pnpm workspace monorepo，主要技术栈为 Node.js 22、TypeScript、WXT（Manifest V3）、React 19 和 Rspress。
 
-## Repository layout
+## 仓库结构
 
-- `apps/extension/`: browser extension UI and runtime
-- `apps/docs/`: Rspress documentation site
-- `packages/shared/`: shared enums, constants, and TypeScript types
-- `packages/core/`: platform-independent rule matching and transformation logic
-- `fixtures/`: local fixtures and request-lab resources
+- `apps/extension/`：浏览器插件的界面与运行时代码
+- `apps/docs/`：Rspress 文档站
+- `packages/shared/`：共享枚举、常量和 TypeScript 类型
+- `packages/core/`：与平台无关的规则匹配和转换逻辑
+- `fixtures/`：本地测试夹具和请求实验环境相关资源
 
-Keep platform-independent logic in `packages/core`. Put shared contracts in `packages/shared`; do not duplicate those types in apps.
+与平台无关的逻辑应放在 `packages/core` 中。共享协议和类型应定义在 `packages/shared` 中，不要在各应用内重复定义。
 
-## Environment and package management
+## 环境与包管理
 
-- Use the versions pinned in `mise.toml`: Node.js 22.21.1 and pnpm 9.15.9.
-- Use pnpm only. Do not create npm or Yarn lockfiles.
-- Run commands through `mise exec --` when mise is available.
-- Keep internal dependencies on the `workspace:*` protocol.
-- Do not edit generated output such as `node_modules/`, `.output/`, or documentation build artifacts.
+- 使用 `mise.toml` 锁定的版本：Node.js 22.21.1、pnpm 9.15.9。
+- 仅使用 pnpm，不要生成 npm 或 Yarn 的锁文件。
+- 环境中存在 mise 时，通过 `mise exec --` 执行命令。
+- 内部包依赖保持使用 `workspace:*` 协议。
+- 不要编辑 `node_modules/`、`.output/` 或文档构建产物等生成内容。
 
-## Common commands
+## 常用命令
 
 ```bash
 mise exec -- pnpm install
@@ -35,7 +35,7 @@ mise exec -- pnpm build
 mise exec -- pnpm knip
 ```
 
-Use filtered commands while iterating when the change is scoped to one workspace, for example:
+当改动仅涉及单个 workspace 时，开发过程中优先运行范围更小的命令，例如：
 
 ```bash
 mise exec -- pnpm --filter @req-freedom/extension typecheck
@@ -43,50 +43,50 @@ mise exec -- pnpm --filter @req-freedom/extension build
 mise exec -- pnpm --filter @req-freedom/docs build
 ```
 
-## Architecture rules
+## 架构约束
 
-Rules use one of two execution paths:
+规则通过以下两种通道之一执行：
 
-- **DNR path:** request interception, redirects, query parameters, and header rewriting run through `declarativeNetRequest`.
-- **Page-patch path:** static or JavaScript mocks, latency simulation, request-body changes, and script injection run through MAIN-world patches for `fetch` and `XMLHttpRequest`.
+- **DNR 通道**：请求拦截、重定向、查询参数和 Header 改写通过 `declarativeNetRequest` 在网络层执行。
+- **页面补丁通道**：静态或 JavaScript Mock、延迟模拟、请求体修改和脚本注入通过 MAIN world 中对 `fetch` 与 `XMLHttpRequest` 的补丁实现。
 
-Preserve this boundary. Prefer DNR when the browser API supports the behavior. Use page patches only when the network-layer API cannot implement it.
+必须保持这两种通道的职责边界。浏览器 DNR API 能够实现的功能应优先使用 DNR；仅在网络层 API 无法实现时使用页面补丁。
 
-When changing rule contracts:
+修改规则协议时：
 
-1. Update the canonical types and constants in `packages/shared`.
-2. Update matching or transformation behavior in `packages/core`.
-3. Update extension consumers and persistence/migration logic as needed.
-4. Update user-facing documentation when behavior or configuration changes.
+1. 更新 `packages/shared` 中的标准类型和常量。
+2. 更新 `packages/core` 中的匹配或转换逻辑。
+3. 根据需要同步更新插件调用方以及持久化或迁移逻辑。
+4. 行为或配置发生变化时，更新面向用户的文档。
 
-Code in `packages/core` must remain independent of browser-extension globals and React.
+`packages/core` 中的代码必须保持与浏览器插件全局变量及 React 无关。
 
-## Coding guidelines
+## 编码规范
 
-- Follow the existing TypeScript, ESM, React, and naming conventions in nearby files.
-- Prefer explicit types at package and browser-context boundaries.
-- Keep modules focused; extract reusable rule logic instead of embedding it in UI components.
-- Treat content scripts, background/service-worker code, and MAIN-world scripts as separate execution contexts. Use typed messages and serializable data across their boundaries.
-- Avoid Node-only APIs in extension runtime code.
-- Preserve MV3 constraints, including service-worker suspension and extension CSP.
-- Keep UI changes consistent with existing components and styles; reuse established primitives before adding dependencies.
-- Add comments for browser limitations, cross-context behavior, or non-obvious compatibility workarounds, not for self-evident code.
+- 遵循相邻文件中已有的 TypeScript、ESM、React 和命名风格。
+- 在包边界和浏览器执行上下文边界使用明确的类型。
+- 保持模块职责单一；可复用的规则逻辑应提取出来，不要直接嵌入 UI 组件。
+- 将内容脚本、后台 Service Worker 和 MAIN world 脚本视为不同的执行上下文；跨上下文通信使用类型明确的消息和可序列化数据。
+- 插件运行时代码中避免使用仅限 Node.js 的 API。
+- 遵守 MV3 的限制，包括 Service Worker 暂停机制和插件 CSP。
+- UI 改动应与现有组件和样式保持一致；添加新依赖前优先复用已有基础组件。
+- 只为浏览器限制、跨上下文行为或不明显的兼容性处理添加注释，不要解释显而易见的代码。
 
-## Validation
+## 验证要求
 
-Before finishing a change:
+完成改动前：
 
-1. Run type checking for every affected workspace.
-2. Run the narrowest relevant build.
-3. Run the root `pnpm typecheck` and `pnpm build` for cross-package or release-facing changes.
-4. Run `pnpm knip` when adding, removing, or moving exports and dependencies.
-5. For extension runtime changes, manually verify the affected flow in the unpacked build at `apps/extension/.output/chrome-mv3/`.
+1. 对所有受影响的 workspace 运行类型检查。
+2. 运行覆盖改动范围的最小构建命令。
+3. 跨包或影响发布的改动需要运行根目录的 `pnpm typecheck` 和 `pnpm build`。
+4. 添加、删除或移动导出及依赖时，运行 `pnpm knip`。
+5. 修改插件运行时后，在 `apps/extension/.output/chrome-mv3/` 的未打包插件中手动验证相关流程。
 
-There is no root test script currently. Do not claim automated tests passed unless a relevant test command exists and was run.
+当前根目录没有测试脚本。除非存在并实际运行了相关测试命令，否则不要声称自动化测试已经通过。
 
-## Change discipline
+## 改动原则
 
-- Keep changes scoped to the requested behavior.
-- Do not rewrite unrelated code or generated files.
-- Update documentation for user-visible features, changed rule semantics, setup changes, or architectural decisions.
-- In the final handoff, list changed files and report the exact validation commands run, including any checks that could not be completed.
+- 改动范围应聚焦于用户要求的行为。
+- 不要改写无关代码或生成文件。
+- 用户可见功能、规则语义、安装方式或架构决策发生变化时，同步更新文档。
+- 最终交付时列出改动文件和实际执行的验证命令，并说明未能完成的检查。
