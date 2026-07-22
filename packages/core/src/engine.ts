@@ -1,4 +1,5 @@
-import type { Rule, RuleGroup, RuleType } from '@req-freedom/shared';
+import { RuleActionType, RuleExecutionChannel } from '@req-freedom/shared';
+import type { HttpMethod, Rule, RuleAction, RuleGroup } from '@req-freedom/shared';
 import { matchUrl } from './matcher';
 
 /**
@@ -21,8 +22,15 @@ export function collectActiveRules(groups: RuleGroup[]): Rule[] {
  * @param rules 全部规则
  * @returns 命中的规则列表（保持原有顺序）
  */
-export function findMatchedRules(url: string, rules: Rule[]): Rule[] {
-  return rules.filter((rule) => rule.enabled && matchUrl(url, rule.matchType, rule.pattern));
+export function findMatchedRules(url: string, method: string, rules: Rule[]): Rule[] {
+  /** 规范化后的请求方法。 */
+  const normalizedMethod = method.toUpperCase() as HttpMethod;
+  return rules.filter(
+    (rule) =>
+      rule.enabled &&
+      matchUrl(url, rule.matchType, rule.pattern) &&
+      (rule.methods.length === 0 || rule.methods.includes(normalizedMethod)),
+  );
 }
 
 /**
@@ -31,11 +39,13 @@ export function findMatchedRules(url: string, rules: Rule[]): Rule[] {
  * @param type 目标规则类型
  * @returns 命中的规则，未命中返回 undefined
  */
-export function pickRuleByType<T extends RuleType>(
+export function pickActionByType<T extends RuleActionType>(
   rules: Rule[],
   type: T,
-): Extract<Rule, { type: T }> | undefined {
-  return rules.find((rule): rule is Extract<Rule, { type: T }> => rule.type === type);
+): Extract<RuleAction, { type: T }> | undefined {
+  return rules.flatMap((rule) => rule.actions).find(
+    (action): action is Extract<RuleAction, { type: T }> => action.type === type,
+  );
 }
 
 /**
@@ -44,9 +54,21 @@ export function pickRuleByType<T extends RuleType>(
  * @param type 目标规则类型
  * @returns 命中的同类型规则列表（保持原有顺序）
  */
-export function filterRulesByType<T extends RuleType>(
+export function filterActionsByType<T extends RuleActionType>(
   rules: Rule[],
   type: T,
-): Extract<Rule, { type: T }>[] {
-  return rules.filter((rule): rule is Extract<Rule, { type: T }> => rule.type === type);
+): Extract<RuleAction, { type: T }>[] {
+  return rules.flatMap((rule) => rule.actions).filter(
+    (action): action is Extract<RuleAction, { type: T }> => action.type === type,
+  );
+}
+
+/**
+ * 按执行通道筛选规则。
+ * @param rules 候选规则列表
+ * @param channel 目标执行通道
+ * @returns 属于该通道的规则列表
+ */
+export function filterRulesByChannel(rules: Rule[], channel: RuleExecutionChannel): Rule[] {
+  return rules.filter((rule) => rule.channel === channel);
 }

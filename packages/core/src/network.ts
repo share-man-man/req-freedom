@@ -1,4 +1,4 @@
-import type { DelayRule, NetworkThrottleSettings } from '@req-freedom/shared';
+import type { DelayAction, NetworkThrottleSettings } from '@req-freedom/shared';
 import {
   BITS_PER_BYTE,
   BITS_PER_KILOBIT,
@@ -20,7 +20,7 @@ function toNonNegativeNumber(value: number | undefined): number {
  * @param rule 网络限速规则
  * @returns 归一化后的网络参数
  */
-export function getNetworkThrottleSettings(rule: DelayRule): NetworkThrottleSettings {
+export function getNetworkThrottleSettings(rule: DelayAction): NetworkThrottleSettings {
   /** 规则选择的网络档位。 */
   const preset = rule.throttlePreset;
   if (preset !== NetworkThrottlePreset.Custom && preset in NETWORK_THROTTLE_PRESET_SETTINGS) {
@@ -61,7 +61,7 @@ export function getTransferDurationMs(bytes: number, kbps: number): number {
  * @param requestBodyBytes 请求体字节数；无法确定时传 0
  * @returns 请求前等待时长（毫秒）
  */
-export function getNetworkRequestDelayMs(rule: DelayRule, requestBodyBytes: number): number {
+export function getNetworkRequestDelayMs(rule: DelayAction, requestBodyBytes: number): number {
   /** 规则实际生效的网络档位参数。 */
   const settings = getNetworkThrottleSettings(rule);
   return settings.latencyMs + getTransferDurationMs(requestBodyBytes, settings.uploadKbps);
