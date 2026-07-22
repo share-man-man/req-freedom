@@ -1,4 +1,5 @@
 import type {
+  BodyMatchType,
   HeaderOperation,
   HeaderTarget,
   HttpMethod,
@@ -162,6 +163,19 @@ export type RuleAction =
   | ModifyRequestBodyAction;
 
 /**
+ * 请求体匹配条件
+ *
+ * 在 URL 与方法之外，按请求体内容进一步收敛命中范围。仅页面补丁通道能读取请求体，
+ * 因此该条件只对页面补丁规则生效；DNR 规则携带该字段时运行时会忽略它。
+ */
+export interface BodyMatcher {
+  /** 请求体匹配方式 */
+  type: BodyMatchType;
+  /** 匹配值：Contains 为子串、Regex 为正则、GraphQlOperation 为 operationName */
+  value: string;
+}
+
+/**
  * 统一规则模型。
  *
  * 一条规则只有一个执行通道；相同 URL / 方法匹配条件下可组合多个该通道支持的动作。
@@ -171,6 +185,8 @@ export interface Rule extends BaseRule {
   channel: RuleExecutionChannel;
   /** 允许命中的 HTTP 方法；空数组表示全部方法。 */
   methods: HttpMethod[];
+  /** 可选的请求体匹配条件；缺省表示不按请求体收敛。仅页面补丁通道生效。 */
+  bodyMatch?: BodyMatcher;
   /** 命中后依次执行的动作。 */
   actions: RuleAction[];
 }

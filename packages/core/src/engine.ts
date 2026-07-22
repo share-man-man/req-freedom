@@ -1,6 +1,6 @@
 import { RuleActionType, RuleExecutionChannel } from '@req-freedom/shared';
 import type { HttpMethod, Rule, RuleAction, RuleGroup } from '@req-freedom/shared';
-import { matchUrl } from './matcher';
+import { matchRequestBody, matchUrl } from './matcher';
 
 /**
  * 将分组扁平化为「当前生效」的规则列表
@@ -31,6 +31,29 @@ export function findMatchedRules(url: string, method: string, rules: Rule[]): Ru
       matchUrl(url, rule.matchType, rule.pattern) &&
       (rule.methods.length === 0 || rule.methods.includes(normalizedMethod)),
   );
+}
+
+/**
+ * 判断规则列表中是否存在带请求体匹配条件的规则
+ *
+ * 读取请求体（clone / 解码）有成本，调用方据此决定是否需要为二次过滤读取请求体。
+ * @param rules 候选规则列表（一般是 findMatchedRules 的结果）
+ * @returns 有任意规则配置了请求体匹配条件时返回 true
+ */
+export function rulesNeedBody(rules: Rule[]): boolean {
+  return rules.some((rule) => rule.bodyMatch !== undefined);
+}
+
+/**
+ * 按请求体匹配条件对规则做二次过滤
+ *
+ * 未配置请求体条件的规则一律保留；配置了条件的规则需请求体命中才保留。
+ * @param rules URL + 方法已命中的候选规则列表
+ * @param body 请求体文本（无法读取时传空串）
+ * @returns 请求体条件也命中的规则列表（保持原有顺序）
+ */
+export function filterRulesByBody(rules: Rule[], body: string): Rule[] {
+  return rules.filter((rule) => rule.bodyMatch === undefined || matchRequestBody(rule.bodyMatch, body));
 }
 
 /**

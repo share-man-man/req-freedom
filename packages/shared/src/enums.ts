@@ -126,6 +126,22 @@ export enum MatchType {
 }
 
 /**
+ * 请求体匹配方式
+ *
+ * 在 URL + 方法之外，按请求体内容进一步收敛命中范围。仅页面补丁通道可读取请求体，
+ * 因此该条件只对页面补丁规则生效；GraphQL 场景下所有操作共用同一 URL 与方法，
+ * 只能靠请求体里的 operationName 区分。
+ */
+export enum BodyMatchType {
+  /** 请求体文本包含指定子串 */
+  Contains = 'contains',
+  /** 请求体文本匹配指定正则 */
+  Regex = 'regex',
+  /** 请求体 JSON 的 operationName 等于指定值（GraphQL 操作名） */
+  GraphQlOperation = 'graphql-operation',
+}
+
+/**
  * Header 改写的作用目标
  */
 export enum HeaderTarget {
