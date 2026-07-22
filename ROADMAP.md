@@ -53,7 +53,7 @@ flowchart LR
   - Requestly 与 tweak 都支持，且都特别强调 GraphQL 场景。
   - **连带影响匹配器**：GraphQL 所有请求同 URL 同 method，只能靠 body 里的 `operationName` 区分，光靠 URL 匹配一定命不中。见「匹配能力增强」。
   - 通道：仅页面补丁。
-  - 已落地：静态改写支持 `RequestBodyMode`（`replace` 整体替换 / `merge-json` JSON 深合并，`core.modifyRequestBody`）；`RequestBodySourceMode.Dynamic` 支持以 `req` 的请求快照动态生成最终请求体并支持 `return` / `await`。复用 `interceptor.content.ts`（MAIN world），在 `fetch` / `XHR` 发送前改写请求体；Mock 命中时不改写（不发真实请求）。文档见 [改请求体](apps/docs/docs/guide/features/modify-request-body.md)。GraphQL 按 `operationName` 精确命中仍待「请求体匹配」落地。
+  - 已落地：静态改写支持 `RequestBodyMode`（`replace` 整体替换 / `merge-json` JSON 深合并，`core.modifyRequestBody`）；`RequestBodySourceMode.Dynamic` 支持以 `req` 的请求快照动态生成最终请求体并支持 `return` / `await`。复用 `interceptor.content.ts`（MAIN world），在 `fetch` / `XHR` 发送前改写请求体；Mock 命中时不改写（不发真实请求）。文档见 [改请求体](apps/docs/docs/guide/features/modify-request-body.md)。GraphQL 按 `operationName` 精确命中已由「请求体匹配」支持（规则 `bodyMatch` 条件）。
 
 - [x] **P1 · 用 JS 动态生成响应**
   - Requestly 与 tweak 都支持；这是「静态 Mock」和「真·Mock 服务器」的分水岭。
@@ -73,7 +73,7 @@ flowchart LR
 ### 匹配能力增强
 
 - [x] **P1 · Method 过滤** — 规则通过 `methods` 支持 GET / POST / PUT / PATCH / DELETE / HEAD / OPTIONS；空数组表示全部。改请求体必须显式选择可带 body 的方法；选择全部、GET 或 HEAD 时，表单层会禁用该动作，避免浏览器拒绝带 body 的请求。
-- [ ] **P1 · 请求体匹配** — GraphQL `operationName` 场景的前置依赖，与「改请求体」同批做。
+- [x] **P1 · 请求体匹配** — 规则可选 `bodyMatch` 条件（`BodyMatchType`：`contains` 子串 / `regex` 正则 / `graphql-operation` 操作名），与 URL、方法并列。仅页面补丁通道生效：`interceptor.content.ts` 先按 URL + 方法初筛，命中规则含请求体条件时读取一次请求体再经 `core.filterRulesByBody` 二次过滤（`core.rulesNeedBody` 决定是否需要读取，无条件规则不额外读体）。GraphQL 同 URL 的多个操作可用「操作名」精确区分。文档见 [请求体匹配](apps/docs/docs/guide/features/request-body-match.md)。
 - [ ] **P2 · 资源类型过滤** — `xhr` / `script` / `image` 等，DNR 原生支持。
 
 ## 二、工程化能力（规则之外）

@@ -50,6 +50,6 @@ function modify(req) {
 - 改写模式：JSON 深合并
 - 改写内容：`{"variables": {"first": 100}}`
 
-## GraphQL 匹配的局限
+## 按 GraphQL 操作精确改写
 
-GraphQL 的所有操作往往共用同一个 URL 和 method，仅靠 URL 匹配会命中该端点上的**全部**请求，无法只针对某一个 `operationName`。若需按操作精确改写，需等待「请求体匹配」能力落地后配合使用。
+GraphQL 的所有操作往往共用同一个 URL 和 method，仅靠 URL 匹配会命中该端点上的**全部**请求。若只想改写某一个 `operationName`，在规则的「命中条件」里加一条[请求体匹配](./request-body-match.md)：请求体条件设为 `GraphQL 操作名` 并填入目标操作名，即可把改请求体动作限定到该操作，其余操作原样发出。

@@ -6,5 +6,6 @@
   "mock",
   "delay",
   "insert-script",
-  "modify-request-body"
+  "modify-request-body",
+  "request-body-match"
 ]

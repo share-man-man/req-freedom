@@ -58,6 +58,23 @@
           }]
         },
         {
+          "id": "rule-graphql-getuser-mock",
+          "name": "POST /api/graphql 仅 Mock GetUser 操作",
+          "enabled": true,
+          "channel": "page-patch",
+          "methods": ["POST"],
+          "matchType": "contains",
+          "pattern": "/api/graphql",
+          "bodyMatch": { "type": "graphql-operation", "value": "GetUser" },
+          "actions": [{
+            "type": "mock-response",
+            "mode": "static",
+            "statusCode": 200,
+            "responseHeaders": { "X-Mocked-By": "req-freedom" },
+            "body": "{\"data\":{\"user\":{\"id\":99,\"name\":\"Mock 用户\",\"role\":\"mocked\"}},\"receivedOperationName\":\"GetUser\",\"mocked\":true}"
+          }]
+        },
+        {
           "id": "rule-slow-response",
           "name": "GET 大响应走 Slow 3G",
           "enabled": true,
