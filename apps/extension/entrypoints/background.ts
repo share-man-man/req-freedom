@@ -3,11 +3,11 @@ import { defineBackground } from 'wxt/utils/define-background';
 import type { Rule } from '@req-freedom/shared';
 import { DNR_RULE_ID_OFFSET, STORAGE_KEY_ENABLED, STORAGE_KEY_GROUPS } from '@req-freedom/shared';
 import { collectActiveRules } from '@req-freedom/core';
-import { toDnrRule } from '@/utils/dnr';
+import { toDnrRules } from '@/utils/dnr';
 import { getEnabled, getGroups } from '@/utils/storage';
 
 /** 由业务规则转换出的、非空的 DNR 动态规则 */
-type DnrRule = NonNullable<ReturnType<typeof toDnrRule>>;
+type DnrRule = ReturnType<typeof toDnrRules>[number];
 
 /** 一条业务规则与其对应的 DNR 规则的配对，便于失败时定位到源规则 */
 interface DnrEntry {
@@ -67,9 +67,15 @@ async function syncDnrRules(): Promise<void> {
   const removeRuleIds = existing.map((rule) => rule.id);
 
   /** 待注册的「业务规则 → DNR 规则」配对列表 */
-  const entries: DnrEntry[] = activeRules
-    .map((rule, index) => ({ rule, dnrRule: toDnrRule(rule, DNR_RULE_ID_OFFSET + index) }))
-    .filter((entry): entry is DnrEntry => entry.dnrRule !== null);
+  const entries: DnrEntry[] = [];
+  /** 下一条 DNR 规则可使用的 ID。 */
+  let nextDnrId = DNR_RULE_ID_OFFSET;
+  for (const rule of activeRules) {
+    /** 当前业务规则编译出的全部网络层动作。 */
+    const compiledRules = toDnrRules(rule, nextDnrId);
+    nextDnrId += compiledRules.length;
+    entries.push(...compiledRules.map((dnrRule) => ({ rule, dnrRule })));
+  }
   /** 需要新增的 DNR 规则列表 */
   const addRules = entries.map((entry) => entry.dnrRule);
 

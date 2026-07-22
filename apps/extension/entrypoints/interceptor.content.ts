@@ -1,23 +1,60 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
-import type { DelayRule, InsertScriptRule, Rule } from '@req-freedom/shared';
+import type {
+  DelayAction,
+  InsertScriptAction,
+  MockResponseAction,
+  Rule,
+} from '@req-freedom/shared';
 import {
+  DEFAULT_MOCK_BODY_TYPE,
   DEFAULT_MOCK_CONTENT_TYPE,
   InsertScriptCodeType,
   InsertScriptTiming,
+  MOCK_BODY_TYPE_CONTENT_TYPES,
+  MockResponseMode,
   PAGE_MESSAGE_SOURCE,
   RequestBodyMode,
-  RuleType,
+  RequestBodySourceMode,
+  RuleActionType,
+  RuleExecutionChannel,
 } from '@req-freedom/shared';
 import {
-  filterRulesByType,
+  filterActionsByType,
+  filterRulesByChannel,
   findMatchedRules,
   getNetworkRequestDelayMs,
   getNetworkThrottleSettings,
   getTransferDurationMs,
   modifyRequestBody,
-  pickRuleByType,
+  pickActionByType,
   sleep,
 } from '@req-freedom/core';
+
+/** 动态 Mock 与动态改请求体函数可读取的请求快照。 */
+interface DynamicRequestContext {
+  /** 请求的绝对 URL。 */
+  url: string;
+  /** HTTP 方法（大写）。 */
+  method: string;
+  /** 页面代码在请求发出前设置的请求头。 */
+  headers: Record<string, string>;
+  /** URL 查询参数；同名参数保留最后一个值。 */
+  query: Record<string, string>;
+  /** 请求体的文本形式；无法读取的流式请求体回退为空字符串。 */
+  body: string;
+  /** 请求体为合法 JSON 时的解析结果。 */
+  json?: unknown;
+}
+
+/** XHR 在 open / setRequestHeader 阶段收集的请求元信息。 */
+interface XhrRequestMetadata {
+  /** 请求的绝对 URL。 */
+  url: string;
+  /** open 调用传入的 HTTP 方法。 */
+  method: string;
+  /** setRequestHeader 调用设置的请求头。 */
+  headers: Record<string, string>;
+}
 
 /**
  * 拦截内容脚本（MAIN world）
@@ -58,7 +95,7 @@ export default defineContentScript({
      * document_start 阶段 document.head 可能尚未生成，回落到 documentElement。
      * @param rule 注入规则
      */
-    const injectCode = (rule: InsertScriptRule): void => {
+    const injectCode = (rule: InsertScriptAction): void => {
       /** 注入挂载点：优先 head，document_start 早期回落到 documentElement */
       const mount = document.head ?? document.documentElement;
       if (rule.codeType === InsertScriptCodeType.Css) {
@@ -86,17 +123,22 @@ export default defineContentScript({
         return;
       }
       /** 命中当前页面 URL 的全部规则 */
-      const matched = findMatchedRules(window.location.href, state.rules);
-      for (const rule of filterRulesByType(matched, RuleType.InsertScript)) {
-        if (injectedRuleIds.has(rule.id)) {
+      const matched = filterRulesByChannel(
+        findMatchedRules(window.location.href, 'GET', state.rules),
+        RuleExecutionChannel.PagePatch,
+      );
+      for (const action of filterActionsByType(matched, RuleActionType.InsertScript)) {
+        /** 注入动作唯一 ID，由规则 ID 与动作类型拼接而成。 */
+        const actionId = `${matched.find((rule) => rule.actions.includes(action))?.id ?? ''}:${action.type}`;
+        if (injectedRuleIds.has(actionId)) {
           continue;
         }
         // 立即标记，避免重推时重复注入或重复挂载 DOMContentLoaded 监听
-        injectedRuleIds.add(rule.id);
-        if (rule.timing === InsertScriptTiming.DocumentEnd && document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', () => injectCode(rule), { once: true });
+        injectedRuleIds.add(actionId);
+        if (action.timing === InsertScriptTiming.DocumentEnd && document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', () => injectCode(action), { once: true });
         } else {
-          injectCode(rule);
+          injectCode(action);
         }
       }
     };
@@ -106,16 +148,19 @@ export default defineContentScript({
      * @param url 绝对化后的请求 URL
      * @returns Mock 规则、延迟规则与改请求体规则（可能均为 undefined）
      */
-    const resolvePageRules = (url: string) => {
+    const resolvePageRules = (url: string, method: string) => {
       if (!state.enabled) {
         return { mockRule: undefined, delayRule: undefined, modifyBodyRule: undefined };
       }
       /** 命中的全部规则 */
-      const matched = findMatchedRules(url, state.rules);
+      const matched = filterRulesByChannel(
+        findMatchedRules(url, method, state.rules),
+        RuleExecutionChannel.PagePatch,
+      );
       return {
-        mockRule: pickRuleByType(matched, RuleType.MockResponse),
-        delayRule: pickRuleByType(matched, RuleType.Delay),
-        modifyBodyRule: pickRuleByType(matched, RuleType.ModifyRequestBody),
+        mockRule: pickActionByType(matched, RuleActionType.MockResponse),
+        delayRule: pickActionByType(matched, RuleActionType.Delay),
+        modifyBodyRule: pickActionByType(matched, RuleActionType.ModifyRequestBody),
       };
     };
 
@@ -229,12 +274,177 @@ export default defineContentScript({
     };
 
     /**
+     * 将 Headers 转为可安全传给动态 Mock 函数的普通对象。
+     * @param headers 浏览器 Headers 对象
+     * @returns 小写 Header 名称与值组成的普通对象
+     */
+    const headersToRecord = (headers: Headers): Record<string, string> => {
+      /** 动态函数可读取的请求头映射。 */
+      const record: Record<string, string> = {};
+      headers.forEach((value, name) => {
+        record[name] = value;
+      });
+      return record;
+    };
+
+    /**
+     * 构造传给动态函数的请求快照。
+     * @param url 请求的绝对 URL
+     * @param method HTTP 方法
+     * @param headers 请求头映射
+     * @param body 请求体文本
+     * @returns 供用户函数读取的请求信息
+     */
+    const createDynamicRequestContext = (
+      url: string,
+      method: string,
+      headers: Record<string, string>,
+      body: string,
+    ): DynamicRequestContext => {
+      /** 当前 URL 的查询参数映射。 */
+      const query: Record<string, string> = {};
+      try {
+        /** 解析后的请求 URL。 */
+        const parsedUrl = new URL(url, window.location.href);
+        parsedUrl.searchParams.forEach((value, name) => {
+          query[name] = value;
+        });
+      } catch {
+        // URL 已在匹配前绝对化；这里仅防御性回退为空查询参数。
+      }
+      /** 当请求体为合法 JSON 时供用户函数直接使用的解析值。 */
+      let json: unknown;
+      try {
+        json = body ? JSON.parse(body) : undefined;
+      } catch {
+        // 非 JSON 请求体是正常情况，仍通过 body 原文提供给用户函数。
+      }
+      return {
+        url,
+        method: method.toUpperCase(),
+        headers,
+        query,
+        body,
+        ...(json === undefined ? {} : { json }),
+      };
+    };
+
+    /**
+     * 运行动态 Mock 函数并将返回值转换为响应体文本。
+     *
+     * 用户代码刻意在 MAIN world 执行，以便拥有与页面脚本一致的上下文；只应执行用户信任的代码。
+     * @param rule 命中的动态 Mock 规则
+     * @param request 传入用户代码的请求快照
+     * @returns 字符串响应体；对象与其他 JSON 值会自动序列化
+     */
+    const executeDynamicMock = async (
+      rule: MockResponseAction,
+      request: DynamicRequestContext,
+    ): Promise<string> => {
+      try {
+        // 用户代码是一个完整函数（如 function mock(req){...}）；括号包成函数表达式后立即以 req 调用，兼容普通与 async 函数
+        const execute = new Function(
+          'req',
+          `"use strict"; return (\n${rule.functionCode ?? ''}\n)(req);`,
+        ) as (req: DynamicRequestContext) => Promise<unknown>;
+        /** 用户函数返回的原始值。 */
+        const result = await execute(request);
+        if (typeof result === 'string') {
+          return result;
+        }
+        /** JSON.stringify(undefined) 会返回 undefined，响应体应稳定回退为空文本。 */
+        const serialized = JSON.stringify(result);
+        return serialized ?? '';
+      } catch (error) {
+        /** 便于开发者在页面控制台定位函数执行错误。 */
+        const message = error instanceof Error ? error.message : String(error);
+        console.error('[Req Freedom] 动态 Mock 函数执行失败：', error);
+        return JSON.stringify({ error: 'Req Freedom dynamic mock execution failed', message });
+      }
+    };
+
+    /**
+     * 根据 Mock 规则生成响应体；静态模式不执行任何用户代码。
+     * @param rule 命中的 Mock 规则
+     * @param request 动态模式使用的请求快照
+     * @returns 可直接传给 Response / XHR 的响应体文本
+     */
+    const resolveMockBody = async (
+      rule: MockResponseAction,
+      request: DynamicRequestContext,
+    ): Promise<string> =>
+      rule.mode === MockResponseMode.Dynamic ? executeDynamicMock(rule, request) : rule.body;
+
+    /**
+     * 执行动态改请求体函数并将返回值转换为最终请求体文本。
+     *
+     * 函数异常、未返回值或无法序列化时均保留原请求体，避免调试规则意外发送空请求。
+     * @param functionCode 用户填写的完整 JavaScript 函数（如 function modify(req){...}）
+     * @param request 传入用户代码的请求快照
+     * @param originalBody 原始请求体文本
+     * @returns 最终要发送的请求体文本
+     */
+    const executeDynamicRequestBody = async (
+      functionCode: string,
+      request: DynamicRequestContext,
+      originalBody: string,
+    ): Promise<string> => {
+      try {
+        // 用户代码是一个完整函数；括号包成函数表达式后立即以 req 调用，兼容普通与 async 函数
+        const execute = new Function(
+          'req',
+          `"use strict"; return (\n${functionCode}\n)(req);`,
+        ) as (req: DynamicRequestContext) => Promise<unknown>;
+        /** 用户函数返回的原始值。 */
+        const result = await execute(request);
+        if (result === undefined) {
+          return originalBody;
+        }
+        if (typeof result === 'string') {
+          return result;
+        }
+        /** 对象与其他 JSON 值使用标准序列化，无法序列化时回退原请求体。 */
+        const serialized = JSON.stringify(result);
+        return serialized ?? originalBody;
+      } catch (error) {
+        console.error('[Req Freedom] 动态改请求体函数执行失败：', error);
+        return originalBody;
+      }
+    };
+
+    /**
+     * 获取 fetch 实际会使用的 HTTP 方法。
+     * @param input fetch 的第一个参数
+     * @param init fetch 的可选初始化参数
+     * @returns 大写 HTTP 方法
+     */
+    const getFetchMethod = (input: RequestInfo | URL, init?: RequestInit): string =>
+      (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
+
+    /**
+     * 获取 fetch 实际会使用的请求头；init.headers 会覆盖 Request 输入中同名的请求头。
+     * @param input fetch 的第一个参数
+     * @param init fetch 的可选初始化参数
+     * @returns 合并后的 Headers 对象
+     */
+    const getFetchHeaders = (input: RequestInfo | URL, init?: RequestInit): Headers => {
+      /** Request 输入自带的请求头。 */
+      const headers = new Headers(input instanceof Request ? input.headers : undefined);
+      if (init?.headers) {
+        /** init 中声明的请求头，会按 fetch 语义覆盖同名头。 */
+        const initHeaders = new Headers(init.headers);
+        initHeaders.forEach((value, name) => headers.set(name, value));
+      }
+      return headers;
+    };
+
+    /**
      * 包装 Response 的响应流，按下行带宽逐块交付给页面代码。
      * @param response 原始响应
      * @param rule 命中的网络限速规则
      * @returns 未配置下行带宽时返回原响应，否则返回受限速的响应副本
      */
-    const throttleResponse = (response: Response, rule: DelayRule | undefined): Response => {
+    const throttleResponse = (response: Response, rule: DelayAction | undefined): Response => {
       if (!rule || !response.body) {
         return response;
       }
@@ -295,7 +505,9 @@ export default defineContentScript({
       const url = toAbsoluteUrl(
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url,
       );
-      const { mockRule, delayRule, modifyBodyRule } = resolvePageRules(url);
+      /** 当前 fetch 实际使用的 HTTP 方法。 */
+      const method = getFetchMethod(input, init);
+      const { mockRule, delayRule, modifyBodyRule } = resolvePageRules(url, method);
 
       // 关键步骤：在请求实际发出前模拟网络往返延迟与上行传输时间
       if (delayRule) {
@@ -310,11 +522,29 @@ export default defineContentScript({
       // 关键步骤：命中 Mock 时直接构造响应，不发起真实请求
       if (mockRule) {
         await sleep(mockRule.delayMs ?? 0);
+        /** 动态模式读取请求快照后生成响应；静态模式直接使用配置中的 body。 */
+        const mockBody =
+          mockRule.mode === MockResponseMode.Dynamic
+            ? await resolveMockBody(
+                mockRule,
+                createDynamicRequestContext(
+                  url,
+                  method,
+                  headersToRecord(getFetchHeaders(input, init)),
+                  await readFetchBodyText(input, init),
+                ),
+              )
+            : mockRule.body;
+        /** 静态模式按响应体类型推导 Content-Type，动态模式回落到默认 JSON；显式 responseHeaders 仍可覆盖。 */
+        const mockContentType =
+          mockRule.mode === MockResponseMode.Static
+            ? MOCK_BODY_TYPE_CONTENT_TYPES[mockRule.bodyType ?? DEFAULT_MOCK_BODY_TYPE]
+            : DEFAULT_MOCK_CONTENT_TYPE;
         /** 按网络限速规则交付 Mock 响应，确保 Mock 与真实请求具有一致的弱网表现。 */
-        const response = new Response(mockRule.body, {
+        const response = new Response(mockBody, {
           status: mockRule.statusCode,
           headers: {
-            'Content-Type': DEFAULT_MOCK_CONTENT_TYPE,
+            'Content-Type': mockContentType,
             ...mockRule.responseHeaders,
           },
         });
@@ -322,14 +552,27 @@ export default defineContentScript({
       }
 
       // 关键步骤：命中改请求体规则时，在真实请求发出前改写请求体（Mock 不发真实请求，故置于其后）
-      if (modifyBodyRule) {
-        /** 原始请求体文本；Replace 模式无需读取，仅 MergeJson 需要原体做合并。 */
+      if (modifyBodyRule && method !== 'GET' && method !== 'HEAD') {
+        /** 原始请求体文本；静态 Replace 无需读取，JSON 深合并与动态模式需要。 */
         const originalBody =
+          modifyBodyRule.sourceMode === RequestBodySourceMode.Dynamic ||
           modifyBodyRule.mode === RequestBodyMode.MergeJson
             ? await readFetchBodyText(input, init)
             : '';
-        /** 按规则改写后的请求体文本。 */
-        const nextBody = modifyRequestBody(modifyBodyRule.mode, modifyBodyRule.content, originalBody);
+        /** 按规则改写后的最终请求体文本。 */
+        const nextBody =
+          modifyBodyRule.sourceMode === RequestBodySourceMode.Dynamic
+            ? await executeDynamicRequestBody(
+                modifyBodyRule.functionCode ?? '',
+                createDynamicRequestContext(
+                  url,
+                  getFetchMethod(input, init),
+                  headersToRecord(getFetchHeaders(input, init)),
+                  originalBody,
+                ),
+                originalBody,
+              )
+            : modifyRequestBody(modifyBodyRule.mode, modifyBodyRule.content, originalBody);
         // input 为 Request 时其 method / headers 仍被保留，init.body 仅覆盖请求体
         const response = await originalFetch(input, { ...init, body: nextBody });
         return throttleResponse(response, delayRule);
@@ -342,10 +585,12 @@ export default defineContentScript({
 
     // ---------- XMLHttpRequest 补丁 ----------
 
-    /** 记录每个 XHR 实例 open 时的 URL，供 send 阶段匹配规则 */
-    const xhrUrlMap = new WeakMap<XMLHttpRequest, string>();
+    /** 记录每个 XHR 实例在 open / setRequestHeader 阶段的请求信息，供 send 阶段匹配与动态 Mock 使用。 */
+    const xhrRequestMap = new WeakMap<XMLHttpRequest, XhrRequestMetadata>();
     /** 原始 open 方法 */
     const originalOpen = XMLHttpRequest.prototype.open;
+    /** 原始 setRequestHeader 方法。 */
+    const originalSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
     /** 原始 send 方法 */
     const originalSend = XMLHttpRequest.prototype.send;
 
@@ -357,18 +602,43 @@ export default defineContentScript({
       username?: string | null,
       password?: string | null,
     ) {
-      // 记录 URL，send 阶段才能拿到完整上下文
-      xhrUrlMap.set(this, toAbsoluteUrl(String(url)));
+      // 记录 URL、方法与空请求头，send 阶段才能拿到完整上下文；重复 open 会重置此前收集的数据。
+      xhrRequestMap.set(this, {
+        url: toAbsoluteUrl(String(url)),
+        method: method.toUpperCase(),
+        headers: {},
+      });
       return originalOpen.call(this, method, url, isAsync, username, password);
+    };
+
+    XMLHttpRequest.prototype.setRequestHeader = function setRequestHeader(
+      this: XMLHttpRequest,
+      name: string,
+      value: string,
+    ) {
+      /** 当前 XHR 的请求元信息。 */
+      const request = xhrRequestMap.get(this);
+      if (request) {
+        // 与 XHR 原生语义一致：重复设置同名 Header 时追加逗号分隔值。
+        request.headers[name.toLowerCase()] = request.headers[name.toLowerCase()]
+          ? `${request.headers[name.toLowerCase()]}, ${value}`
+          : value;
+      }
+      return originalSetRequestHeader.call(this, name, value);
     };
 
     XMLHttpRequest.prototype.send = function send(
       this: XMLHttpRequest,
       body?: Document | XMLHttpRequestBodyInit | null,
     ) {
-      /** open 阶段记录的请求 URL */
-      const url = xhrUrlMap.get(this) ?? '';
-      const { mockRule, delayRule, modifyBodyRule } = resolvePageRules(url);
+      /** open / setRequestHeader 阶段记录的请求上下文。 */
+      const requestMetadata = xhrRequestMap.get(this);
+      /** open 阶段记录的请求 URL。 */
+      const url = requestMetadata?.url ?? '';
+      const { mockRule, delayRule, modifyBodyRule } = resolvePageRules(
+        url,
+        requestMetadata?.method ?? 'GET',
+      );
       /** 延迟规则与 Mock 自带延迟的总时长。XHR 不暴露可替换的响应流，因此仅模拟请求前的网络延迟与上行带宽。 */
       const totalDelayMs =
         (delayRule ? getNetworkRequestDelayMs(delayRule, getRequestBodyByteLength(body)) : 0) +
@@ -376,15 +646,35 @@ export default defineContentScript({
 
       // 关键步骤：命中 Mock 时伪造 XHR 完成态并派发事件，不发起真实请求
       if (mockRule) {
-        setTimeout(() => {
-          Object.defineProperty(this, 'readyState', { value: XMLHttpRequest.DONE });
-          Object.defineProperty(this, 'status', { value: mockRule.statusCode });
-          Object.defineProperty(this, 'responseText', { value: mockRule.body });
-          Object.defineProperty(this, 'response', { value: mockRule.body });
-          this.dispatchEvent(new Event('readystatechange'));
-          this.dispatchEvent(new Event('load'));
-          this.dispatchEvent(new Event('loadend'));
-        }, totalDelayMs);
+        /** 让伪造的 XHR 完成，并保持与静态 Mock 相同的事件顺序。 */
+        const dispatchMockResponse = (mockBody: string): void => {
+          setTimeout(() => {
+            Object.defineProperty(this, 'readyState', { value: XMLHttpRequest.DONE });
+            Object.defineProperty(this, 'status', { value: mockRule.statusCode });
+            Object.defineProperty(this, 'responseText', { value: mockBody });
+            Object.defineProperty(this, 'response', { value: mockBody });
+            this.dispatchEvent(new Event('readystatechange'));
+            this.dispatchEvent(new Event('load'));
+            this.dispatchEvent(new Event('loadend'));
+          }, totalDelayMs);
+        };
+        if (mockRule.mode === MockResponseMode.Dynamic) {
+          void readXhrBodyText(body).then(async (requestBody) => {
+            /** 动态 Mock 函数生成的响应体。 */
+            const mockBody = await resolveMockBody(
+              mockRule,
+              createDynamicRequestContext(
+                url,
+                requestMetadata?.method ?? 'GET',
+                requestMetadata?.headers ?? {},
+                requestBody,
+              ),
+            );
+            dispatchMockResponse(mockBody);
+          });
+        } else {
+          dispatchMockResponse(mockRule.body);
+        }
         return;
       }
 
@@ -403,11 +693,32 @@ export default defineContentScript({
       };
 
       // 关键步骤：命中改请求体规则时，算出新请求体后再按延迟发送
-      if (modifyBodyRule) {
-        // Replace 无需原体，可同步改写；MergeJson 需先（可能异步）读取原始请求体文本
-        if (modifyBodyRule.mode === RequestBodyMode.MergeJson) {
-          void readXhrBodyText(body).then((originalBody) => {
-            dispatchSend(modifyRequestBody(modifyBodyRule.mode, modifyBodyRule.content, originalBody));
+      if (modifyBodyRule && requestMetadata?.method !== 'GET' && requestMetadata?.method !== 'HEAD') {
+        // 静态 Replace 无需原体；JSON 深合并与动态模式需先（可能异步）读取原始请求体文本。
+        if (
+          modifyBodyRule.sourceMode === RequestBodySourceMode.Dynamic ||
+          modifyBodyRule.mode === RequestBodyMode.MergeJson
+        ) {
+          void readXhrBodyText(body).then(async (originalBody) => {
+            /** 动态模式执行函数，静态模式沿用既有 JSON 深合并。 */
+            const nextBody =
+              modifyBodyRule.sourceMode === RequestBodySourceMode.Dynamic
+                ? await executeDynamicRequestBody(
+                    modifyBodyRule.functionCode ?? '',
+                    createDynamicRequestContext(
+                      url,
+                      requestMetadata?.method ?? 'GET',
+                      requestMetadata?.headers ?? {},
+                      originalBody,
+                    ),
+                    originalBody,
+                  )
+                : modifyRequestBody(
+                    modifyBodyRule.mode,
+                    modifyBodyRule.content,
+                    originalBody,
+                  );
+            dispatchSend(nextBody);
           });
         } else {
           dispatchSend(modifyRequestBody(modifyBodyRule.mode, modifyBodyRule.content, ''));

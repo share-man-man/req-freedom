@@ -1,20 +1,20 @@
-import type {
-  ConfigurationExport,
-  HeaderModification,
-  Rule,
-  RuleGroup,
-} from '@req-freedom/shared';
+import type { ConfigurationExport, HeaderModification, Rule, RuleAction, RuleGroup } from '@req-freedom/shared';
 import {
   CONFIG_EXPORT_FILE_NAME_PREFIX,
   CONFIG_EXPORT_SCHEMA_VERSION,
   HeaderOperation,
   HeaderTarget,
+  HttpMethod,
   InsertScriptCodeType,
   InsertScriptTiming,
   MatchType,
+  MockBodyType,
+  MockResponseMode,
   NetworkThrottlePreset,
   RequestBodyMode,
-  RuleType,
+  RequestBodySourceMode,
+  RuleActionType,
+  RuleExecutionChannel,
 } from '@req-freedom/shared';
 
 /** 运行时待校验的普通对象。 */
@@ -26,16 +26,8 @@ type UnknownRecord = Record<string, unknown>;
  * @param enabled 当前全局开关状态
  * @returns 带 schema 版本与导出时间的配置文件内容
  */
-export function createConfigurationExport(
-  groups: RuleGroup[],
-  enabled: boolean,
-): ConfigurationExport {
-  return {
-    schemaVersion: CONFIG_EXPORT_SCHEMA_VERSION,
-    exportedAt: new Date().toISOString(),
-    enabled,
-    groups,
-  };
+export function createConfigurationExport(groups: RuleGroup[], enabled: boolean): ConfigurationExport {
+  return { schemaVersion: CONFIG_EXPORT_SCHEMA_VERSION, exportedAt: new Date().toISOString(), enabled, groups };
 }
 
 /**
@@ -50,56 +42,26 @@ export function getConfigurationExportFileName(exportedAt: string): string {
 }
 
 /**
- * 解析并严格校验导入的 JSON 配置。
+ * 解析并校验统一规则模型的配置文件。
  * @param content 用户选择的文件内容
  * @returns 可安全写入 storage 的配置数据
- * @throws 文件不是 JSON、schema 版本不支持或数据结构不合法时抛出错误
  */
 export function parseConfigurationExport(content: string): ConfigurationExport {
   /** JSON 解析后的未知数据。 */
   let parsed: unknown;
-  try {
-    parsed = JSON.parse(content) as unknown;
-  } catch {
-    throw new Error('文件不是有效的 JSON。');
-  }
-
+  try { parsed = JSON.parse(content) as unknown; } catch { throw new Error('文件不是有效的 JSON。'); }
   /** 顶层配置对象。 */
   const document = requireRecord(parsed, '配置根节点');
-  if (document.schemaVersion !== 1 && document.schemaVersion !== CONFIG_EXPORT_SCHEMA_VERSION) {
-    throw new Error(
-      `暂不支持 schemaVersion ${String(document.schemaVersion)}，当前仅支持版本 1 和 ${CONFIG_EXPORT_SCHEMA_VERSION}。`,
-    );
-  }
-  if (typeof document.exportedAt !== 'string' || Number.isNaN(Date.parse(document.exportedAt))) {
-    throw new Error('配置文件缺少有效的 exportedAt 时间。');
-  }
-  /** 已通过格式校验的导出时间。 */
-  const exportedAt = document.exportedAt;
-  if (typeof document.enabled !== 'boolean') {
-    throw new Error('配置文件中的全局开关 enabled 必须是布尔值。');
-  }
-  if (!Array.isArray(document.groups)) {
-    throw new Error('配置文件中的 groups 必须是数组。');
-  }
-
-  /** 已使用的分组 ID，避免导入后拖拽与编辑定位异常。 */
+  if (document.schemaVersion !== CONFIG_EXPORT_SCHEMA_VERSION) throw new Error(`仅支持 schemaVersion ${CONFIG_EXPORT_SCHEMA_VERSION}。`);
+  if (typeof document.exportedAt !== 'string' || Number.isNaN(Date.parse(document.exportedAt))) throw new Error('配置文件缺少有效的 exportedAt 时间。');
+  if (typeof document.enabled !== 'boolean' || !Array.isArray(document.groups)) throw new Error('配置文件的 enabled 或 groups 格式不正确。');
+  /** 已使用的分组 ID。 */
   const groupIds = new Set<string>();
-  /** 已使用的规则 ID，避免 DNR 动态规则映射冲突。 */
+  /** 已使用的规则 ID。 */
   const ruleIds = new Set<string>();
-  /** 校验并净化后的分组数据。 */
-  const groups = document.groups.map((group, index) => {
-    /** 当前分组的校验结果。 */
-    const parsedGroup = parseRuleGroup(group, index, groupIds, ruleIds, exportedAt);
-    return parsedGroup;
-  });
-
-  return {
-    schemaVersion: CONFIG_EXPORT_SCHEMA_VERSION,
-    exportedAt,
-    enabled: document.enabled,
-    groups,
-  };
+  /** 完成净化的分组数据。 */
+  const groups = document.groups.map((group, index) => parseRuleGroup(group, index, groupIds, ruleIds));
+  return { schemaVersion: CONFIG_EXPORT_SCHEMA_VERSION, exportedAt: document.exportedAt, enabled: document.enabled, groups };
 }
 
 /**
@@ -109,9 +71,7 @@ export function parseConfigurationExport(content: string): ConfigurationExport {
  * @returns 已确认是普通对象的值
  */
 function requireRecord(value: unknown, label: string): UnknownRecord {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new Error(`${label}必须是对象。`);
-  }
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new Error(`${label}必须是对象。`);
   return value as UnknownRecord;
 }
 
@@ -119,251 +79,142 @@ function requireRecord(value: unknown, label: string): UnknownRecord {
  * 校验非空字符串字段。
  * @param value 待校验值
  * @param label 出错时显示的字段名称
- * @returns 已确认的非空字符串
+ * @returns 已确认的字符串
  */
-function requireNonEmptyString(value: unknown, label: string): string {
-  if (typeof value !== 'string' || !value.trim()) {
-    throw new Error(`${label}不能为空。`);
-  }
+function requireString(value: unknown, label: string): string {
+  if (typeof value !== 'string' || !value.trim()) throw new Error(`${label}不能为空。`);
   return value;
 }
 
 /**
- * 校验有限的非负数字字段。
+ * 校验有限非负数字。
  * @param value 待校验值
  * @param label 出错时显示的字段名称
  * @returns 已确认的数字
  */
-function requireNonNegativeNumber(value: unknown, label: string): number {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
-    throw new Error(`${label}必须是非负数字。`);
-  }
+function requireNumber(value: unknown, label: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) throw new Error(`${label}必须是非负数字。`);
   return value;
 }
 
 /**
- * 校验字符串映射。
+ * 校验一组字符串键值对。
  * @param value 待校验值
  * @param label 出错时显示的字段名称
- * @returns 键和值均为字符串的映射
+ * @returns 已校验的键值映射
  */
 function parseStringRecord(value: unknown, label: string): Record<string, string> {
-  /** 待处理的对象。 */
+  /** 输入对象。 */
   const record = requireRecord(value, label);
-  /** 已校验的键值项。 */
-  const entries = Object.entries(record);
-  if (entries.some(([, item]) => typeof item !== 'string')) {
-    throw new Error(`${label}中的值必须都是字符串。`);
-  }
-  return Object.fromEntries(entries) as Record<string, string>;
+  if (Object.values(record).some((item) => typeof item !== 'string')) throw new Error(`${label}中的值必须都是字符串。`);
+  return record as Record<string, string>;
 }
 
 /**
- * 校验一个规则分组及其规则。
- * @param value 待校验分组
- * @param index 分组在列表中的下标
- * @param groupIds 已使用的分组 ID
- * @param ruleIds 已使用的规则 ID
- * @param fallbackUpdatedAt 旧版导入文件缺少更新时间时使用的回退时间
+ * 校验规则分组。
+ * @param value 待校验的分组
+ * @param index 分组下标
+ * @param groupIds 已使用 ID
+ * @param ruleIds 已使用规则 ID
  * @returns 已校验分组
  */
-function parseRuleGroup(
-  value: unknown,
-  index: number,
-  groupIds: Set<string>,
-  ruleIds: Set<string>,
-  fallbackUpdatedAt: string,
-): RuleGroup {
-  /** 当前分组对象。 */
+function parseRuleGroup(value: unknown, index: number, groupIds: Set<string>, ruleIds: Set<string>): RuleGroup {
+  /** 分组对象。 */
   const group = requireRecord(value, `第 ${index + 1} 个分组`);
-  /** 当前分组 ID。 */
-  const id = requireNonEmptyString(group.id, `第 ${index + 1} 个分组的 id`);
-  if (groupIds.has(id)) {
-    throw new Error(`分组 ID ${id} 重复。`);
-  }
+  /** 分组 ID。 */
+  const id = requireString(group.id, '分组 id');
+  if (groupIds.has(id)) throw new Error(`分组 ID ${id} 重复。`);
   groupIds.add(id);
-  if (typeof group.enabled !== 'boolean') {
-    throw new Error(`分组「${id}」的 enabled 必须是布尔值。`);
-  }
-  if (!Array.isArray(group.rules)) {
-    throw new Error(`分组「${id}」的 rules 必须是数组。`);
-  }
-
-  /** 已校验的组内规则。 */
-  const rules = group.rules.map((rule, ruleIndex) => parseRule(rule, id, ruleIndex, ruleIds));
-  /** 分组更新时间；v1 配置没有该字段，使用导出时间补齐。 */
-  const updatedAt =
-    typeof group.updatedAt === 'string' && !Number.isNaN(Date.parse(group.updatedAt))
-      ? group.updatedAt
-      : fallbackUpdatedAt;
-  return {
-    id,
-    name: requireNonEmptyString(group.name, `分组「${id}」的名称`),
-    enabled: group.enabled,
-    updatedAt,
-    rules,
-  };
+  if (typeof group.enabled !== 'boolean' || !Array.isArray(group.rules)) throw new Error(`分组「${id}」格式不正确。`);
+  if (typeof group.updatedAt !== 'string' || Number.isNaN(Date.parse(group.updatedAt))) throw new Error(`分组「${id}」缺少有效更新时间。`);
+  return { id, name: requireString(group.name, `分组「${id}」名称`), enabled: group.enabled, updatedAt: group.updatedAt, rules: group.rules.map((rule, ruleIndex) => parseRule(rule, id, ruleIndex, ruleIds)) };
 }
 
 /**
- * 校验一条规则。
+ * 校验一条统一规则。
  * @param value 待校验规则
- * @param groupId 规则所属分组 ID
- * @param index 规则在组内的下标
- * @param ruleIds 已使用的规则 ID
+ * @param groupId 所属分组 ID
+ * @param index 规则下标
+ * @param ruleIds 已使用规则 ID
  * @returns 已校验规则
  */
 function parseRule(value: unknown, groupId: string, index: number, ruleIds: Set<string>): Rule {
-  /** 当前规则对象。 */
+  /** 规则对象。 */
   const rule = requireRecord(value, `分组「${groupId}」中的第 ${index + 1} 条规则`);
-  /** 当前规则 ID。 */
-  const id = requireNonEmptyString(rule.id, `分组「${groupId}」中第 ${index + 1} 条规则的 id`);
-  if (ruleIds.has(id)) {
-    throw new Error(`规则 ID ${id} 重复。`);
-  }
+  /** 规则 ID。 */
+  const id = requireString(rule.id, '规则 id');
+  if (ruleIds.has(id)) throw new Error(`规则 ID ${id} 重复。`);
   ruleIds.add(id);
-  if (typeof rule.enabled !== 'boolean') {
-    throw new Error(`规则「${id}」的 enabled 必须是布尔值。`);
+  if (typeof rule.enabled !== 'boolean' || !Object.values(MatchType).includes(rule.matchType as MatchType)) throw new Error(`规则「${id}」的基础字段不合法。`);
+  if (!Object.values(RuleExecutionChannel).includes(rule.channel as RuleExecutionChannel)) throw new Error(`规则「${id}」的执行通道不合法。`);
+  if (!Array.isArray(rule.methods) || !rule.methods.every((method) => Object.values(HttpMethod).includes(method as HttpMethod))) throw new Error(`规则「${id}」的请求方法不合法。`);
+  if (!Array.isArray(rule.actions) || rule.actions.length === 0) throw new Error(`规则「${id}」至少需要一个动作。`);
+  /** 匹配内容。 */
+  const pattern = requireString(rule.pattern, `规则「${id}」的匹配内容`);
+  if (rule.matchType === MatchType.Regex) { try { new RegExp(pattern); } catch { throw new Error(`规则「${id}」的正则表达式语法错误。`); } }
+  /** 执行通道。 */
+  const channel = rule.channel as RuleExecutionChannel;
+  /** 已校验动作。 */
+  const actions = rule.actions.map((action, actionIndex) => parseAction(action, id, actionIndex, channel));
+  /** 不能同时执行的 DNR 路由动作数量。 */
+  const exclusiveActionCount = actions.filter((action) => [RuleActionType.Block, RuleActionType.Redirect, RuleActionType.InjectParams].includes(action.type)).length;
+  if (exclusiveActionCount > 1) throw new Error(`规则「${id}」不能同时配置拦截、重定向和参数注入。`);
+  if (rule.methods.length === 0 || rule.methods.includes(HttpMethod.Get) || rule.methods.includes(HttpMethod.Head)) {
+    if (actions.some((action) => action.type === RuleActionType.ModifyRequestBody)) throw new Error(`规则「${id}」的 GET / HEAD 不能改请求体。`);
   }
-  if (!Object.values(MatchType).includes(rule.matchType as MatchType)) {
-    throw new Error(`规则「${id}」的 matchType 不合法。`);
-  }
-  /** 所有规则共享的已校验字段。 */
-  const base = {
-    id,
-    name: requireNonEmptyString(rule.name, `规则「${id}」的名称`),
-    enabled: rule.enabled,
-    matchType: rule.matchType as MatchType,
-    pattern: requireNonEmptyString(rule.pattern, `规则「${id}」的匹配内容`),
-  };
-  if (base.matchType === MatchType.Regex) {
-    try {
-      new RegExp(base.pattern);
-    } catch {
-      throw new Error(`规则「${id}」的正则表达式语法错误。`);
-    }
-  }
-  if (!Object.values(RuleType).includes(rule.type as RuleType)) {
-    throw new Error(`规则「${id}」的 type 不合法。`);
-  }
-
-  switch (rule.type) {
-    case RuleType.Block:
-      return { ...base, type: RuleType.Block };
-    case RuleType.Redirect:
-      return {
-        ...base,
-        type: RuleType.Redirect,
-        redirectUrl: requireNonEmptyString(rule.redirectUrl, `规则「${id}」的重定向地址`),
-      };
-    case RuleType.InjectParams:
-      return { ...base, type: RuleType.InjectParams, params: parseStringRecord(rule.params, `规则「${id}」的 params`) };
-    case RuleType.ModifyHeaders:
-      return { ...base, type: RuleType.ModifyHeaders, headers: parseHeaderModifications(rule.headers, id) };
-    case RuleType.MockResponse: {
-      if (typeof rule.statusCode !== 'number' || !Number.isInteger(rule.statusCode) || rule.statusCode < 100 || rule.statusCode > 599) {
-        throw new Error(`规则「${id}」的 statusCode 必须在 100 到 599 之间。`);
-      }
-      if (typeof rule.body !== 'string') {
-        throw new Error(`规则「${id}」的 body 必须是字符串。`);
-      }
-      if (rule.delayMs !== undefined) {
-        requireNonNegativeNumber(rule.delayMs, `规则「${id}」的 delayMs`);
-      }
-      /** 可选的响应头配置。 */
-      const responseHeaders =
-        rule.responseHeaders === undefined
-          ? undefined
-          : parseStringRecord(rule.responseHeaders, `规则「${id}」的 responseHeaders`);
-      return {
-        ...base,
-        type: RuleType.MockResponse,
-        statusCode: rule.statusCode,
-        body: rule.body,
-        ...(responseHeaders ? { responseHeaders } : {}),
-        ...(rule.delayMs === undefined ? {} : { delayMs: rule.delayMs as number }),
-      };
-    }
-    case RuleType.Delay:
-      if (!Object.values(NetworkThrottlePreset).includes(rule.throttlePreset as NetworkThrottlePreset)) {
-        throw new Error(`规则「${id}」的 throttlePreset 不合法。`);
-      }
-      return {
-        ...base,
-        type: RuleType.Delay,
-        throttlePreset: rule.throttlePreset as NetworkThrottlePreset,
-        latencyMs: requireNonNegativeNumber(rule.latencyMs, `规则「${id}」的 latencyMs`),
-        downloadKbps: requireNonNegativeNumber(rule.downloadKbps, `规则「${id}」的 downloadKbps`),
-        uploadKbps: requireNonNegativeNumber(rule.uploadKbps, `规则「${id}」的 uploadKbps`),
-      };
-    case RuleType.InsertScript:
-      if (!Object.values(InsertScriptCodeType).includes(rule.codeType as InsertScriptCodeType)) {
-        throw new Error(`规则「${id}」的 codeType 不合法。`);
-      }
-      if (!Object.values(InsertScriptTiming).includes(rule.timing as InsertScriptTiming)) {
-        throw new Error(`规则「${id}」的 timing 不合法。`);
-      }
-      return {
-        ...base,
-        type: RuleType.InsertScript,
-        codeType: rule.codeType as InsertScriptCodeType,
-        timing: rule.timing as InsertScriptTiming,
-        code: requireNonEmptyString(rule.code, `规则「${id}」的 code`),
-      };
-    case RuleType.ModifyRequestBody: {
-      if (!Object.values(RequestBodyMode).includes(rule.mode as RequestBodyMode)) {
-        throw new Error(`规则「${id}」的 mode 不合法。`);
-      }
-      /** 已校验的改写内容。 */
-      const content = requireNonEmptyString(rule.content, `规则「${id}」的 content`);
-      // JSON 深合并模式的补丁必须是合法 JSON，避免导入后运行时被静默跳过
-      if (rule.mode === RequestBodyMode.MergeJson) {
-        try {
-          JSON.parse(content);
-        } catch {
-          throw new Error(`规则「${id}」的 content 在 JSON 深合并模式下必须是合法 JSON。`);
-        }
-      }
-      return {
-        ...base,
-        type: RuleType.ModifyRequestBody,
-        mode: rule.mode as RequestBodyMode,
-        content,
-      };
-    }
-  }
-
-  // 防御性兜底：即使未来新增枚举值但遗漏了上方分支，也绝不导入未知规则。
-  throw new Error(`规则「${id}」的 type 不受支持。`);
+  return { id, name: requireString(rule.name, `规则「${id}」的名称`), enabled: rule.enabled, channel, methods: rule.methods as HttpMethod[], matchType: rule.matchType as MatchType, pattern, actions };
 }
 
 /**
- * 校验 Header 修改项列表。
- * @param value 待校验的 Header 修改项
+ * 校验单个规则动作。
+ * @param value 待校验动作
  * @param ruleId 所属规则 ID
- * @returns 已校验的 Header 修改项列表
+ * @param index 动作下标
+ * @param channel 所属执行通道
+ * @returns 已校验动作
  */
-function parseHeaderModifications(value: unknown, ruleId: string): HeaderModification[] {
-  if (!Array.isArray(value)) {
-    throw new Error(`规则「${ruleId}」的 headers 必须是数组。`);
+function parseAction(value: unknown, ruleId: string, index: number, channel: RuleExecutionChannel): RuleAction {
+  /** 动作对象。 */
+  const action = requireRecord(value, `规则「${ruleId}」的第 ${index + 1} 个动作`);
+  if (!Object.values(RuleActionType).includes(action.type as RuleActionType)) throw new Error(`规则「${ruleId}」的动作类型不合法。`);
+  /** 动作类型。 */
+  const type = action.type as RuleActionType;
+  /** 是否是 DNR 动作。 */
+  const isDnrAction = [RuleActionType.Block, RuleActionType.Redirect, RuleActionType.InjectParams, RuleActionType.ModifyHeaders].includes(type);
+  if ((isDnrAction && channel !== RuleExecutionChannel.Dnr) || (!isDnrAction && channel !== RuleExecutionChannel.PagePatch)) throw new Error(`规则「${ruleId}」的动作与执行通道不匹配。`);
+  switch (type) {
+    case RuleActionType.Block: return { type };
+    case RuleActionType.Redirect: return { type, redirectUrl: requireString(action.redirectUrl, '重定向地址') };
+    case RuleActionType.InjectParams: return { type, params: parseStringRecord(action.params, '参数') };
+    case RuleActionType.ModifyHeaders: return { type, headers: parseHeaders(action.headers) };
+    case RuleActionType.MockResponse:
+      if (!Object.values(MockResponseMode).includes(action.mode as MockResponseMode) || typeof action.statusCode !== 'number' || action.statusCode < 100 || action.statusCode > 599 || typeof action.body !== 'string') throw new Error(`规则「${ruleId}」的 Mock 配置不合法。`);
+      if (action.mode === MockResponseMode.Dynamic && (typeof action.functionCode !== 'string' || !action.functionCode.trim())) throw new Error(`规则「${ruleId}」的动态 Mock 函数不能为空。`);
+      return { type, mode: action.mode as MockResponseMode, statusCode: action.statusCode, body: action.body, ...(Object.values(MockBodyType).includes(action.bodyType as MockBodyType) ? { bodyType: action.bodyType as MockBodyType } : {}), ...(typeof action.functionCode === 'string' ? { functionCode: action.functionCode } : {}), ...(typeof action.delayMs === 'number' ? { delayMs: requireNumber(action.delayMs, 'Mock 延迟') } : {}), ...(action.responseHeaders ? { responseHeaders: parseStringRecord(action.responseHeaders, 'Mock 响应头') } : {}) };
+    case RuleActionType.Delay:
+      if (!Object.values(NetworkThrottlePreset).includes(action.throttlePreset as NetworkThrottlePreset)) throw new Error(`规则「${ruleId}」的限速档位不合法。`);
+      return { type, throttlePreset: action.throttlePreset as NetworkThrottlePreset, latencyMs: requireNumber(action.latencyMs, '网络延迟'), downloadKbps: requireNumber(action.downloadKbps, '下行带宽'), uploadKbps: requireNumber(action.uploadKbps, '上行带宽') };
+    case RuleActionType.InsertScript:
+      if (!Object.values(InsertScriptCodeType).includes(action.codeType as InsertScriptCodeType) || !Object.values(InsertScriptTiming).includes(action.timing as InsertScriptTiming)) throw new Error(`规则「${ruleId}」的注入配置不合法。`);
+      return { type, codeType: action.codeType as InsertScriptCodeType, timing: action.timing as InsertScriptTiming, code: requireString(action.code, '注入代码') };
+    case RuleActionType.ModifyRequestBody:
+      if (!Object.values(RequestBodySourceMode).includes(action.sourceMode as RequestBodySourceMode) || !Object.values(RequestBodyMode).includes(action.mode as RequestBodyMode) || typeof action.content !== 'string') throw new Error(`规则「${ruleId}」的请求体配置不合法。`);
+      if (action.sourceMode === RequestBodySourceMode.Dynamic && (typeof action.functionCode !== 'string' || !action.functionCode.trim())) throw new Error(`规则「${ruleId}」的动态请求体函数不能为空。`);
+      return { type, sourceMode: action.sourceMode as RequestBodySourceMode, mode: action.mode as RequestBodyMode, content: action.content, ...(typeof action.functionCode === 'string' ? { functionCode: action.functionCode } : {}) };
   }
-  return value.map((item, index) => {
-    /** 当前 Header 修改项。 */
-    const header = requireRecord(item, `规则「${ruleId}」的第 ${index + 1} 个 Header 修改项`);
-    if (!Object.values(HeaderTarget).includes(header.target as HeaderTarget)) {
-      throw new Error(`规则「${ruleId}」第 ${index + 1} 个 Header 修改项的 target 不合法。`);
-    }
-    if (!Object.values(HeaderOperation).includes(header.operation as HeaderOperation)) {
-      throw new Error(`规则「${ruleId}」第 ${index + 1} 个 Header 修改项的 operation 不合法。`);
-    }
-    if (header.value !== undefined && typeof header.value !== 'string') {
-      throw new Error(`规则「${ruleId}」第 ${index + 1} 个 Header 修改项的 value 必须是字符串。`);
-    }
-    return {
-      target: header.target as HeaderTarget,
-      operation: header.operation as HeaderOperation,
-      header: requireNonEmptyString(header.header, `规则「${ruleId}」第 ${index + 1} 个 Header 修改项的名称`),
-      ...(header.value === undefined ? {} : { value: header.value }),
-    };
+}
+
+/**
+ * 校验 Header 改写项。
+ * @param value 待校验数组
+ * @returns 已校验的 Header 修改项
+ */
+function parseHeaders(value: unknown): HeaderModification[] {
+  if (!Array.isArray(value)) throw new Error('Header 修改项必须是数组。');
+  return value.map((item) => {
+    /** Header 修改对象。 */
+    const header = requireRecord(item, 'Header 修改项');
+    if (!Object.values(HeaderTarget).includes(header.target as HeaderTarget) || !Object.values(HeaderOperation).includes(header.operation as HeaderOperation)) throw new Error('Header 修改项的目标或操作不合法。');
+    return { target: header.target as HeaderTarget, operation: header.operation as HeaderOperation, header: requireString(header.header, 'Header 名称'), ...(typeof header.value === 'string' ? { value: header.value } : {}) };
   });
 }
