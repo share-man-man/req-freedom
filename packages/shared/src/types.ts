@@ -1,18 +1,23 @@
 import type {
   HeaderOperation,
   HeaderTarget,
+  HttpMethod,
   InsertScriptCodeType,
   InsertScriptTiming,
   MatchType,
+  MockBodyType,
+  MockResponseMode,
   NetworkThrottlePreset,
   RequestBodyMode,
-  RuleType,
+  RequestBodySourceMode,
+  RuleActionType,
+  RuleExecutionChannel,
 } from './enums';
 
 /**
  * 所有规则的公共字段
  */
-export interface BaseRule {
+interface BaseRule {
   /** 规则唯一 ID */
   id: string;
   /** 规则名称（展示用） */
@@ -25,18 +30,14 @@ export interface BaseRule {
   pattern: string;
 }
 
-/**
- * 拦截规则：直接阻断请求
- */
-export interface BlockRule extends BaseRule {
-  type: RuleType.Block;
+interface BlockAction {
+  /** 动作类型。 */
+  type: RuleActionType.Block;
 }
 
-/**
- * 重定向规则
- */
-export interface RedirectRule extends BaseRule {
-  type: RuleType.Redirect;
+interface RedirectAction {
+  /** 动作类型。 */
+  type: RuleActionType.Redirect;
   /** 重定向目标地址；正则匹配时支持 \1 形式的捕获组引用 */
   redirectUrl: string;
 }
@@ -44,8 +45,9 @@ export interface RedirectRule extends BaseRule {
 /**
  * 参数注入规则：向 URL 查询串中添加/覆盖参数
  */
-export interface InjectParamsRule extends BaseRule {
-  type: RuleType.InjectParams;
+interface InjectParamsAction {
+  /** 动作类型。 */
+  type: RuleActionType.InjectParams;
   /** 要注入的查询参数键值对 */
   params: Record<string, string>;
 }
@@ -67,8 +69,9 @@ export interface HeaderModification {
 /**
  * Header 改写规则
  */
-export interface ModifyHeadersRule extends BaseRule {
-  type: RuleType.ModifyHeaders;
+interface ModifyHeadersAction {
+  /** 动作类型。 */
+  type: RuleActionType.ModifyHeaders;
   /** 修改项列表 */
   headers: HeaderModification[];
 }
@@ -76,14 +79,21 @@ export interface ModifyHeadersRule extends BaseRule {
 /**
  * 返回值 Mock 规则
  */
-export interface MockResponseRule extends BaseRule {
-  type: RuleType.MockResponse;
+export interface MockResponseAction {
+  /** 动作类型。 */
+  type: RuleActionType.MockResponse;
+  /** 响应体生成方式：静态文本 / 动态 JavaScript 函数 */
+  mode: MockResponseMode;
   /** 响应状态码 */
   statusCode: number;
   /** 附加响应头 */
   responseHeaders?: Record<string, string>;
-  /** 响应体（字符串形式，JSON 请自行序列化） */
+  /** 静态模式下响应体的内容类型；决定编辑器高亮与默认 Content-Type（缺省 JSON，向后兼容旧数据） */
+  bodyType?: MockBodyType;
+  /** 静态模式下的响应体（字符串形式，JSON 请自行序列化） */
   body: string;
+  /** 动态模式下的 JavaScript 函数体；可使用 req 入参并返回任意响应值 */
+  functionCode?: string;
   /** 返回前的额外延迟（毫秒） */
   delayMs?: number;
 }
@@ -91,8 +101,9 @@ export interface MockResponseRule extends BaseRule {
 /**
  * 延迟模拟规则
  */
-export interface DelayRule extends BaseRule {
-  type: RuleType.Delay;
+export interface DelayAction {
+  /** 动作类型。 */
+  type: RuleActionType.Delay;
   /** 网络档位。 */
   throttlePreset: NetworkThrottlePreset;
   /** 往返延迟（毫秒）；仅自定义档位使用。 */
@@ -109,8 +120,9 @@ export interface DelayRule extends BaseRule {
  * 按页面 URL 命中，向页面注入自定义 JS 或 CSS。走页面补丁通道（MAIN world），
  * 匹配的是顶层文档 URL 而非单个请求。
  */
-export interface InsertScriptRule extends BaseRule {
-  type: RuleType.InsertScript;
+export interface InsertScriptAction {
+  /** 动作类型。 */
+  type: RuleActionType.InsertScript;
   /** 注入代码的类型（JS / CSS） */
   codeType: InsertScriptCodeType;
   /** 注入时机（document_start / document_end） */
@@ -125,26 +137,43 @@ export interface InsertScriptRule extends BaseRule {
  * 在请求真正发出前改写其请求体。走页面补丁通道（MAIN world），仅作用于页面脚本
  * 发起的 fetch / XHR；浏览器原生请求（页面导航、静态资源）拿不到请求体，不在作用范围内。
  */
-export interface ModifyRequestBodyRule extends BaseRule {
-  type: RuleType.ModifyRequestBody;
-  /** 改写模式：整体替换 / JSON 深合并 */
+interface ModifyRequestBodyAction {
+  /** 动作类型。 */
+  type: RuleActionType.ModifyRequestBody;
+  /** 内容来源：静态文本 / 动态 JavaScript 函数 */
+  sourceMode: RequestBodySourceMode;
+  /** 静态内容的改写模式：整体替换 / JSON 深合并；动态模式下保留以兼容旧配置但不参与执行 */
   mode: RequestBodyMode;
-  /** 改写内容：Replace 模式为新的请求体文本；MergeJson 模式为要深合并进原请求体的 JSON 文本 */
+  /** 静态内容：Replace 模式为新的请求体文本；MergeJson 模式为要深合并进原请求体的 JSON 文本 */
   content: string;
+  /** 动态模式下的 JavaScript 函数体；可使用 req 入参并返回最终请求体 */
+  functionCode?: string;
 }
 
+/** 规则内可组合的具体动作。 */
+export type RuleAction =
+  | BlockAction
+  | RedirectAction
+  | InjectParamsAction
+  | ModifyHeadersAction
+  | MockResponseAction
+  | DelayAction
+  | InsertScriptAction
+  | ModifyRequestBodyAction;
+
 /**
- * 规则联合类型（按 type 字段做判别）
+ * 统一规则模型。
+ *
+ * 一条规则只有一个执行通道；相同 URL / 方法匹配条件下可组合多个该通道支持的动作。
  */
-export type Rule =
-  | BlockRule
-  | RedirectRule
-  | InjectParamsRule
-  | ModifyHeadersRule
-  | MockResponseRule
-  | DelayRule
-  | InsertScriptRule
-  | ModifyRequestBodyRule;
+export interface Rule extends BaseRule {
+  /** 规则的执行通道。 */
+  channel: RuleExecutionChannel;
+  /** 允许命中的 HTTP 方法；空数组表示全部方法。 */
+  methods: HttpMethod[];
+  /** 命中后依次执行的动作。 */
+  actions: RuleAction[];
+}
 
 /**
  * 规则分组：一组规则的收纳容器，可整组启停

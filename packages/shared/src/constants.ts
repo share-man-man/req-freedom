@@ -1,4 +1,4 @@
-import { NetworkThrottlePreset } from './enums';
+import { MockBodyType, MockResponseMode, NetworkThrottlePreset, RequestBodySourceMode } from './enums';
 
 /** storage 中规则分组列表的键名（顶层文档模型：分组内嵌套规则） */
 export const STORAGE_KEY_GROUPS = 'req-freedom:groups';
@@ -27,8 +27,50 @@ export const DNR_RULE_ID_OFFSET = 1000;
 /** Mock 响应的默认状态码 */
 export const DEFAULT_MOCK_STATUS = 200;
 
-/** Mock 响应的默认 Content-Type */
-export const DEFAULT_MOCK_CONTENT_TYPE = 'application/json';
+/** 新建动态 Mock 时预填的函数示例（完整命名函数，运行时以 req 调用）。 */
+export const DEFAULT_DYNAMIC_MOCK_FUNCTION_CODE = `function mock(req) {
+  return {
+    code: 0,
+    data: {
+      method: req.method,
+      query: req.query,
+      body: req.json ?? req.body,
+    },
+  };
+}`;
+
+/** 新建 Mock 规则时采用的默认响应模式。 */
+export const DEFAULT_MOCK_RESPONSE_MODE = MockResponseMode.Static;
+
+/** 新建动态改请求体规则时预填的函数示例（完整命名函数，运行时以 req 调用）。 */
+export const DEFAULT_DYNAMIC_REQUEST_BODY_FUNCTION_CODE = `function modify(req) {
+  return {
+    ...req.json,
+    variables: {
+      ...req.json?.variables,
+      first: 100,
+    },
+  };
+}`;
+
+/** 新建改请求体规则时采用的默认内容来源。 */
+export const DEFAULT_REQUEST_BODY_SOURCE_MODE = RequestBodySourceMode.Static;
+
+/** 新建 Mock 规则时静态响应体的默认类型。 */
+export const DEFAULT_MOCK_BODY_TYPE = MockBodyType.Json;
+
+/** 各静态响应体类型对应的 Content-Type。 */
+export const MOCK_BODY_TYPE_CONTENT_TYPES: Record<MockBodyType, string> = {
+  [MockBodyType.Json]: 'application/json',
+  [MockBodyType.Text]: 'text/plain',
+  [MockBodyType.Html]: 'text/html',
+  [MockBodyType.Xml]: 'application/xml',
+  [MockBodyType.JavaScript]: 'text/javascript',
+  [MockBodyType.Css]: 'text/css',
+};
+
+/** Mock 响应的默认 Content-Type（缺省 bodyType 与动态模式回落到此）。 */
+export const DEFAULT_MOCK_CONTENT_TYPE = MOCK_BODY_TYPE_CONTENT_TYPES[DEFAULT_MOCK_BODY_TYPE];
 
 /** 单个网络档位的传输参数 */
 export interface NetworkThrottleSettings {

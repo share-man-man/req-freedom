@@ -1,23 +1,62 @@
-/**
- * 规则类型：插件支持的全部拦截能力
- */
-export enum RuleType {
-  /** 拦截（阻断请求） */
+/** 规则的实际执行通道。 */
+export enum RuleExecutionChannel {
+  /** Chrome declarativeNetRequest 网络层规则。 */
+  Dnr = 'dnr',
+  /** MAIN world 中的 fetch / XHR / 页面注入补丁。 */
+  PagePatch = 'page-patch',
+}
+
+/** 通道内可组合的动作类型；仅用于统一规则模型与执行分发。 */
+export enum RuleActionType {
   Block = 'block',
-  /** 重定向到新地址 */
   Redirect = 'redirect',
-  /** URL 查询参数注入 */
   InjectParams = 'inject-params',
-  /** 请求/响应 Header 改写 */
   ModifyHeaders = 'modify-headers',
-  /** 返回值 Mock */
   MockResponse = 'mock-response',
-  /** 延迟模拟 */
   Delay = 'delay',
-  /** 注入自定义 JS / CSS */
   InsertScript = 'insert-script',
-  /** 改写请求体 */
   ModifyRequestBody = 'modify-request-body',
+}
+
+/** HTTP 请求方法。 */
+export enum HttpMethod {
+  Get = 'GET',
+  Post = 'POST',
+  Put = 'PUT',
+  Patch = 'PATCH',
+  Delete = 'DELETE',
+  Head = 'HEAD',
+  Options = 'OPTIONS',
+}
+
+/**
+ * Mock 响应生成方式
+ */
+export enum MockResponseMode {
+  /** 直接返回配置中的静态响应体文本 */
+  Static = 'static',
+  /** 在页面上下文执行 JavaScript，根据请求动态生成响应体 */
+  Dynamic = 'dynamic',
+}
+
+/**
+ * 静态 Mock 响应体的内容类型
+ *
+ * 同时决定编辑器语法高亮与交付时的默认 Content-Type。
+ */
+export enum MockBodyType {
+  /** JSON（application/json） */
+  Json = 'json',
+  /** 纯文本（text/plain） */
+  Text = 'text',
+  /** HTML（text/html） */
+  Html = 'html',
+  /** XML（application/xml） */
+  Xml = 'xml',
+  /** JavaScript（text/javascript） */
+  JavaScript = 'javascript',
+  /** CSS（text/css） */
+  Css = 'css',
 }
 
 /**
@@ -28,6 +67,16 @@ export enum RequestBodyMode {
   Replace = 'replace',
   /** 把 JSON 补丁深合并进原请求体（原请求体须为 JSON 对象） */
   MergeJson = 'merge-json',
+}
+
+/**
+ * 请求体内容来源
+ */
+export enum RequestBodySourceMode {
+  /** 使用静态文本按 RequestBodyMode 规则改写 */
+  Static = 'static',
+  /** 在页面上下文执行 JavaScript，根据请求动态生成最终请求体 */
+  Dynamic = 'dynamic',
 }
 
 /**
