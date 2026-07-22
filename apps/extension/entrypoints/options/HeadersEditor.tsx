@@ -99,79 +99,87 @@ export default function HeadersEditor({ value, onChange }: HeadersEditorProps) {
     <div className="flex w-full flex-col items-start gap-2">
       {value.map((item, index) => (
         // 行没有稳定 ID，用下标作为 key（仅增删改场景，无排序需求）
-        <div className="w-full" key={index}>
-          <div className="flex w-full gap-2">
-            <Select
-              value={item.target}
-              onValueChange={(v) => handleRowChange(index, { target: v as HeaderTarget })}
-            >
-              <SelectTrigger className="h-8 w-24 shrink-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.values(HeaderTarget).map((target) => (
-                  <SelectItem key={target} value={target}>
-                    {HEADER_TARGET_LABELS[target]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={item.operation}
-              onValueChange={(v) => handleRowChange(index, { operation: v as HeaderOperation })}
-            >
-              <SelectTrigger className="h-8 w-20 shrink-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.values(HeaderOperation).map((operation) => (
-                  <SelectItem key={operation} value={operation}>
-                    {HEADER_OPERATION_LABELS[operation]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {/* 请求头 + 追加：头名限定为白名单下拉；其余情况自由输入 */}
-            {isRequestAppend(item) ? (
+        <div className="w-full rounded-md border border-border/60 p-2" key={index}>
+          {/* detail 列偏窄，单行放不下四个控件，折成两行：上行「目标 + 操作 + 删除」，下行「头名 + 值」 */}
+          <div className="flex w-full flex-col gap-2">
+            {/* 第一行：目标 + 操作，删除按钮靠右 */}
+            <div className="flex w-full items-center gap-2">
               <Select
-                value={isAppendableRequestHeader(item.header) ? item.header.trim().toLowerCase() : ''}
-                onValueChange={(v) => handleRowChange(index, { header: v })}
+                value={item.target}
+                onValueChange={(v) => handleRowChange(index, { target: v as HeaderTarget })}
               >
-                <SelectTrigger className="h-8 flex-1">
-                  <SelectValue placeholder="选择可追加的请求头" />
+                <SelectTrigger className="h-8 w-24 shrink-0">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {APPENDABLE_REQUEST_HEADERS.map((header) => (
-                    <SelectItem key={header} value={header}>
-                      {header}
+                  {Object.values(HeaderTarget).map((target) => (
+                    <SelectItem key={target} value={target}>
+                      {HEADER_TARGET_LABELS[target]}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            ) : (
+              <Select
+                value={item.operation}
+                onValueChange={(v) => handleRowChange(index, { operation: v as HeaderOperation })}
+              >
+                <SelectTrigger className="h-8 w-20 shrink-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.values(HeaderOperation).map((operation) => (
+                    <SelectItem key={operation} value={operation}>
+                      {HEADER_OPERATION_LABELS[operation]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="flex-1" />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+                title="删除"
+                onClick={() => onChange(value.filter((_, i) => i !== index))}
+              >
+                <X className="size-4" />
+              </Button>
+            </div>
+            {/* 第二行：头名 + 值，各占一半获得更宽输入区 */}
+            <div className="flex w-full gap-2">
+              {/* 请求头 + 追加：头名限定为白名单下拉；其余情况自由输入 */}
+              {isRequestAppend(item) ? (
+                <Select
+                  value={isAppendableRequestHeader(item.header) ? item.header.trim().toLowerCase() : ''}
+                  onValueChange={(v) => handleRowChange(index, { header: v })}
+                >
+                  <SelectTrigger className="h-8 flex-1">
+                    <SelectValue placeholder="选择可追加的请求头" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {APPENDABLE_REQUEST_HEADERS.map((header) => (
+                      <SelectItem key={header} value={header}>
+                        {header}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  className="h-8 flex-1"
+                  placeholder="Header 名称"
+                  value={item.header}
+                  onChange={(e) => handleRowChange(index, { header: e.target.value })}
+                />
+              )}
               <Input
                 className="h-8 flex-1"
-                placeholder="Header 名称"
-                value={item.header}
-                onChange={(e) => handleRowChange(index, { header: e.target.value })}
+                placeholder="值（移除时留空）"
+                value={item.value ?? ''}
+                disabled={item.operation === HeaderOperation.Remove}
+                onChange={(e) => handleRowChange(index, { value: e.target.value })}
               />
-            )}
-            <Input
-              className="h-8 flex-1"
-              placeholder="值（移除时留空）"
-              value={item.value ?? ''}
-              disabled={item.operation === HeaderOperation.Remove}
-              onChange={(e) => handleRowChange(index, { value: e.target.value })}
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
-              title="删除"
-              onClick={() => onChange(value.filter((_, i) => i !== index))}
-            >
-              <X className="size-4" />
-            </Button>
+            </div>
           </div>
           {/* 请求头 + 追加模式下：指明自定义头的出口是「设置」，避免用户卡在下拉里 */}
           {isRequestAppend(item) && (
@@ -199,9 +207,8 @@ export default function HeadersEditor({ value, onChange }: HeadersEditorProps) {
       <p className="mt-1 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
         <Info className="mt-0.5 size-3.5 shrink-0" />
         <span>
-          提示：<strong className="font-medium text-foreground">请求头</strong>的改写能在浏览器「网络」面板看到；
-          <strong className="font-medium text-foreground">响应头</strong>的改写不会显示在面板里，看不到不等于没生效，可用{' '}
-          <code className="rounded bg-muted px-1 py-0.5 font-mono">response.headers.get('...')</code> 读取验证。
+          提示：<strong className="font-medium text-foreground">响应头</strong>的改写不会显示在浏览器「网络」面板里，看不到不等于没生效，可在控制台用{' '}
+          <code className="rounded bg-muted px-1 py-0.5 font-mono">fetch(url).then((r) =&gt; r.headers.get('...'))</code> 读取验证。
         </span>
       </p>
     </div>

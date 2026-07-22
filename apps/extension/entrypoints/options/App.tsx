@@ -20,7 +20,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { AUTO_DEFAULT_GROUP_NAME, RuleType } from '@req-freedom/shared';
+import { AUTO_DEFAULT_GROUP_NAME, RuleExecutionChannel } from '@req-freedom/shared';
 import type { Rule, RuleGroup } from '@req-freedom/shared';
 import { getEnabled, getGroups, saveConfiguration, saveGroups } from '@/utils/storage';
 import {
@@ -29,7 +29,7 @@ import {
   parseConfigurationExport,
 } from '@/utils/config-transfer';
 import { createRuleGroup, createSampleRule } from '@/utils/factories';
-import { MATCH_TYPE_LABELS, RULE_TYPE_LABELS } from '@/utils/labels';
+import { RULE_ACTION_TYPE_LABELS } from '@/utils/labels';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -37,7 +37,6 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import RuleEditor from './RuleEditor';
-import RuleTypePicker from './RuleTypePicker';
 import {
   GROUP_SORT,
   GROUP_VIEW,
@@ -59,7 +58,7 @@ import type { GroupSort, GroupView, RuleStatusFilter } from './ManagementDashboa
  * 否则每一行会按自身内容分别计算列宽，导致表头和规则内容无法左对齐。
  */
 const RULE_ROW_GRID =
-  'grid grid-cols-[28px_44px_minmax(0,1.4fr)_88px_72px_minmax(0,1fr)_72px] items-center gap-3';
+  'grid grid-cols-[28px_44px_minmax(0,1.3fr)_100px_minmax(0,1fr)_72px] items-center gap-3';
 
 /**
  * 无分组时新建规则用的「默认分组」占位 ID。
@@ -76,15 +75,9 @@ const RECENT_GROUP_LIMIT = 5;
  * 规则类型对应的柔和标签颜色：15% 色底 + 随明暗翻转的强调文字（--accent-* 见 style.css），
  * 浅色/深色两套下都保证对比度与扫读性。
  */
-const RULE_TYPE_BADGE_CLASS: Record<RuleType, string> = {
-  [RuleType.Block]: 'bg-rose-500/15 text-[var(--accent-rose)]',
-  [RuleType.Redirect]: 'bg-amber-500/15 text-[var(--accent-amber)]',
-  [RuleType.InjectParams]: 'bg-indigo-500/15 text-[var(--accent-indigo)]',
-  [RuleType.ModifyHeaders]: 'bg-cyan-500/15 text-[var(--accent-cyan)]',
-  [RuleType.MockResponse]: 'bg-violet-500/15 text-[var(--accent-violet)]',
-  [RuleType.Delay]: 'bg-orange-500/15 text-[var(--accent-orange)]',
-  [RuleType.InsertScript]: 'bg-pink-500/15 text-[var(--accent-pink)]',
-  [RuleType.ModifyRequestBody]: 'bg-teal-500/15 text-[var(--accent-teal)]',
+const CHANNEL_BADGE_CLASS: Record<RuleExecutionChannel, string> = {
+  [RuleExecutionChannel.Dnr]: 'bg-cyan-500/15 text-[var(--accent-cyan)]',
+  [RuleExecutionChannel.PagePatch]: 'bg-violet-500/15 text-[var(--accent-violet)]',
 };
 
 /**
@@ -249,20 +242,14 @@ function SortableRuleRow({ rule, onToggle, onEdit, onDelete }: SortableRuleRowPr
       <div className="min-w-0 truncate text-sm font-medium" title={rule.name}>
         {rule.name}
       </div>
-      <Badge
-        variant="secondary"
-        className={`justify-self-start whitespace-nowrap border-transparent ${RULE_TYPE_BADGE_CLASS[rule.type]}`}
-      >
-        {RULE_TYPE_LABELS[rule.type]}
+      <Badge variant="secondary" className={`justify-self-start whitespace-nowrap border-transparent ${CHANNEL_BADGE_CLASS[rule.channel]}`}>
+        {rule.channel === RuleExecutionChannel.Dnr ? 'DNR' : '页面补丁'}
       </Badge>
-      <span className="whitespace-nowrap text-sm text-muted-foreground">
-        {MATCH_TYPE_LABELS[rule.matchType]}
-      </span>
       <code
         className="min-w-0 max-w-full justify-self-start truncate rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
-        title={rule.pattern}
+        title={`${rule.pattern} · ${rule.actions.map((action) => RULE_ACTION_TYPE_LABELS[action.type]).join('、')}`}
       >
-        {rule.pattern}
+        {rule.pattern} · {rule.actions.map((action) => RULE_ACTION_TYPE_LABELS[action.type]).join('、')}
       </code>
       <div className="flex justify-end gap-1">
         <Button
@@ -485,9 +472,8 @@ function RuleColumnsHeader() {
       <span />
       <span className="whitespace-nowrap">启用</span>
       <span className="whitespace-nowrap">名称</span>
-      <span className="whitespace-nowrap">类型</span>
-      <span className="whitespace-nowrap">匹配方式</span>
-      <span className="whitespace-nowrap">匹配内容</span>
+      <span className="whitespace-nowrap">执行通道</span>
+      <span className="whitespace-nowrap">匹配内容 · 动作</span>
       <span className="whitespace-nowrap text-right">操作</span>
     </div>
   );
@@ -508,20 +494,14 @@ function RuleRowStatic({ rule }: { rule: Rule }) {
       <div className="min-w-0 truncate text-sm font-medium" title={rule.name}>
         {rule.name}
       </div>
-      <Badge
-        variant="secondary"
-        className={`justify-self-start whitespace-nowrap border-transparent ${RULE_TYPE_BADGE_CLASS[rule.type]}`}
-      >
-        {RULE_TYPE_LABELS[rule.type]}
+      <Badge variant="secondary" className={`justify-self-start whitespace-nowrap border-transparent ${CHANNEL_BADGE_CLASS[rule.channel]}`}>
+        {rule.channel === RuleExecutionChannel.Dnr ? 'DNR' : '页面补丁'}
       </Badge>
-      <span className="whitespace-nowrap text-sm text-muted-foreground">
-        {MATCH_TYPE_LABELS[rule.matchType]}
-      </span>
       <code
         className="min-w-0 max-w-full justify-self-start truncate rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
-        title={rule.pattern}
+        title={`${rule.pattern} · ${rule.actions.map((action) => RULE_ACTION_TYPE_LABELS[action.type]).join('、')}`}
       >
-        {rule.pattern}
+        {rule.pattern} · {rule.actions.map((action) => RULE_ACTION_TYPE_LABELS[action.type]).join('、')}
       </code>
       <div className="flex justify-end gap-1 text-muted-foreground">
         <span className="flex size-8 items-center justify-center">
@@ -572,8 +552,6 @@ export default function App() {
   const [groups, setGroups] = useState<RuleGroup[]>([]);
   /** 规则编辑对话框状态，null 表示关闭 */
   const [ruleDialog, setRuleDialog] = useState<RuleDialogState | null>(null);
-  /** 规则类型选择对话框的目标分组 ID，null 表示关闭 */
-  const [pickerGroupId, setPickerGroupId] = useState<string | null>(null);
   /** 当前正在拖拽的分组 ID，用于渲染外层分组 DragOverlay 预览 */
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   /** 已折叠的分组 ID 集合（纯视图状态，不写入 storage，避免无谓触发规则重同步） */
@@ -586,8 +564,8 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   /** 分组启用状态筛选。 */
   const [statusFilter, setStatusFilter] = useState<RuleStatusFilter>(RULE_STATUS_FILTER.All);
-  /** 规则类型筛选。 */
-  const [typeFilter, setTypeFilter] = useState<RuleType | 'all'>('all');
+  /** 规则执行通道筛选。 */
+  const [channelFilter, setChannelFilter] = useState<RuleExecutionChannel | 'all'>('all');
   /** 分组的派生展示排序方式。 */
   const [groupSort, setGroupSort] = useState<GroupSort>(GROUP_SORT.UpdatedAt);
   /** 当前激活的分组视图。 */
@@ -758,39 +736,18 @@ export default function App() {
   // ---------- 规则操作 ----------
 
   /**
-   * 打开类型选择器，准备向指定分组新增规则
+   * 直接打开统一规则编辑器，准备向指定分组新增规则
    * @param groupId 目标分组 ID
    */
   const handleAddRule = (groupId: string): void => {
-    setPickerGroupId(groupId);
+    setRuleDialog({ groupId, rule: createSampleRule(), isNew: true });
   };
 
   /**
-   * 无分组时直接新建规则：以「默认分组」占位打开类型选择器，保存时才真正建组
+   * 无分组时直接新建规则：以「默认分组」占位打开编辑器，保存时才真正建组
    */
   const handleAddFirstRule = (): void => {
-    setPickerGroupId(DEFAULT_GROUP_SENTINEL);
-  };
-
-  /**
-   * 选定规则类型后，打开规则编辑器新建规则
-   * @param type 规则类型
-   */
-  const handlePickRuleType = (type: RuleType): void => {
-    if (pickerGroupId === null) {
-      return;
-    }
-    setRuleDialog({ groupId: pickerGroupId, rule: createSampleRule(type), isNew: true });
-    setPickerGroupId(null);
-  };
-
-  /**
-   * 从新建规则编辑器返回规则类型选择器，并保留当前选择的目标分组
-   * @param groupId 当前规则应归属的分组 ID
-   */
-  const handleReturnToRuleTypePicker = (groupId: string): void => {
-    setRuleDialog(null);
-    setPickerGroupId(groupId);
+    setRuleDialog({ groupId: DEFAULT_GROUP_SENTINEL, rule: createSampleRule(), isNew: true });
   };
 
   /**
@@ -943,20 +900,20 @@ export default function App() {
         !normalizedSearchQuery || group.name.toLocaleLowerCase().includes(normalizedSearchQuery);
       /** 当前视图中需要展示的组内规则。 */
       const matchingRules = group.rules.filter((rule) => {
-        /** 规则类型是否命中筛选条件。 */
-        const matchesType = typeFilter === 'all' || rule.type === typeFilter;
+        /** 规则通道是否命中筛选条件。 */
+        const matchesChannel = channelFilter === 'all' || rule.channel === channelFilter;
         /** 搜索词是否命中规则名称或匹配内容。 */
         const matchesRuleSearch =
           matchesGroupName ||
           !normalizedSearchQuery ||
           rule.name.toLocaleLowerCase().includes(normalizedSearchQuery) ||
           rule.pattern.toLocaleLowerCase().includes(normalizedSearchQuery);
-        return matchesType && matchesRuleSearch;
+        return matchesChannel && matchesRuleSearch;
       });
       /** 空分组在无搜索、无类型筛选时保留；有筛选时仅展示含命中规则的分组。 */
       const shouldShowGroup =
         matchingRules.length > 0 ||
-        (group.rules.length === 0 && !normalizedSearchQuery && typeFilter === 'all');
+        (group.rules.length === 0 && !normalizedSearchQuery && channelFilter === 'all');
       if (shouldShowGroup) {
         result.push({ ...group, rules: matchingRules });
       }
@@ -974,7 +931,7 @@ export default function App() {
       : groupView === GROUP_VIEW.Enabled
         ? sortedGroups.filter((group) => group.enabled)
         : sortedGroups;
-  }, [groupSort, groupView, groups, normalizedSearchQuery, statusFilter, typeFilter]);
+  }, [channelFilter, groupSort, groupView, groups, normalizedSearchQuery, statusFilter]);
 
   /** 供编辑器「所属分组」下拉使用的分组精简信息 */
   const groupOptions = groups.map((group) => ({ id: group.id, name: group.name }));
@@ -983,11 +940,6 @@ export default function App() {
     ruleDialog?.groupId === DEFAULT_GROUP_SENTINEL
       ? [{ id: DEFAULT_GROUP_SENTINEL, name: AUTO_DEFAULT_GROUP_NAME }, ...groupOptions]
       : groupOptions;
-  /** 当前类型选择器目标分组的名称（默认分组占位时展示其名称） */
-  const pickerGroupName =
-    pickerGroupId === DEFAULT_GROUP_SENTINEL
-      ? AUTO_DEFAULT_GROUP_NAME
-      : (groups.find((group) => group.id === pickerGroupId)?.name ?? '');
   /** 正在拖拽的分组，用于外层 DragOverlay 预览 */
   const activeGroup = activeGroupId
     ? groups.find((group) => group.id === activeGroupId)
@@ -1022,8 +974,8 @@ export default function App() {
               onSearchQueryChange={setSearchQuery}
               statusFilter={statusFilter}
               onStatusFilterChange={setStatusFilter}
-              typeFilter={typeFilter}
-              onTypeFilterChange={setTypeFilter}
+              channelFilter={channelFilter}
+              onChannelFilterChange={setChannelFilter}
               sort={groupSort}
               onSortChange={setGroupSort}
               view={groupView}
@@ -1107,22 +1059,10 @@ export default function App() {
         )}
       </main>
 
-      {/* 规则类型选择对话框 */}
-      <Dialog
-        open={pickerGroupId !== null}
-        onOpenChange={(open) => !open && setPickerGroupId(null)}
-      >
-        <DialogContent className="max-w-4xl">
-          {pickerGroupId !== null && (
-            <RuleTypePicker groupName={pickerGroupName} onPick={handlePickRuleType} />
-          )}
-        </DialogContent>
-      </Dialog>
-
       {/* 新建 / 编辑规则对话框 */}
       <Dialog open={ruleDialog !== null} onOpenChange={(open) => !open && setRuleDialog(null)}>
         <DialogContent
-          className="max-w-2xl"
+          className="max-w-3xl"
           // 点击遮罩不关闭，避免长表单编辑到一半误触丢失（仍可用关闭按钮或 Esc 退出）
           onPointerDownOutside={(e) => e.preventDefault()}
         >
@@ -1135,7 +1075,6 @@ export default function App() {
               groups={editorGroupOptions}
               groupId={ruleDialog.groupId}
               onSave={handleSaveRule}
-              onBackToTypePicker={handleReturnToRuleTypePicker}
               onCancel={() => setRuleDialog(null)}
             />
           )}

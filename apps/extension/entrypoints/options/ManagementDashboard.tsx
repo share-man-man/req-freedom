@@ -1,7 +1,6 @@
 import { Download, FolderPlus, ListChecks, Search, ToggleRight, Upload, Zap } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { RuleType } from '@req-freedom/shared';
-import { RULE_TYPE_LABELS } from '@/utils/labels';
+import { RuleExecutionChannel } from '@req-freedom/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -188,10 +187,10 @@ interface RuleManagementToolbarProps {
   statusFilter: RuleStatusFilter;
   /** 状态筛选变化后的回调。 */
   onStatusFilterChange: (status: RuleStatusFilter) => void;
-  /** 规则类型筛选值，all 表示不过滤。 */
-  typeFilter: RuleType | 'all';
-  /** 规则类型筛选变化后的回调。 */
-  onTypeFilterChange: (type: RuleType | 'all') => void;
+  /** 执行通道筛选值，all 表示不过滤。 */
+  channelFilter: RuleExecutionChannel | 'all';
+  /** 执行通道筛选变化后的回调。 */
+  onChannelFilterChange: (channel: RuleExecutionChannel | 'all') => void;
   /** 分组排序方式。 */
   sort: GroupSort;
   /** 分组排序变化后的回调。 */
@@ -211,8 +210,8 @@ export function RuleManagementToolbar({
   onSearchQueryChange,
   statusFilter,
   onStatusFilterChange,
-  typeFilter,
-  onTypeFilterChange,
+  channelFilter,
+  onChannelFilterChange,
   sort,
   onSortChange,
   view,
@@ -241,15 +240,15 @@ export function RuleManagementToolbar({
             <SelectItem value={RULE_STATUS_FILTER.Disabled}>状态：已停用</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={typeFilter} onValueChange={(value) => onTypeFilterChange(value as RuleType | 'all')}>
+        <Select value={channelFilter} onValueChange={(value) => onChannelFilterChange(value as RuleExecutionChannel | 'all')}>
           <SelectTrigger className="w-40">
             <SelectValue placeholder="类型" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">类型：全部</SelectItem>
-            {Object.values(RuleType).map((type) => (
-              <SelectItem key={type} value={type}>
-                {RULE_TYPE_LABELS[type]}
+            <SelectItem value="all">通道：全部</SelectItem>
+            {Object.values(RuleExecutionChannel).map((channel) => (
+              <SelectItem key={channel} value={channel}>
+                {channel === RuleExecutionChannel.Dnr ? 'DNR 网络规则' : '页面补丁'}
               </SelectItem>
             ))}
           </SelectContent>

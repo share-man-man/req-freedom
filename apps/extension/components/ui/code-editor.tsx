@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import {
   bracketMatching,
@@ -19,8 +19,8 @@ import {
 } from '@codemirror/view';
 import { cn } from '@/utils/cn';
 
-/** 编辑器支持的代码语言。 */
-export type CodeEditorLanguage = 'json' | 'javascript' | 'css';
+/** 编辑器支持的代码语言；'text' 为无语法高亮的纯文本回退。 */
+export type CodeEditorLanguage = 'json' | 'javascript' | 'css' | 'text';
 
 /** CodeEditor 组件的属性。 */
 interface CodeEditorProps {
@@ -32,14 +32,14 @@ interface CodeEditorProps {
   language: CodeEditorLanguage;
   /** 空内容时显示的提示文字。 */
   placeholder?: string;
-  /** 编辑区域的最小高度。 */
-  minHeight?: string;
   /** 是否禁止编辑与格式化。 */
   disabled?: boolean;
   /** 附加到编辑器容器的样式类。 */
   className?: string;
   /** 编辑器的无障碍标签。 */
   ariaLabel?: string;
+  /** 头部左上角自定义内容，传入时替代默认的语言名标签（如类型切换下拉）。 */
+  headerStart?: ReactNode;
 }
 
 /** 编辑器语言的显示名称。 */
@@ -47,6 +47,7 @@ const CODE_EDITOR_LANGUAGE_LABELS: Readonly<Record<CodeEditorLanguage, string>> 
   json: 'JSON',
   javascript: 'JavaScript',
   css: 'CSS',
+  text: '文本',
 };
 
 /** CodeMirror 的基础按键与编辑能力。 */
@@ -121,6 +122,9 @@ function loadLanguageExtension(language: CodeEditorLanguage): Promise<Extension>
       return import('@codemirror/lang-javascript').then((module) => module.javascript());
     case 'css':
       return import('@codemirror/lang-css').then((module) => module.css());
+    case 'text':
+      // 纯文本无需语言扩展，返回空以关闭高亮
+      return Promise.resolve([]);
   }
 }
 
@@ -148,10 +152,10 @@ export function CodeEditor({
   onChange,
   language,
   placeholder,
-  minHeight = '11rem',
   disabled = false,
   className,
   ariaLabel,
+  headerStart,
 }: CodeEditorProps) {
   /** CodeMirror 挂载节点。 */
   const containerRef = useRef<HTMLDivElement>(null);
@@ -254,19 +258,25 @@ export function CodeEditor({
   return (
     <div className={cn('overflow-hidden rounded-md border border-input bg-background shadow-sm focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/35', className)}>
       <div className="flex items-center justify-between border-b border-border bg-muted/60 px-2.5 py-1.5">
-        <span className="font-mono text-[11px] font-medium text-muted-foreground">
-          {CODE_EDITOR_LANGUAGE_LABELS[language]}
-        </span>
-        <button
-          type="button"
-          className="rounded px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={disabled}
-          onClick={handleFormat}
-        >
-          格式化
-        </button>
+        {/* 头部左上角：默认展示语言名，caller 可用 headerStart 换成类型切换等控件 */}
+        {headerStart ?? (
+          <span className="font-mono text-[11px] font-medium text-muted-foreground">
+            {CODE_EDITOR_LANGUAGE_LABELS[language]}
+          </span>
+        )}
+        {/* 纯文本无可格式化的语法结构，隐藏格式化按钮 */}
+        {language !== 'text' && (
+          <button
+            type="button"
+            className="rounded px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={disabled}
+            onClick={handleFormat}
+          >
+            格式化
+          </button>
+        )}
       </div>
-      <div ref={containerRef} style={{ minHeight }} />
+      <div ref={containerRef} />
       {formatError && <p className="border-t border-destructive/25 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">{formatError}</p>}
     </div>
   );

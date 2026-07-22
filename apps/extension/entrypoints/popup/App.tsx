@@ -4,7 +4,6 @@ import { ChevronDown, Settings2, Zap } from 'lucide-react';
 import type { RuleGroup } from '@req-freedom/shared';
 import { collectActiveRules } from '@req-freedom/core';
 import { getEnabled, getGroups, saveGroups, setEnabled } from '@/utils/storage';
-import { RULE_TYPE_LABELS } from '@/utils/labels';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -205,7 +204,7 @@ export default function App() {
                           </span>
                         </div>
                         <Badge variant={rule.enabled ? 'default' : 'muted'} className="shrink-0">
-                          {RULE_TYPE_LABELS[rule.type]}
+                          {rule.channel === 'dnr' ? 'DNR' : '页面补丁'}
                         </Badge>
                       </li>
                     ))}
