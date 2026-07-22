@@ -1,6 +1,6 @@
 # Req Freedom
 
-浏览器请求调试插件，覆盖请求拦截、重定向、参数注入、Header 改写、返回值 Mock、延迟模拟、脚本注入的全链路能力。
+浏览器请求调试插件。规则先选择 DNR 网络层或页面补丁通道，再按请求方法组合拦截、重定向、参数、Header、静态 / 动态 Mock、限速、改请求体与脚本注入等动作。
 
 ## 技术栈
 
@@ -44,6 +44,6 @@ mise exec -- pnpm typecheck
 ## 架构速览
 
 - **DNR 通道**：拦截 / 重定向 / 参数注入 / Header 改写由 `declarativeNetRequest` 在网络层原生执行
-- **页面补丁通道**：返回值 Mock / 延迟模拟由 MAIN world 内容脚本改写页面 `fetch` 与 `XMLHttpRequest` 实现；脚本注入亦由该通道向页面注入自定义 JS / CSS
+- **页面补丁通道**：静态 / JavaScript 动态返回值 Mock、延迟模拟由 MAIN world 内容脚本改写页面 `fetch` 与 `XMLHttpRequest` 实现；脚本注入亦由该通道向页面注入自定义 JS / CSS
 
 详细设计见文档站的「架构设计」章节。

@@ -24,11 +24,11 @@ flowchart LR
 - **页面补丁通道**能力不受限，但**只拦得到页面 JS 发起的请求**，`document`、`img`、`iframe` 等浏览器原生发起的流量一律拦不到。
 - 因此「改请求体」「JS 写响应」「Mock」「延迟」只能走页面补丁通道，这个边界要在文档站显式写清楚，否则用户会当成 bug 提。
 
-## 一、核心能力（规则类型）
+## 一、核心能力（执行通道与动作）
 
 ### 已具备
 
-对应 `RuleType` 枚举，见 [packages/shared/src/enums.ts](packages/shared/src/enums.ts)。
+规则模型已收敛为 `RuleExecutionChannel`（`dnr` / `page-patch`）与可组合的 `RuleActionType`，见 [packages/shared/src/enums.ts](packages/shared/src/enums.ts)。请求方法是每条规则的公共匹配条件；编辑器会基于通道和方法仅展示可执行的动作。
 
 - [x] `Block` 拦截阻断
 - [x] `Redirect` 重定向（支持正则捕获组）
@@ -53,12 +53,13 @@ flowchart LR
   - Requestly 与 tweak 都支持，且都特别强调 GraphQL 场景。
   - **连带影响匹配器**：GraphQL 所有请求同 URL 同 method，只能靠 body 里的 `operationName` 区分，光靠 URL 匹配一定命不中。见「匹配能力增强」。
   - 通道：仅页面补丁。
-  - 已落地：新增 `RuleType.ModifyRequestBody`，两种模式 `RequestBodyMode`（`replace` 整体替换 / `merge-json` JSON 深合并，`core.modifyRequestBody`）。复用 `interceptor.content.ts`（MAIN world），在 `fetch` / `XHR` 发送前改写请求体；Mock 命中时不改写（不发真实请求）。文档见 [改请求体](apps/docs/docs/guide/features/modify-request-body.md)。GraphQL 按 `operationName` 精确命中仍待「请求体匹配」落地。
+  - 已落地：静态改写支持 `RequestBodyMode`（`replace` 整体替换 / `merge-json` JSON 深合并，`core.modifyRequestBody`）；`RequestBodySourceMode.Dynamic` 支持以 `req` 的请求快照动态生成最终请求体并支持 `return` / `await`。复用 `interceptor.content.ts`（MAIN world），在 `fetch` / `XHR` 发送前改写请求体；Mock 命中时不改写（不发真实请求）。文档见 [改请求体](apps/docs/docs/guide/features/modify-request-body.md)。GraphQL 按 `operationName` 精确命中仍待「请求体匹配」落地。
 
-- [ ] **P1 · 用 JS 动态生成响应**
+- [x] **P1 · 用 JS 动态生成响应**
   - Requestly 与 tweak 都支持；这是「静态 Mock」和「真·Mock 服务器」的分水岭。
   - 形态：在 `MockResponse` 上增加「函数模式」，暴露 `req` 入参，返回值作为响应体。
   - 安全：MAIN world 里 `eval` 用户代码，需在文档站明确风险边界。
+  - 已落地：`MockResponseMode` 支持静态响应体与 JavaScript 动态生成两种模式；动态函数可直接使用 `req` 的 URL、方法、页面设置的请求头、查询参数与请求体（含可选 JSON 解析结果），支持 `return` / `await`。fetch 与 XHR 均由 MAIN world 拦截执行，文档明确了仅应运行可信代码的安全边界。
 
 - [ ] **P2 · `ReplaceString` 字符串替换**
   - 对 URL / 查询串做动态替换，不改源码。XSwitch 的常用姿势。
@@ -71,7 +72,7 @@ flowchart LR
 
 ### 匹配能力增强
 
-- [ ] **P1 · Method 过滤** — 现在 `BaseRule` 只有 URL 维度，无法只拦 `POST`。
+- [x] **P1 · Method 过滤** — 规则通过 `methods` 支持 GET / POST / PUT / PATCH / DELETE / HEAD / OPTIONS；空数组表示全部。改请求体必须显式选择可带 body 的方法；选择全部、GET 或 HEAD 时，表单层会禁用该动作，避免浏览器拒绝带 body 的请求。
 - [ ] **P1 · 请求体匹配** — GraphQL `operationName` 场景的前置依赖，与「改请求体」同批做。
 - [ ] **P2 · 资源类型过滤** — `xhr` / `script` / `image` 等，DNR 原生支持。
 
@@ -86,7 +87,7 @@ flowchart LR
 
 - [x] **P0 · 导入 / 导出**
   - ModHeader、tweak、XSwitch 全都有，是团队协作共享配置的前提。
-  - 已落地：规则管理页可导入 / 导出完整 JSON 配置（全局开关 + 分组 + 规则），使用 `schemaVersion: 1`；导入会完整校验数据并经确认后整体替换，文档见[导入与导出配置](apps/docs/docs/guide/import-export.md)。
+  - 已落地：规则管理页可导入 / 导出完整 JSON 配置（全局开关 + 分组 + 统一规则），当前使用 `schemaVersion: 2`；导入会完整校验通道、动作、请求方法与正则，并经确认后整体替换，文档见[导入与导出配置](apps/docs/docs/guide/import-export.md)。
 
 - [ ] **P1 · 作用域过滤（tab / 窗口 / 标签组）**
   - ModHeader 支持按 tab、窗口、标签组限定生效范围。
