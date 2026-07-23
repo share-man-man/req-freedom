@@ -7,5 +7,6 @@
   "delay",
   "insert-script",
   "modify-request-body",
-  "request-body-match"
+  "request-body-match",
+  "scope-filter"
 ]

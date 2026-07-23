@@ -29,7 +29,7 @@ import {
   parseConfigurationExport,
 } from '@/utils/config-transfer';
 import { createRuleGroup, createSampleRule } from '@/utils/factories';
-import { RULE_ACTION_TYPE_LABELS } from '@/utils/labels';
+import { RULE_ACTION_TYPE_LABELS, RULE_SCOPE_TYPE_LABELS } from '@/utils/labels';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -79,6 +79,25 @@ const CHANNEL_BADGE_CLASS: Record<RuleExecutionChannel, string> = {
   [RuleExecutionChannel.Dnr]: 'bg-cyan-500/15 text-[var(--accent-cyan)]',
   [RuleExecutionChannel.PagePatch]: 'bg-violet-500/15 text-[var(--accent-violet)]',
 };
+
+/**
+ * 作用域徽标：规则限定了生效范围（非全部标签页）时展示，提示这条规则只在部分标签生效。
+ * @param scope 规则作用域（缺省表示全部标签页，不展示徽标）
+ */
+function ScopeBadge({ scope }: { scope: Rule['scope'] }) {
+  if (!scope) {
+    return null;
+  }
+  return (
+    <Badge
+      variant="secondary"
+      className="shrink-0 border-transparent bg-amber-500/15 text-[var(--accent-amber)]"
+      title={`${RULE_SCOPE_TYPE_LABELS[scope.type]} · ${scope.targets.length} 个对象`}
+    >
+      {RULE_SCOPE_TYPE_LABELS[scope.type]}
+    </Badge>
+  );
+}
 
 /**
  * 拖拽仅沿垂直方向移动的修饰器（等价官方 restrictToVerticalAxis）
@@ -239,8 +258,11 @@ function SortableRuleRow({ rule, onToggle, onEdit, onDelete }: SortableRuleRowPr
       </button>
       <Switch checked={rule.enabled} onCheckedChange={() => onToggle(rule.id)} />
       {/* 长名字截断，避免撑宽行挤压其他列 */}
-      <div className="min-w-0 truncate text-sm font-medium" title={rule.name}>
-        {rule.name}
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="truncate text-sm font-medium" title={rule.name}>
+          {rule.name}
+        </span>
+        <ScopeBadge scope={rule.scope} />
       </div>
       <Badge variant="secondary" className={`justify-self-start whitespace-nowrap border-transparent ${CHANNEL_BADGE_CLASS[rule.channel]}`}>
         {rule.channel === RuleExecutionChannel.Dnr ? 'DNR' : '页面补丁'}
@@ -491,8 +513,11 @@ function RuleRowStatic({ rule }: { rule: Rule }) {
         <GripVertical className="size-4" />
       </span>
       <Switch checked={rule.enabled} onCheckedChange={() => {}} />
-      <div className="min-w-0 truncate text-sm font-medium" title={rule.name}>
-        {rule.name}
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="truncate text-sm font-medium" title={rule.name}>
+          {rule.name}
+        </span>
+        <ScopeBadge scope={rule.scope} />
       </div>
       <Badge variant="secondary" className={`justify-self-start whitespace-nowrap border-transparent ${CHANNEL_BADGE_CLASS[rule.channel]}`}>
         {rule.channel === RuleExecutionChannel.Dnr ? 'DNR' : '页面补丁'}

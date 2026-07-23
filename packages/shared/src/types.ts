@@ -13,6 +13,7 @@ import type {
   RequestBodySourceMode,
   RuleActionType,
   RuleExecutionChannel,
+  RuleScopeType,
 } from './enums';
 
 /**
@@ -176,6 +177,48 @@ export interface BodyMatcher {
 }
 
 /**
+ * 作用域内的单个目标对象
+ *
+ * 记录浏览器运行时的数字 ID 与选择时的展示标签：运行时匹配只依赖 id，label 仅供 UI 展示与失效标注。
+ * tab / window / tabGroup 的 ID 都是会话级的，浏览器重启后即失效——对安全用途而言这是 fail-closed 的，
+ * 失效后规则不再命中，不会把敏感请求误发出去。
+ */
+export interface ScopeTarget {
+  /** 目标对象的浏览器运行时数字 ID（tabId / windowId / tabGroup id） */
+  id: number;
+  /** 选择时记录的展示标签（标签页标题 / 窗口名 / 分组名），仅用于 UI 展示 */
+  label: string;
+}
+
+/**
+ * 规则作用域条件
+ *
+ * 在 URL / 方法 / 请求体之外，把规则的生效范围限定到具体的浏览器上下文。
+ * 缺省或 `type` 为 AllTabs 时不限制作用范围（等价于历史行为）。
+ */
+export interface RuleScope {
+  /** 作用域类型 */
+  type: RuleScopeType;
+  /** 目标对象列表；AllTabs 时为空数组 */
+  targets: ScopeTarget[];
+}
+
+/**
+ * 作用域匹配所需的运行时上下文
+ *
+ * 由页面补丁通道的桥接脚本从自身标签解析得到；字段缺省（如 background 尚未回传上下文）时，
+ * 只应命中 AllTabs 规则，避免作用域规则在上下文未知时误生效。
+ */
+export interface ScopeContext {
+  /** 当前标签页 ID */
+  tabId?: number;
+  /** 当前标签所在窗口 ID */
+  windowId?: number;
+  /** 当前标签所属标签组 ID；未归组时为浏览器的 chrome.tabGroups.TAB_GROUP_ID_NONE（-1） */
+  groupId?: number;
+}
+
+/**
  * 统一规则模型。
  *
  * 一条规则只有一个执行通道；相同 URL / 方法匹配条件下可组合多个该通道支持的动作。
@@ -187,6 +230,8 @@ export interface Rule extends BaseRule {
   methods: HttpMethod[];
   /** 可选的请求体匹配条件；缺省表示不按请求体收敛。仅页面补丁通道生效。 */
   bodyMatch?: BodyMatcher;
+  /** 可选的作用域条件；缺省或 AllTabs 表示不限制生效范围。两条通道均生效。 */
+  scope?: RuleScope;
   /** 命中后依次执行的动作。 */
   actions: RuleAction[];
 }

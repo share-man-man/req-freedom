@@ -1,6 +1,6 @@
-import { RuleActionType, RuleExecutionChannel } from '@req-freedom/shared';
-import type { HttpMethod, Rule, RuleAction, RuleGroup } from '@req-freedom/shared';
-import { matchRequestBody, matchUrl } from './matcher';
+import { RuleActionType, RuleExecutionChannel, RuleScopeType } from '@req-freedom/shared';
+import type { HttpMethod, Rule, RuleAction, RuleGroup, ScopeContext } from '@req-freedom/shared';
+import { matchRequestBody, matchScope, matchUrl } from './matcher';
 
 /**
  * 将分组扁平化为「当前生效」的规则列表
@@ -94,4 +94,26 @@ export function filterActionsByType<T extends RuleActionType>(
  */
 export function filterRulesByChannel(rules: Rule[], channel: RuleExecutionChannel): Rule[] {
   return rules.filter((rule) => rule.channel === channel);
+}
+
+/**
+ * 判断规则是否配置了有效的作用域限制（即非 AllTabs）
+ *
+ * DNR 通道据此把「限定作用域」的规则分流到 session 规则（可携带 tabIds 条件），
+ * 「全部标签页」的规则仍走可跨重启保留的 dynamic 规则。
+ * @param rule 业务规则
+ * @returns 规则限定了作用范围时返回 true
+ */
+export function isRuleScoped(rule: Rule): boolean {
+  return rule.scope !== undefined && rule.scope.type !== RuleScopeType.AllTabs;
+}
+
+/**
+ * 按作用域对规则做过滤（供页面补丁通道按自身标签上下文收敛规则）
+ * @param rules 候选规则列表
+ * @param context 当前标签的运行时上下文
+ * @returns 作用域命中当前上下文的规则列表（保持原有顺序）
+ */
+export function filterRulesByScope(rules: Rule[], context: ScopeContext): Rule[] {
+  return rules.filter((rule) => matchScope(rule.scope, context));
 }

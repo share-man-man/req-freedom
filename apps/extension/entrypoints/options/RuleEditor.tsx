@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
-import { Check, CheckCircle2, FlaskConical, Info, Trash2, XCircle } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { browser } from 'wxt/browser';
+import { Check, CheckCircle2, ChevronDown, FlaskConical, Info, RefreshCw, Trash2, XCircle } from 'lucide-react';
 import type { ReactNode, Ref } from 'react';
-import type { BodyMatcher, Rule, RuleAction } from '@req-freedom/shared';
+import type { BodyMatcher, Rule, RuleAction, RuleScope, ScopeTarget } from '@req-freedom/shared';
 import { matchUrl } from '@req-freedom/core';
 import {
   BodyMatchType,
@@ -29,6 +30,7 @@ import {
   RequestBodySourceMode,
   RuleActionType,
   RuleExecutionChannel,
+  RuleScopeType,
 } from '@req-freedom/shared';
 import { Button } from '@/components/ui/button';
 import { DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -50,6 +52,8 @@ import {
   REQUEST_BODY_MODE_LABELS,
   REQUEST_BODY_SOURCE_MODE_LABELS,
   RULE_ACTION_TYPE_LABELS,
+  RULE_SCOPE_EMPTY_HINTS,
+  RULE_SCOPE_TYPE_LABELS,
 } from '@/utils/labels';
 
 /** 供所属分组下拉选择的分组简要信息。 */
@@ -292,6 +296,10 @@ function validateRule(rule: Rule): ValidationError | null {
     if (!rule.bodyMatch.value.trim()) return { field: 'bodyMatch', message: '请求体匹配值不能为空' };
     if (rule.bodyMatch.type === BodyMatchType.Regex) { try { new RegExp(rule.bodyMatch.value); } catch { return { field: 'bodyMatch', message: '请求体匹配正则语法错误' }; } }
   }
+  // 作用域限定了范围（非全部标签页）时，必须至少选中一个目标对象，否则规则永远命不中
+  if (rule.scope !== undefined && rule.scope.type !== RuleScopeType.AllTabs && rule.scope.targets.length === 0) {
+    return { field: 'scope', message: `请至少选择一个${RULE_SCOPE_TYPE_LABELS[rule.scope.type].replace('指定', '')}` };
+  }
   /** 当前选择的 DNR 路由动作数量。 */
   const exclusiveDnrCount = rule.actions.filter((action) => EXCLUSIVE_DNR_ACTIONS.includes(action.type as (typeof EXCLUSIVE_DNR_ACTIONS)[number])).length;
   if (exclusiveDnrCount > 1) return { field: 'actions', message: '拦截、重定向和参数注入只能选择其中一项' };
@@ -331,6 +339,8 @@ export default function RuleEditor({ rule, isNew, groups, groupId, onSave, onCan
   const [focusedActionType, setFocusedActionType] = useState<RuleActionType | null>(() => draft.actions[0]?.type ?? null);
   /** 左栏当前展示的执行通道 tab（网络层 / 页面内补丁）。 */
   const [channelTab, setChannelTab] = useState<RuleExecutionChannel>(() => draft.channel);
+  /** 高级条件面板（请求体匹配 / 作用域）是否展开；已配置任一条件时默认展开。 */
+  const [advancedOpen, setAdvancedOpen] = useState(() => draft.bodyMatch !== undefined || draft.scope !== undefined);
   // 草稿或目标分组一经改动即清除上次校验错误，避免用户修好后仍残留旧提示
   useEffect(() => { setError(null); }, [draft, targetGroupId]);
   /** 各校验字段的滚动锚点：key 与 validateRule 返回的 field 对齐。 */
@@ -363,6 +373,11 @@ export default function RuleEditor({ rule, isNew, groups, groupId, onSave, onCan
    * @param bodyMatch 新的请求体匹配条件
    */
   const setBodyMatch = (bodyMatch: BodyMatcher | undefined): void => setDraft({ ...draft, bodyMatch });
+  /**
+   * 更新作用域条件；传 undefined 表示不限制（全部标签页）。
+   * @param scope 新的作用域条件
+   */
+  const setScope = (scope: RuleScope | undefined): void => setDraft({ ...draft, scope });
   /**
    * 切换动作显示；动作所属通道由动作类型自动推导，并同步收敛请求方法。
    * @param type 动作类型
@@ -416,10 +431,16 @@ export default function RuleEditor({ rule, isNew, groups, groupId, onSave, onCan
     /** 剥离不适用请求体条件后的规则草稿。 */
     const normalized = { ...draft };
     if (!supportsBodyMatch) delete normalized.bodyMatch;
+    // 作用域为「全部标签页」等价于不限制，归一化为无作用域，避免落库空目标条件
+    if (normalized.scope && normalized.scope.type === RuleScopeType.AllTabs) delete normalized.scope;
     /** 校验结果。 */
     const validation = validateRule(normalized);
     if (validation) {
       setError(validation);
+      // 出错项在高级面板内（请求体匹配 / 作用域）时先展开面板，否则字段未挂载滚不到、也看不见标红
+      if (validation.field === 'bodyMatch' || validation.field === 'scope') {
+        setAdvancedOpen(true);
+      }
       // 出错项是某个动作时，先聚焦它、并把左栏 tab 切到其通道——右侧仅挂载当前 tab 的聚焦动作，不切过去就滚不到
       if (validation.field.startsWith('action:')) {
         /** 出错动作的类型。 */
@@ -433,6 +454,12 @@ export default function RuleEditor({ rule, isNew, groups, groupId, onSave, onCan
     }
     onSave(normalized, targetGroupId);
   };
+
+  /** 高级面板内已配置的条件摘要，折叠时显示，便于发现隐藏其中的条件。 */
+  const advancedSummary = [
+    ...(supportsBodyMatch && draft.bodyMatch ? ['请求体匹配'] : []),
+    ...(draft.scope ? [RULE_SCOPE_TYPE_LABELS[draft.scope.type]] : []),
+  ].join(' · ');
 
   return <div className="flex max-h-[82vh] min-h-0 flex-1 flex-col overflow-hidden">
     <DialogHeader><DialogTitle>{isNew ? '新建规则' : '编辑规则'}</DialogTitle></DialogHeader>
@@ -475,11 +502,29 @@ export default function RuleEditor({ rule, isNew, groups, groupId, onSave, onCan
           </div>
         </Field>
         <Field label="请求方法" error={error?.field === 'methods' ? error.message : undefined} innerRef={registerField('methods')}><MethodPicker draft={draft} onToggle={toggleMethod} onSelectAll={() => setDraft({ ...draft, methods: [] })} /></Field>
-        {supportsBodyMatch && (
-          <Field label="请求体匹配" error={error?.field === 'bodyMatch' ? error.message : undefined} innerRef={registerField('bodyMatch')}>
-            <BodyMatchEditor value={draft.bodyMatch} invalid={error?.field === 'bodyMatch'} onChange={setBodyMatch} />
-          </Field>
-        )}
+
+        {/* 高级（选填）：请求体匹配 / 作用域，默认折叠，收纳不常用的收敛条件 */}
+        <div className="rounded-lg border border-border">
+          <button type="button" onClick={() => setAdvancedOpen((open) => !open)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left" aria-expanded={advancedOpen}>
+            <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform ${advancedOpen ? '' : '-rotate-90'}`} />
+            <span className="text-sm font-medium">高级</span>
+            <span className="text-xs text-muted-foreground">选填</span>
+            {/* 折叠时展示已配置条件摘要，避免隐藏在里面的条件被忽略 */}
+            {!advancedOpen && advancedSummary && <span className="ml-auto truncate text-xs text-primary">{advancedSummary}</span>}
+          </button>
+          {advancedOpen && (
+            <div className="space-y-4 border-t border-border px-3 py-4">
+              {supportsBodyMatch && (
+                <Field label="请求体匹配" error={error?.field === 'bodyMatch' ? error.message : undefined} innerRef={registerField('bodyMatch')}>
+                  <BodyMatchEditor value={draft.bodyMatch} invalid={error?.field === 'bodyMatch'} onChange={setBodyMatch} />
+                </Field>
+              )}
+              <Field label="作用域" error={error?.field === 'scope' ? error.message : undefined} innerRef={registerField('scope')}>
+                <ScopeEditor value={draft.scope} invalid={error?.field === 'scope'} onChange={setScope} />
+              </Field>
+            </div>
+          )}
+        </div>
       </section>
     </div>
     <DialogFooter><Button variant="outline" onClick={onCancel}>取消</Button><Button onClick={handleSave}>保存</Button></DialogFooter>
@@ -734,6 +779,179 @@ function BodyMatchEditor({ value, invalid, onChange }: BodyMatchEditorProps) {
       {value && <Input className="flex-1 font-mono text-xs" aria-invalid={invalid} placeholder={BODY_MATCH_VALUE_PLACEHOLDERS[value.type]} value={value.value} onChange={(event) => onChange({ ...value, value: event.target.value })} />}
     </div>
     <p className="text-xs text-muted-foreground">只按页面脚本 fetch / XHR 的请求体收敛；GraphQL 同 URL 的多个操作可用「操作名」精确区分。</p>
+  </div>;
+}
+
+/** 作用域选择器里一个可勾选的目标对象。 */
+interface ScopeOption {
+  /** 目标对象的浏览器运行时 ID（tabId / windowId / tabGroup id）。 */
+  id: number;
+  /** 展示标签。 */
+  label: string;
+  /** 次要说明（如 URL、标签页数、分组颜色）。 */
+  hint?: string;
+}
+
+/**
+ * 加载指定作用域类型当前可选的目标对象。
+ * @param type 作用域类型
+ * @returns 当前打开的标签页 / 窗口 / 标签组选项列表
+ */
+async function loadScopeOptions(type: RuleScopeType): Promise<ScopeOption[]> {
+  if (type === RuleScopeType.Tab) {
+    /** 当前全部标签页。 */
+    const tabs = await browser.tabs.query({});
+    return tabs
+      .filter((tab): tab is typeof tab & { id: number } => tab.id !== undefined)
+      .map((tab) => ({ id: tab.id, label: tab.title?.trim() || tab.url || `标签页 #${tab.id}`, hint: tab.url }));
+  }
+  if (type === RuleScopeType.Window) {
+    /** 当前全部窗口（含标签页以便统计数量）。 */
+    const windows = await browser.windows.getAll({ populate: true });
+    return windows
+      .filter((win): win is typeof win & { id: number } => win.id !== undefined)
+      .map((win, index) => ({
+        id: win.id,
+        label: `窗口 ${index + 1}`,
+        hint: `${win.tabs?.length ?? 0} 个标签页${win.focused ? ' · 当前' : ''}`,
+      }));
+  }
+  if (type === RuleScopeType.TabGroup) {
+    // tabGroups 在部分浏览器（如 Firefox）不可用，缺失时返回空列表
+    if (!browser.tabGroups) return [];
+    /** 当前全部标签组。 */
+    const groups = await browser.tabGroups.query({});
+    return groups.map((group) => ({ id: group.id, label: group.title?.trim() || '未命名标签组', hint: group.color }));
+  }
+  return [];
+}
+
+interface ScopeEditorProps {
+  /** 当前作用域条件；undefined 表示全部标签页（不限制）。 */
+  value?: RuleScope;
+  /** 目标列表是否标红（校验失败）。 */
+  invalid?: boolean;
+  /** 作用域变更回调；传 undefined 表示不限制。 */
+  onChange: (value: RuleScope | undefined) => void;
+}
+
+/**
+ * 作用域选择器：把规则的生效范围限定到具体的标签页 / 窗口 / 标签组。
+ *
+ * 编辑器是整页、没有「当前标签」上下文，故实时查询当前打开的对象供勾选；ID 是会话级的，
+ * 已选但当前已关闭的目标仍保留展示并标注失效，方便用户识别与清理。
+ * @param props 作用域条件、校验标红与变更回调
+ */
+function ScopeEditor({ value, invalid, onChange }: ScopeEditorProps) {
+  /** 当前作用域类型（缺省为全部标签页）。 */
+  const type = value?.type ?? RuleScopeType.AllTabs;
+  /** 当前已选目标对象。 */
+  const targets = value?.targets ?? [];
+  /** 当前类型下可选的目标对象。 */
+  const [options, setOptions] = useState<ScopeOption[]>([]);
+  /** 是否正在加载可选对象。 */
+  const [loading, setLoading] = useState(false);
+
+  /**
+   * 加载某个作用域类型当前可选的目标对象。
+   * @param nextType 作用域类型
+   */
+  const refresh = useCallback(async (nextType: RuleScopeType): Promise<void> => {
+    if (nextType === RuleScopeType.AllTabs) {
+      setOptions([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      setOptions(await loadScopeOptions(nextType));
+    } catch {
+      setOptions([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // 类型变化时重新拉取可选对象
+  useEffect(() => { void refresh(type); }, [type, refresh]);
+
+  /**
+   * 切换作用域类型。
+   * @param next 目标类型
+   */
+  const handleTypeChange = (next: string): void => {
+    /** 切换后的作用域类型。 */
+    const nextType = next as RuleScopeType;
+    if (nextType === RuleScopeType.AllTabs) {
+      onChange(undefined);
+      return;
+    }
+    // 不同类型的 ID 空间不通用，切换类型时清空已选目标
+    onChange({ type: nextType, targets: [] });
+  };
+
+  /**
+   * 勾选 / 取消一个目标对象。
+   * @param option 目标对象
+   */
+  const toggleTarget = (option: ScopeOption): void => {
+    if (type === RuleScopeType.AllTabs) return;
+    /** 该对象是否已选中。 */
+    const exists = targets.some((target) => target.id === option.id);
+    /** 切换后的目标列表。 */
+    const nextTargets: ScopeTarget[] = exists
+      ? targets.filter((target) => target.id !== option.id)
+      : [...targets, { id: option.id, label: option.label }];
+    onChange({ type, targets: nextTargets });
+  };
+
+  /** 当前可选对象的 ID 集合，用于识别已选但已关闭的目标。 */
+  const availableIds = new Set(options.map((option) => option.id));
+  /** 已选但当前不在可选列表里的目标（可能已关闭 / 失效）。 */
+  const staleTargets = targets.filter((target) => !availableIds.has(target.id));
+  /** 合并可选对象与失效已选目标后的展示行。 */
+  const rows: Array<ScopeOption & { stale: boolean }> = [
+    ...options.map((option) => ({ ...option, stale: false })),
+    ...staleTargets.map((target) => ({ id: target.id, label: target.label, hint: undefined, stale: true })),
+  ];
+
+  return <div className="space-y-1.5">
+    <div className="flex items-center gap-2">
+      <Select value={type} onValueChange={handleTypeChange}>
+        <SelectTrigger className="w-40 shrink-0"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {Object.values(RuleScopeType).map((scopeType) => <SelectItem key={scopeType} value={scopeType}>{RULE_SCOPE_TYPE_LABELS[scopeType]}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      {type !== RuleScopeType.AllTabs && (
+        <Button type="button" variant="outline" size="icon" title="刷新列表" onClick={() => void refresh(type)}>
+          <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
+        </Button>
+      )}
+    </div>
+    {type !== RuleScopeType.AllTabs && (
+      <div className={`max-h-48 overflow-y-auto rounded-md border ${invalid ? 'border-destructive' : 'border-border'}`}>
+        {loading && rows.length === 0
+          ? <p className="px-3 py-4 text-center text-xs text-muted-foreground">加载中…</p>
+          : rows.length === 0
+            ? <p className="px-3 py-4 text-center text-xs text-muted-foreground">没有可选对象，请先打开对应的标签页 / 窗口 / 标签组</p>
+            : rows.map((row) => {
+                /** 该对象是否已选中。 */
+                const selected = targets.some((target) => target.id === row.id);
+                return <button key={row.id} type="button" onClick={() => toggleTarget(row)} className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left transition-colors hover:bg-muted/50">
+                  <Check className={`size-3.5 shrink-0 ${selected ? 'text-primary' : 'text-transparent'}`} />
+                  <span className="min-w-0 flex-1 truncate text-sm" title={row.hint ?? row.label}>{row.label}</span>
+                  {row.stale
+                    ? <span className="shrink-0 text-[11px] text-warning">已关闭</span>
+                    : row.hint && <span className="max-w-[45%] shrink-0 truncate text-[11px] text-muted-foreground">{row.hint}</span>}
+                </button>;
+              })}
+      </div>
+    )}
+    <p className="text-xs text-muted-foreground">
+      {type === RuleScopeType.AllTabs
+        ? '默认对所有标签页生效。限定作用域可避免把敏感 Header（如 Authorization）误发到其他站点。'
+        : `${RULE_SCOPE_EMPTY_HINTS[type]}；对象 ID 为会话级，浏览器重启后需重新选择。`}
+    </p>
   </div>;
 }
 

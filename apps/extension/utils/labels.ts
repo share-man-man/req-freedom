@@ -11,6 +11,7 @@ import {
   RequestBodyMode,
   RequestBodySourceMode,
   RuleActionType,
+  RuleScopeType,
 } from '@req-freedom/shared';
 
 /** 规则动作类型的中文展示名。 */
@@ -84,6 +85,22 @@ export const BODY_MATCH_VALUE_PLACEHOLDERS: Record<BodyMatchType, string> = {
   [BodyMatchType.Contains]: '请求体需包含的子串',
   [BodyMatchType.Regex]: '匹配请求体的正则，如 "mutation\\\\s+Login"',
   [BodyMatchType.GraphQlOperation]: 'operationName，如 GetUser',
+};
+
+/** 规则作用域类型的中文展示名 */
+export const RULE_SCOPE_TYPE_LABELS: Record<RuleScopeType, string> = {
+  [RuleScopeType.AllTabs]: '全部标签页',
+  [RuleScopeType.Tab]: '指定标签页',
+  [RuleScopeType.Window]: '指定窗口',
+  [RuleScopeType.TabGroup]: '指定标签组',
+};
+
+/** 作用域为空（未选择任何目标对象）时各类型的提示文案 */
+export const RULE_SCOPE_EMPTY_HINTS: Record<RuleScopeType, string> = {
+  [RuleScopeType.AllTabs]: '',
+  [RuleScopeType.Tab]: '勾选一个或多个当前打开的标签页',
+  [RuleScopeType.Window]: '勾选一个或多个当前打开的窗口',
+  [RuleScopeType.TabGroup]: '勾选一个或多个当前的标签组',
 };
 
 /** 匹配方式的中文展示名 */

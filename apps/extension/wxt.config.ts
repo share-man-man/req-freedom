@@ -11,7 +11,7 @@ export default defineConfig({
   manifest: {
     name: 'Req Freedom',
     description: '请求调试工具：拦截、重定向、参数注入、Header 改写、Mock、延迟模拟',
-    permissions: ['storage', 'declarativeNetRequest'],
+    permissions: ['storage', 'declarativeNetRequest', 'tabGroups'],
     host_permissions: ['<all_urls>'],
   },
 });

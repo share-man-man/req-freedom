@@ -24,6 +24,22 @@ export const PAGE_MESSAGE_SOURCE = 'req-freedom:bridge';
 /** declarativeNetRequest 动态规则 ID 起始偏移，避免与其他来源的规则 ID 冲突 */
 export const DNR_RULE_ID_OFFSET = 1000;
 
+/**
+ * 桥接内容脚本向 background 请求自身标签上下文（tabId / windowId / groupId）的消息类型
+ *
+ * 内容脚本拿不到自己的 tabId，需由 background 从 sender.tab 读取后回传，
+ * 才能按规则作用域过滤要推送给页面的规则。
+ */
+export const RUNTIME_MSG_GET_SCOPE_CONTEXT = 'req-freedom:get-scope-context';
+
+/**
+ * background 主动向某个标签推送最新作用域上下文的消息类型
+ *
+ * 标签被移入 / 移出分组、或在窗口间移动后，其 groupId / windowId 会变化，
+ * background 监听到后把新的上下文推给对应标签，让页面补丁通道的规则过滤保持实时。
+ */
+export const RUNTIME_MSG_SCOPE_CONTEXT_CHANGED = 'req-freedom:scope-context-changed';
+
 /** Mock 响应的默认状态码 */
 export const DEFAULT_MOCK_STATUS = 200;
 

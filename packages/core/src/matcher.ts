@@ -1,5 +1,5 @@
-import { BodyMatchType, MatchType } from '@req-freedom/shared';
-import type { BodyMatcher } from '@req-freedom/shared';
+import { BodyMatchType, MatchType, RuleScopeType } from '@req-freedom/shared';
+import type { BodyMatcher, RuleScope, ScopeContext } from '@req-freedom/shared';
 
 /**
  * 将通配符模式转换为正则表达式（* 匹配任意长度字符，其余字符按字面量处理）
@@ -64,6 +64,34 @@ function extractGraphQlOperationNames(body: string): string[] {
         : undefined,
     )
     .filter((name): name is string => typeof name === 'string');
+}
+
+/**
+ * 判断规则作用域是否命中给定的运行时上下文
+ *
+ * 缺省作用域或 AllTabs 恒命中；其余类型要求上下文中对应的 tab / window / group ID
+ * 落在作用域目标集合内。上下文对应字段缺失（如尚未取得标签上下文）时，作用域规则一律不命中，
+ * 保证「上下文未知」时不会让限定范围的规则误生效。
+ * @param scope 规则作用域条件（缺省表示不限制）
+ * @param context 当前标签的运行时上下文
+ * @returns 是否命中作用域
+ */
+export function matchScope(scope: RuleScope | undefined, context: ScopeContext): boolean {
+  if (!scope || scope.type === RuleScopeType.AllTabs) {
+    return true;
+  }
+  /** 作用域目标对象的 ID 集合。 */
+  const targetIds = scope.targets.map((target) => target.id);
+  switch (scope.type) {
+    case RuleScopeType.Tab:
+      return context.tabId !== undefined && targetIds.includes(context.tabId);
+    case RuleScopeType.Window:
+      return context.windowId !== undefined && targetIds.includes(context.windowId);
+    case RuleScopeType.TabGroup:
+      return context.groupId !== undefined && targetIds.includes(context.groupId);
+    default:
+      return false;
+  }
 }
 
 /**

@@ -1,4 +1,4 @@
-import type { BodyMatcher, ConfigurationExport, HeaderModification, Rule, RuleAction, RuleGroup } from '@req-freedom/shared';
+import type { BodyMatcher, ConfigurationExport, HeaderModification, Rule, RuleAction, RuleGroup, RuleScope, ScopeTarget } from '@req-freedom/shared';
 import {
   BodyMatchType,
   CONFIG_EXPORT_FILE_NAME_PREFIX,
@@ -16,6 +16,7 @@ import {
   RequestBodySourceMode,
   RuleActionType,
   RuleExecutionChannel,
+  RuleScopeType,
 } from '@req-freedom/shared';
 
 /** 运行时待校验的普通对象。 */
@@ -157,6 +158,8 @@ function parseRule(value: unknown, groupId: string, index: number, ruleIds: Set<
   const channel = rule.channel as RuleExecutionChannel;
   /** 已校验的请求体匹配条件（缺省表示不按请求体收敛）。 */
   const bodyMatch = rule.bodyMatch === undefined ? undefined : parseBodyMatch(rule.bodyMatch, id, channel);
+  /** 已校验的作用域条件（缺省或 AllTabs 表示不限制生效范围）。 */
+  const scope = rule.scope === undefined ? undefined : parseScope(rule.scope, id);
   /** 已校验动作。 */
   const actions = rule.actions.map((action, actionIndex) => parseAction(action, id, actionIndex, channel));
   /** 不能同时执行的 DNR 路由动作数量。 */
@@ -165,7 +168,34 @@ function parseRule(value: unknown, groupId: string, index: number, ruleIds: Set<
   if (rule.methods.length === 0 || rule.methods.includes(HttpMethod.Get) || rule.methods.includes(HttpMethod.Head)) {
     if (actions.some((action) => action.type === RuleActionType.ModifyRequestBody)) throw new Error(`规则「${id}」的 GET / HEAD 不能改请求体。`);
   }
-  return { id, name: requireString(rule.name, `规则「${id}」的名称`), enabled: rule.enabled, channel, methods: rule.methods as HttpMethod[], matchType: rule.matchType as MatchType, ...(bodyMatch ? { bodyMatch } : {}), pattern, actions };
+  return { id, name: requireString(rule.name, `规则「${id}」的名称`), enabled: rule.enabled, channel, methods: rule.methods as HttpMethod[], matchType: rule.matchType as MatchType, ...(bodyMatch ? { bodyMatch } : {}), ...(scope ? { scope } : {}), pattern, actions };
+}
+
+/**
+ * 校验规则作用域条件。
+ *
+ * AllTabs 归一化为「无作用域」（返回 undefined，等价于不限制）；其余类型要求至少一个合法目标对象。
+ * 目标对象的 id 是浏览器运行时数字 ID，导入到其他会话后可能已失效，运行时按 fail-closed 处理，无需在此拦截。
+ * @param value 待校验的作用域条件
+ * @param ruleId 所属规则 ID
+ * @returns 已校验的作用域条件；AllTabs 时为 undefined
+ */
+function parseScope(value: unknown, ruleId: string): RuleScope | undefined {
+  /** 作用域对象。 */
+  const scope = requireRecord(value, `规则「${ruleId}」的作用域`);
+  if (!Object.values(RuleScopeType).includes(scope.type as RuleScopeType)) throw new Error(`规则「${ruleId}」的作用域类型不合法。`);
+  /** 作用域类型。 */
+  const type = scope.type as RuleScopeType;
+  if (type === RuleScopeType.AllTabs) return undefined;
+  if (!Array.isArray(scope.targets) || scope.targets.length === 0) throw new Error(`规则「${ruleId}」的作用域至少需要一个目标对象。`);
+  /** 已校验的目标对象列表。 */
+  const targets: ScopeTarget[] = scope.targets.map((target) => {
+    /** 单个目标对象。 */
+    const record = requireRecord(target, `规则「${ruleId}」的作用域目标`);
+    if (typeof record.id !== 'number' || !Number.isInteger(record.id)) throw new Error(`规则「${ruleId}」的作用域目标 id 必须是整数。`);
+    return { id: record.id, label: typeof record.label === 'string' ? record.label : String(record.id) };
+  });
+  return { type, targets };
 }
 
 /**

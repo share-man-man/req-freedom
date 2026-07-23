@@ -18,6 +18,25 @@ export enum RuleActionType {
   ModifyRequestBody = 'modify-request-body',
 }
 
+/**
+ * 规则作用域类型
+ *
+ * 在 URL / 方法 / 请求体之外，把规则的生效范围进一步限定到具体的浏览器上下文。
+ * 官方场景是安全考量：避免把 Authorization 等敏感 Header 误发到不想发的站点。
+ * 两条通道均生效——页面补丁按内容脚本自身的 tab/窗口/分组过滤，
+ * DNR 侧把作用域解析成一组 tabId 后以 session 规则的 tabIds 条件承载。
+ */
+export enum RuleScopeType {
+  /** 全部标签页（默认，不限制生效范围） */
+  AllTabs = 'all-tabs',
+  /** 仅指定标签页 */
+  Tab = 'tab',
+  /** 仅指定窗口下的标签页 */
+  Window = 'window',
+  /** 仅指定标签组下的标签页 */
+  TabGroup = 'tab-group',
+}
+
 /** HTTP 请求方法。 */
 export enum HttpMethod {
   Get = 'GET',

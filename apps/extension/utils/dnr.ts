@@ -52,14 +52,17 @@ function toDnrHeaderOperation(operation: HeaderOperation): Browser.declarativeNe
  * 把一条统一 DNR 规则编译成一组 Chrome DNR 规则。
  * @param rule 业务规则
  * @param firstDnrId 该规则可使用的第一个 DNR 数字 ID
+ * @param tabIds 作用域解析出的目标 tabId 列表；传入非空数组时以 session 规则语义附加 tabIds 条件，
+ *   把规则限定到这些标签页（仅 declarativeNetRequest session 规则支持 tabIds 条件）
  * @returns 每个可执行动作对应的一条 DNR 规则
  */
-export function toDnrRules(rule: Rule, firstDnrId: number): DnrRule[] {
+export function toDnrRules(rule: Rule, firstDnrId: number, tabIds?: number[]): DnrRule[] {
   if (rule.channel !== RuleExecutionChannel.Dnr) {
     return [];
   }
-  /** 规则共有的匹配条件。 */
-  const condition = toCondition(rule);
+  /** 规则共有的匹配条件；作用域规则附加 tabIds 把生效范围限定到目标标签页。 */
+  const condition: Browser.declarativeNetRequest.RuleCondition =
+    tabIds && tabIds.length > 0 ? { ...toCondition(rule), tabIds } : toCondition(rule);
   /** 编译出的 DNR 规则集合。 */
   const dnrRules: DnrRule[] = [];
   for (const action of rule.actions) {

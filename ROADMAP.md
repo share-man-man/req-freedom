@@ -89,9 +89,10 @@ flowchart LR
   - ModHeader、tweak、XSwitch 全都有，是团队协作共享配置的前提。
   - 已落地：规则管理页可导入 / 导出完整 JSON 配置（全局开关 + 分组 + 统一规则），当前使用 `schemaVersion: 2`；导入会完整校验通道、动作、请求方法与正则，并经确认后整体替换，文档见[导入与导出配置](apps/docs/docs/guide/import-export.md)。
 
-- [ ] **P1 · 作用域过滤（tab / 窗口 / 标签组）**
+- [x] **P1 · 作用域过滤（tab / 窗口 / 标签组）**
   - ModHeader 支持按 tab、窗口、标签组限定生效范围。
   - **这是安全考量而不只是便利性**：官方理由是防止 `Authorization` token 被误发到不想发的站点。
+  - 已落地：规则新增可选 `scope`（`RuleScopeType`：`all-tabs` / `tab` / `window` / `tab-group`，多选目标对象），与 URL / 方法 / 请求体条件并列。两条通道均生效：页面补丁通道由桥接脚本按自身标签的 `tabId` / `windowId` / `groupId` 过滤（`core.matchScope` / `filterRulesByScope`），DNR 通道把作用域解析成一组 `tabId` 后以 **session 规则**的 `tabIds` 条件承载（`utils/scope.resolveScopeTabIds`），并随标签 / 窗口 / 标签组事件动态重算；不限定作用域的规则仍走可跨重启保留的 dynamic 规则。编辑器实时列出当前打开的标签页 / 窗口 / 标签组供勾选，已关闭目标标注失效（fail-closed）。文档见 [作用域过滤](apps/docs/docs/guide/features/scope-filter.md)。
 
 - [ ] **P1 · 动态变量**
   - ModHeader 免费提供，tweak 放在付费档。时间戳、随机数、UUID 等内置变量，规则里以占位符引用。
