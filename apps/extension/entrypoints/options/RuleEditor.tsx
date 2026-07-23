@@ -191,7 +191,9 @@ interface FieldProps { label: string; children: ReactNode; error?: string; inner
  */
 function Field({ label, children, error, innerRef }: FieldProps) {
   // 标签与表单项等高（h-9）且顶对齐：行不再整体垂直居中，标签固定贴合首行控件高度
-  return <div ref={innerRef} className="grid grid-cols-[80px_1fr] items-start gap-4"><Label className={`flex h-9 items-center ${error ? 'text-destructive' : 'text-muted-foreground'}`}>{label}</Label><div>{children}{error && <p className="mt-1 text-xs text-destructive">{error}</p>}</div></div>;
+  // 内容列用 minmax(0,1fr)+min-w-0 兜底：裸 1fr track 的 auto 最小值会被长文本（如长分组名的下拉）撑破，
+  // 溢出到相邻列造成重叠；限定最小为 0 后，下拉值由 SelectTrigger 内的 truncate 收敛。
+  return <div ref={innerRef} className="grid grid-cols-[80px_minmax(0,1fr)] items-start gap-4"><Label className={`flex h-9 items-center ${error ? 'text-destructive' : 'text-muted-foreground'}`}>{label}</Label><div className="min-w-0">{children}{error && <p className="mt-1 text-xs text-destructive">{error}</p>}</div></div>;
 }
 
 /**
