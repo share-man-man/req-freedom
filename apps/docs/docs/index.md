@@ -12,6 +12,9 @@ hero:
     - theme: alt
       text: 架构设计
       link: /guide/architecture
+    - theme: alt
+      text: 隐私政策
+      link: /privacy
 
 features:
   - title: 请求拦截
