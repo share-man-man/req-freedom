@@ -20,7 +20,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { AUTO_DEFAULT_GROUP_NAME, RuleExecutionChannel } from '@req-freedom/shared';
+import { AUTO_DEFAULT_GROUP_NAME, RuleActionType, RuleExecutionChannel } from '@req-freedom/shared';
 import type { Rule, RuleGroup } from '@req-freedom/shared';
 import { getEnabled, getGroups, saveConfiguration, saveGroups } from '@/utils/storage';
 import {
@@ -52,13 +52,13 @@ import type { GroupSort, GroupView, RuleStatusFilter } from './ManagementDashboa
  *
  * 用 div + CSS Grid 而非原生 <table>：浏览器对 display:table-row 元素的 transform 过渡渲染不可靠，
  * 会导致 dnd-kit 排序时「瞬间换位、无让位动画」；block/grid 布局才能让排序动画稳定生效。
- * 列依次为：拖拽柄 · 启用 · 名称 · 类型 · 匹配方式 · 匹配内容 · 操作。
+ * 列依次为：拖拽柄 · 启用 · 名称 · 执行通道 · 动作 · 匹配内容 · 操作。
  *
- * 「类型」「匹配方式」「操作」使用固定宽度，名称与匹配内容按比例分配余宽；不能使用 auto，
+ * 「执行通道」「操作」使用固定宽度，名称 / 动作 / 匹配内容按比例分配余宽；不能使用 auto，
  * 否则每一行会按自身内容分别计算列宽，导致表头和规则内容无法左对齐。
  */
 const RULE_ROW_GRID =
-  'grid grid-cols-[28px_44px_minmax(0,1.3fr)_100px_minmax(0,1fr)_72px] items-center gap-3';
+  'grid grid-cols-[28px_44px_minmax(0,1.1fr)_100px_minmax(0,1.2fr)_minmax(0,1.1fr)_72px] items-center gap-3';
 
 /**
  * 无分组时新建规则用的「默认分组」占位 ID。
@@ -72,12 +72,27 @@ const DEFAULT_GROUP_SENTINEL = '__req-freedom:default-group__';
 const RECENT_GROUP_LIMIT = 5;
 
 /**
- * 规则类型对应的柔和标签颜色：15% 色底 + 随明暗翻转的强调文字（--accent-* 见 style.css），
- * 浅色/深色两套下都保证对比度与扫读性。
+ * 执行通道对应的中性灰标签：与右侧彩色动作徽标区分开，避免同色误读。
+ * 两档用不同深浅的前景灰底表达差异，具体是哪个通道由徽标文字（DNR / 页面补丁）说明。
  */
 const CHANNEL_BADGE_CLASS: Record<RuleExecutionChannel, string> = {
-  [RuleExecutionChannel.Dnr]: 'bg-cyan-500/15 text-[var(--accent-cyan)]',
-  [RuleExecutionChannel.PagePatch]: 'bg-violet-500/15 text-[var(--accent-violet)]',
+  [RuleExecutionChannel.Dnr]: 'bg-foreground/10 text-muted-foreground',
+  [RuleExecutionChannel.PagePatch]: 'bg-foreground/[0.04] text-muted-foreground',
+};
+
+/**
+ * 各动作类型对应的柔和标签颜色：15% 色底 + 随明暗翻转的强调文字（--accent-* 见 style.css），
+ * 浅色/深色两套下都保证对比度与扫读性。一条规则可含多个动作，列表按此逐个上色以便快速扫读。
+ */
+const ACTION_BADGE_CLASS: Record<RuleActionType, string> = {
+  [RuleActionType.Block]: 'bg-rose-500/15 text-[var(--accent-rose)]',
+  [RuleActionType.Redirect]: 'bg-amber-500/15 text-[var(--accent-amber)]',
+  [RuleActionType.InjectParams]: 'bg-indigo-500/15 text-[var(--accent-indigo)]',
+  [RuleActionType.ModifyHeaders]: 'bg-cyan-500/15 text-[var(--accent-cyan)]',
+  [RuleActionType.MockResponse]: 'bg-violet-500/15 text-[var(--accent-violet)]',
+  [RuleActionType.Delay]: 'bg-orange-500/15 text-[var(--accent-orange)]',
+  [RuleActionType.InsertScript]: 'bg-emerald-500/15 text-[var(--accent-emerald)]',
+  [RuleActionType.ModifyRequestBody]: 'bg-pink-500/15 text-[var(--accent-pink)]',
 };
 
 /**
@@ -267,11 +282,22 @@ function SortableRuleRow({ rule, onToggle, onEdit, onDelete }: SortableRuleRowPr
       <Badge variant="secondary" className={`justify-self-start whitespace-nowrap border-transparent ${CHANNEL_BADGE_CLASS[rule.channel]}`}>
         {rule.channel === RuleExecutionChannel.Dnr ? 'DNR' : '页面补丁'}
       </Badge>
+      <div className="flex min-w-0 flex-wrap items-center gap-1 justify-self-start">
+        {rule.actions.map((action) => (
+          <Badge
+            key={action.type}
+            variant="secondary"
+            className={`whitespace-nowrap border-transparent ${ACTION_BADGE_CLASS[action.type]}`}
+          >
+            {RULE_ACTION_TYPE_LABELS[action.type]}
+          </Badge>
+        ))}
+      </div>
       <code
         className="min-w-0 max-w-full justify-self-start truncate rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
-        title={`${rule.pattern} · ${rule.actions.map((action) => RULE_ACTION_TYPE_LABELS[action.type]).join('、')}`}
+        title={rule.pattern}
       >
-        {rule.pattern} · {rule.actions.map((action) => RULE_ACTION_TYPE_LABELS[action.type]).join('、')}
+        {rule.pattern}
       </code>
       <div className="flex justify-end gap-1">
         <Button
@@ -495,7 +521,8 @@ function RuleColumnsHeader() {
       <span className="whitespace-nowrap">启用</span>
       <span className="whitespace-nowrap">名称</span>
       <span className="whitespace-nowrap">执行通道</span>
-      <span className="whitespace-nowrap">匹配内容 · 动作</span>
+      <span className="whitespace-nowrap">动作</span>
+      <span className="whitespace-nowrap">匹配内容</span>
       <span className="whitespace-nowrap text-right">操作</span>
     </div>
   );
@@ -522,11 +549,22 @@ function RuleRowStatic({ rule }: { rule: Rule }) {
       <Badge variant="secondary" className={`justify-self-start whitespace-nowrap border-transparent ${CHANNEL_BADGE_CLASS[rule.channel]}`}>
         {rule.channel === RuleExecutionChannel.Dnr ? 'DNR' : '页面补丁'}
       </Badge>
+      <div className="flex min-w-0 flex-wrap items-center gap-1 justify-self-start">
+        {rule.actions.map((action) => (
+          <Badge
+            key={action.type}
+            variant="secondary"
+            className={`whitespace-nowrap border-transparent ${ACTION_BADGE_CLASS[action.type]}`}
+          >
+            {RULE_ACTION_TYPE_LABELS[action.type]}
+          </Badge>
+        ))}
+      </div>
       <code
         className="min-w-0 max-w-full justify-self-start truncate rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
-        title={`${rule.pattern} · ${rule.actions.map((action) => RULE_ACTION_TYPE_LABELS[action.type]).join('、')}`}
+        title={rule.pattern}
       >
-        {rule.pattern} · {rule.actions.map((action) => RULE_ACTION_TYPE_LABELS[action.type]).join('、')}
+        {rule.pattern}
       </code>
       <div className="flex justify-end gap-1 text-muted-foreground">
         <span className="flex size-8 items-center justify-center">
