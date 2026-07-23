@@ -12,7 +12,16 @@ import {
   RequestBodySourceMode,
   RuleActionType,
   RuleScopeType,
+  RuleTemplateCategory,
 } from '@req-freedom/shared';
+
+/** 常用规则模板归类的中文展示名。 */
+export const RULE_TEMPLATE_CATEGORY_LABELS: Record<RuleTemplateCategory, string> = {
+  [RuleTemplateCategory.Cors]: '跨域 CORS',
+  [RuleTemplateCategory.Cache]: '缓存控制',
+  [RuleTemplateCategory.Protocol]: '协议与重定向',
+  [RuleTemplateCategory.UserAgent]: 'User-Agent',
+};
 
 /** 规则动作类型的中文展示名。 */
 export const RULE_ACTION_TYPE_LABELS: Record<RuleActionType, string> = {

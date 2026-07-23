@@ -76,9 +76,7 @@ flowchart LR
 
 - [x] ~~**P1 · 动态变量**~~ — 取值字段支持 `{{变量}}` 占位符（`{{uuid}}` / `{{timestamp}}` / `{{timestampMs}}` / `{{isoTime}}` / `{{randomFloat}}` / `{{randomInt(min,max)}}` / `{{randomString(length)}}`），元数据在 `shared` 单一维护，解析器 `core.resolveDynamicVariables`。页面补丁通道（静态 Mock 响应体 / 响应头、静态改请求体）逐请求求值，DNR 通道（重定向 / 注入参数 / Header 值）在规则同步时解析一次，未识别占位符原样保留；编辑器提供「变量」浮层一键复制占位符。文档见 [动态变量](apps/docs/docs/guide/features/dynamic-variables.md)。
 
-- [ ] **P1 · 常用规则模板库（含 CORS 解除预设）**
-  - 内置一批开箱预设：解除 CORS（补 `Access-Control-Allow-*`）、禁用缓存、强制 HTTPS、常见移动端 UA。
-  - 本质是 `ModifyHeaders` 的语法糖，但「解除 CORS」是本地联调第一高频需求，做成一键预设转化率高。可与 [P2 · `ModifyUserAgent`](#一核心能力规则类型) 的预设思路统一。
+- [x] ~~**P1 · 常用规则模板库（含 CORS 解除预设）**~~ — 内置一批开箱预设：解除 CORS（补 `Access-Control-Allow-*`）、禁用缓存、强制 HTTPS、移动端 UA（iPhone / Android）。模板在 `shared` 单一维护（`RULE_TEMPLATES`），选用后不直接落库而是把预填草稿交给规则编辑器微调匹配范围（`utils/factories.instantiateRuleTemplate`），入口收在「添加规则 / 新建规则」下拉里，从某分组进入即落到该组。文档见 [常用规则模板库](apps/docs/docs/guide/features/template-library.md)。
 
 - [ ] **P1 · 图标徽标 + 全局暂停开关**
   - 扩展图标上显示当前生效规则数（`chrome.action.setBadgeText`）；popup 顶部一个总开关一键暂停全部规则。

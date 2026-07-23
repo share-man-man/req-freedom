@@ -37,6 +37,22 @@ export enum RuleScopeType {
   TabGroup = 'tab-group',
 }
 
+/**
+ * 常用规则模板的归类
+ *
+ * 仅用于模板库 UI 的分区展示，不参与规则的执行语义。
+ */
+export enum RuleTemplateCategory {
+  /** 跨域（CORS）相关 */
+  Cors = 'cors',
+  /** 缓存控制相关 */
+  Cache = 'cache',
+  /** 协议 / 重定向相关 */
+  Protocol = 'protocol',
+  /** User-Agent 切换相关 */
+  UserAgent = 'user-agent',
+}
+
 /** HTTP 请求方法。 */
 export enum HttpMethod {
   Get = 'GET',

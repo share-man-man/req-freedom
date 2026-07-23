@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, FolderPlus, GripVertical, Pencil, Plus, Trash2 } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ChevronDown, FolderPlus, GripVertical, LayoutTemplate, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { ChangeEvent } from 'react';
 import {
   DndContext,
@@ -21,14 +22,14 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { AUTO_DEFAULT_GROUP_NAME, RuleActionType, RuleExecutionChannel } from '@req-freedom/shared';
-import type { Rule, RuleGroup } from '@req-freedom/shared';
+import type { Rule, RuleGroup, RuleTemplate } from '@req-freedom/shared';
 import { getEnabled, getGroups, saveConfiguration, saveGroups } from '@/utils/storage';
 import {
   createConfigurationExport,
   getConfigurationExportFileName,
   parseConfigurationExport,
 } from '@/utils/config-transfer';
-import { createRuleGroup, createSampleRule } from '@/utils/factories';
+import { createRuleGroup, createSampleRule, instantiateRuleTemplate } from '@/utils/factories';
 import { RULE_ACTION_TYPE_LABELS, RULE_SCOPE_TYPE_LABELS } from '@/utils/labels';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import RuleEditor from './RuleEditor';
+import TemplateLibrary from './TemplateLibrary';
 import {
   GROUP_SORT,
   GROUP_VIEW,
@@ -332,8 +334,10 @@ interface SortableGroupCardProps {
   onRenameGroup: (id: string, name: string) => void;
   /** 删除分组 */
   onDeleteGroup: (id: string) => void;
-  /** 向分组内新增规则（打开类型选择器） */
+  /** 向分组内新增空白规则 */
   onAddRule: (groupId: string) => void;
+  /** 为该分组打开模板库（选用模板后规则落到本组） */
+  onOpenTemplates: (groupId: string) => void;
   /** 切换组内单条规则启用状态 */
   onToggleRule: (ruleId: string) => void;
   /** 编辑组内规则 */
@@ -360,6 +364,7 @@ function SortableGroupCard({
   onRenameGroup,
   onDeleteGroup,
   onAddRule,
+  onOpenTemplates,
   onToggleRule,
   onEditRule,
   onDeleteRule,
@@ -452,10 +457,11 @@ function SortableGroupCard({
         <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
           最近更新 {formatRelativeTime(group.updatedAt)}
         </span>
-        <Button size="sm" className="shrink-0" onClick={() => onAddRule(group.id)}>
-          <Plus />
-          添加规则
-        </Button>
+        <AddRuleMenu
+          label="添加规则"
+          onBlank={() => onAddRule(group.id)}
+          onTemplate={() => onOpenTemplates(group.id)}
+        />
         <Button
           variant="ghost"
           size="icon"
@@ -607,6 +613,121 @@ function GroupCardOverlay({ group }: { group: RuleGroup }) {
   );
 }
 
+interface AddRuleMenuProps {
+  /** 主按钮文案（如「新建规则」「添加规则」）。 */
+  label: string;
+  /** 选择「空白规则」的回调。 */
+  onBlank: () => void;
+  /** 选择「从模板库」的回调。 */
+  onTemplate: () => void;
+}
+
+/**
+ * 新建规则入口：主按钮展开下拉，二选一——空白规则 / 从模板库。
+ *
+ * 用与 MatchTester 一致的「点击外部 + Esc 收起」轻量气泡，不引入额外下拉依赖；
+ * 菜单经 Portal 挂到 body 并以 fixed 定位，绕开分组卡片的 overflow-hidden 裁剪（折叠 / 空分组时尤为关键）。
+ * @param props 文案与两种创建方式的回调
+ */
+function AddRuleMenu({ label, onBlank, onTemplate }: AddRuleMenuProps) {
+  /** 下拉是否展开。 */
+  const [open, setOpen] = useState(false);
+  /** 触发按钮的包裹节点，用于测量位置与判定点击外部。 */
+  const triggerRef = useRef<HTMLDivElement>(null);
+  /** 菜单节点，用于判定点击外部。 */
+  const menuRef = useRef<HTMLDivElement>(null);
+  /** 菜单相对视口的 fixed 定位坐标；null 表示尚未测量。 */
+  const [position, setPosition] = useState<{ top: number; right: number } | null>(null);
+
+  // 展开时按触发按钮位置计算菜单坐标，并在滚动 / 缩放时跟随；同时监听点击外部与 Esc 收起
+  useEffect(() => {
+    if (!open) {
+      setPosition(null);
+      return;
+    }
+    /** 依据触发按钮的视口矩形更新菜单坐标（右对齐、下方 4px）。 */
+    const updatePosition = (): void => {
+      /** 触发按钮当前的视口矩形。 */
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (rect) {
+        setPosition({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+      }
+    };
+    updatePosition();
+    /** 点击触发按钮与菜单之外则收起。 */
+    const onPointerDown = (event: PointerEvent): void => {
+      /** 本次事件的目标节点。 */
+      const target = event.target as Node;
+      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) {
+        return;
+      }
+      setOpen(false);
+    };
+    /** 按 Esc 收起。 */
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('resize', updatePosition);
+    // 捕获阶段监听滚动，让菜单跟随任意可滚动祖先
+    window.addEventListener('scroll', updatePosition, true);
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  /**
+   * 执行选中项回调并收起菜单。
+   * @param action 选中项对应的回调
+   */
+  const choose = (action: () => void): void => {
+    setOpen(false);
+    action();
+  };
+
+  return (
+    <div ref={triggerRef} className="shrink-0">
+      <Button size="sm" onClick={() => setOpen((value) => !value)} aria-haspopup="menu" aria-expanded={open}>
+        <Plus />
+        {label}
+        <ChevronDown className="size-3.5 opacity-80" />
+      </Button>
+      {open && position && createPortal(
+        <div
+          ref={menuRef}
+          role="menu"
+          style={{ top: position.top, right: position.right }}
+          className="fixed z-50 w-44 overflow-hidden rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => choose(onBlank)}
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+          >
+            <Plus className="size-4 text-muted-foreground" />
+            空白规则
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => choose(onTemplate)}
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+          >
+            <LayoutTemplate className="size-4 text-muted-foreground" />
+            从模板库…
+          </button>
+        </div>,
+        document.body,
+      )}
+    </div>
+  );
+}
+
 /**
  * Options 主界面：规则分组的增删改、启停与组内规则拖拽排序
  */
@@ -615,6 +736,8 @@ export default function App() {
   const [groups, setGroups] = useState<RuleGroup[]>([]);
   /** 规则编辑对话框状态，null 表示关闭 */
   const [ruleDialog, setRuleDialog] = useState<RuleDialogState | null>(null);
+  /** 模板库对话框的目标分组 ID：非 null 即打开，选用模板后规则落到该分组（可为默认分组占位）。 */
+  const [templateTargetGroupId, setTemplateTargetGroupId] = useState<string | null>(null);
   /** 当前正在拖拽的分组 ID，用于渲染外层分组 DragOverlay 预览 */
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   /** 已折叠的分组 ID 集合（纯视图状态，不写入 storage，避免无谓触发规则重同步） */
@@ -811,6 +934,26 @@ export default function App() {
    */
   const handleAddFirstRule = (): void => {
     setRuleDialog({ groupId: DEFAULT_GROUP_SENTINEL, rule: createSampleRule(), isNew: true });
+  };
+
+  /**
+   * 为指定分组打开模板库。
+   * @param groupId 选用模板后规则应落到的分组 ID（无分组时传默认分组占位）
+   */
+  const handleOpenTemplates = (groupId: string): void => {
+    setTemplateTargetGroupId(groupId);
+  };
+
+  /**
+   * 选用模板：实例化规则草稿并打开规则编辑器，交由用户微调匹配范围后再保存。
+   * 目标分组来自打开模板库时记录的 templateTargetGroupId（默认分组占位则保存时才真正建组）。
+   * @param template 选中的常用规则模板
+   */
+  const handleUseTemplate = (template: RuleTemplate): void => {
+    /** 规则应归属的分组：来自打开入口，缺省回退到默认分组占位。 */
+    const targetGroupId = templateTargetGroupId ?? DEFAULT_GROUP_SENTINEL;
+    setTemplateTargetGroupId(null);
+    setRuleDialog({ groupId: targetGroupId, rule: instantiateRuleTemplate(template), isNew: true });
   };
 
   /**
@@ -1065,10 +1208,11 @@ export default function App() {
               </p>
             </div>
             <div className="flex gap-2">
-              <Button size="sm" onClick={handleAddFirstRule}>
-                <Plus />
-                新建规则
-              </Button>
+              <AddRuleMenu
+                label="新建规则"
+                onBlank={handleAddFirstRule}
+                onTemplate={() => handleOpenTemplates(DEFAULT_GROUP_SENTINEL)}
+              />
               <Button variant="outline" size="sm" onClick={handleAddGroup}>
                 <FolderPlus />
                 新建分组
@@ -1105,6 +1249,7 @@ export default function App() {
                     onRenameGroup={handleRenameGroup}
                     onDeleteGroup={handleDeleteGroup}
                     onAddRule={handleAddRule}
+                    onOpenTemplates={handleOpenTemplates}
                     onToggleRule={handleToggleRule}
                     onEditRule={handleEditRule}
                     onDeleteRule={handleDeleteRule}
@@ -1121,6 +1266,13 @@ export default function App() {
           </DndContext>
         )}
       </main>
+
+      {/* 常用规则模板库 */}
+      <TemplateLibrary
+        open={templateTargetGroupId !== null}
+        onClose={() => setTemplateTargetGroupId(null)}
+        onUse={handleUseTemplate}
+      />
 
       {/* 新建 / 编辑规则对话框 */}
       <Dialog open={ruleDialog !== null} onOpenChange={(open) => !open && setRuleDialog(null)}>
