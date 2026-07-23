@@ -41,25 +41,13 @@ flowchart LR
 
 ### 待补
 
-- [x] **P0 · `InsertScript` 注入 JS / CSS**
-  - 除 ModHeader 外家家都有，实现成本低——MAIN world 通道已经打通，直接复用。
-  - 需要字段：注入代码、注入时机（`document_start` / `document_end`）、类型（JS / CSS）。
-  - 已落地：复用 `interceptor.content.ts`（MAIN world），按页面 URL 命中后注入 `<script>` / `<style>`；每次页面加载去重注入一次。文档见 [脚本注入](apps/docs/docs/guide/features/insert-script.md)。
+- [x] ~~**P0 · `InsertScript` 注入 JS / CSS**~~ — 复用 `interceptor.content.ts`（MAIN world），按页面 URL 命中后注入 `<script>` / `<style>`，支持 `document_start` / `document_end` 时机与 JS / CSS 类型；每次页面加载去重注入一次。文档见 [脚本注入](apps/docs/docs/guide/features/insert-script.md)。
 
-- [x] **P0 · 网络限速模拟**
-  - 已落地：支持 Fast 3G、Slow 3G 与自定义网络延迟、上下行带宽；仅页面补丁通道可精确控制。
+- [x] ~~**P0 · 网络限速模拟**~~ — 支持 Fast 3G、Slow 3G 与自定义网络延迟、上下行带宽；仅页面补丁通道可精确控制。
 
-- [x] **P1 · `ModifyRequestBody` 改请求体**
-  - Requestly 与 tweak 都支持，且都特别强调 GraphQL 场景。
-  - **连带影响匹配器**：GraphQL 所有请求同 URL 同 method，只能靠 body 里的 `operationName` 区分，光靠 URL 匹配一定命不中。见「匹配能力增强」。
-  - 通道：仅页面补丁。
-  - 已落地：静态改写支持 `RequestBodyMode`（`replace` 整体替换 / `merge-json` JSON 深合并，`core.modifyRequestBody`）；`RequestBodySourceMode.Dynamic` 支持以 `req` 的请求快照动态生成最终请求体并支持 `return` / `await`。复用 `interceptor.content.ts`（MAIN world），在 `fetch` / `XHR` 发送前改写请求体；Mock 命中时不改写（不发真实请求）。文档见 [改请求体](apps/docs/docs/guide/features/modify-request-body.md)。GraphQL 按 `operationName` 精确命中已由「请求体匹配」支持（规则 `bodyMatch` 条件）。
+- [x] ~~**P1 · `ModifyRequestBody` 改请求体**~~ — 仅页面补丁通道；静态改写支持 `RequestBodyMode`（`replace` 整体替换 / `merge-json` JSON 深合并，`core.modifyRequestBody`），`RequestBodySourceMode.Dynamic` 以 `req` 快照动态生成并支持 `return` / `await`。在 `fetch` / `XHR` 发送前改写，Mock 命中时不改写；GraphQL 按 `operationName` 精确命中由「请求体匹配」承载。文档见 [改请求体](apps/docs/docs/guide/features/modify-request-body.md)。
 
-- [x] **P1 · 用 JS 动态生成响应**
-  - Requestly 与 tweak 都支持；这是「静态 Mock」和「真·Mock 服务器」的分水岭。
-  - 形态：在 `MockResponse` 上增加「函数模式」，暴露 `req` 入参，返回值作为响应体。
-  - 安全：MAIN world 里 `eval` 用户代码，需在文档站明确风险边界。
-  - 已落地：`MockResponseMode` 支持静态响应体与 JavaScript 动态生成两种模式；动态函数可直接使用 `req` 的 URL、方法、页面设置的请求头、查询参数与请求体（含可选 JSON 解析结果），支持 `return` / `await`。fetch 与 XHR 均由 MAIN world 拦截执行，文档明确了仅应运行可信代码的安全边界。
+- [x] ~~**P1 · 用 JS 动态生成响应**~~ — `MockResponseMode` 支持静态响应体与 JavaScript 动态生成；动态函数可用 `req` 的 URL、方法、请求头、查询参数与请求体（含可选 JSON 解析），支持 `return` / `await`，fetch 与 XHR 均由 MAIN world 拦截执行，文档明确仅应运行可信代码的安全边界。
 
 - [ ] **P2 · `ReplaceString` 字符串替换**
   - 对 URL / 查询串做动态替换，不改源码。XSwitch 的常用姿势。
@@ -72,31 +60,21 @@ flowchart LR
 
 ### 匹配能力增强
 
-- [x] **P1 · Method 过滤** — 规则通过 `methods` 支持 GET / POST / PUT / PATCH / DELETE / HEAD / OPTIONS；空数组表示全部。改请求体必须显式选择可带 body 的方法；选择全部、GET 或 HEAD 时，表单层会禁用该动作，避免浏览器拒绝带 body 的请求。
-- [x] **P1 · 请求体匹配** — 规则可选 `bodyMatch` 条件（`BodyMatchType`：`contains` 子串 / `regex` 正则 / `graphql-operation` 操作名），与 URL、方法并列。仅页面补丁通道生效：`interceptor.content.ts` 先按 URL + 方法初筛，命中规则含请求体条件时读取一次请求体再经 `core.filterRulesByBody` 二次过滤（`core.rulesNeedBody` 决定是否需要读取，无条件规则不额外读体）。GraphQL 同 URL 的多个操作可用「操作名」精确区分。文档见 [请求体匹配](apps/docs/docs/guide/features/request-body-match.md)。
+- [x] ~~**P1 · Method 过滤**~~ — 规则通过 `methods` 支持 GET / POST / PUT / PATCH / DELETE / HEAD / OPTIONS；空数组表示全部。改请求体必须显式选择可带 body 的方法；选择全部、GET 或 HEAD 时，表单层会禁用该动作，避免浏览器拒绝带 body 的请求。
+- [x] ~~**P1 · 请求体匹配**~~ — 规则可选 `bodyMatch` 条件（`BodyMatchType`：`contains` 子串 / `regex` 正则 / `graphql-operation` 操作名），与 URL、方法并列。仅页面补丁通道生效：`interceptor.content.ts` 先按 URL + 方法初筛，命中规则含请求体条件时读取一次请求体再经 `core.filterRulesByBody` 二次过滤（`core.rulesNeedBody` 决定是否需要读取，无条件规则不额外读体）。GraphQL 同 URL 的多个操作可用「操作名」精确区分。文档见 [请求体匹配](apps/docs/docs/guide/features/request-body-match.md)。
 - [ ] **P2 · 资源类型过滤** — `xhr` / `script` / `image` 等，DNR 原生支持。
 
 ## 二、工程化能力（规则之外）
 
 > 长期看这部分比多加两个规则类型更影响留存——各家都有，我们一项都还没有。
 
-- [x] **P0 · 规则分组 + 分组开关**
-  - 规则一多，没有分组就没法用。XSwitch、Requestly 都有。
-  - 数据结构上要先决定：`groupId` 外键，还是嵌套结构。**这项会动 storage schema，越早做迁移成本越低。**
-  - 已落地：采用**嵌套结构**（`RuleGroup { id, name, enabled, rules: Rule[] }`），storage 顶层键 `req-freedom:groups`。生效判定 = 全局开关 && `group.enabled` && `rule.enabled`；`core.collectActiveRules(groups)` 统一扁平化，供 background（DNR）/ bridge（页面注入）/ popup 复用。options 支持分组卡片、组开关、就地重命名、组间/组内拖拽，规则编辑器可改「所属分组」实现跨组移动。
+- [x] ~~**P0 · 规则分组 + 分组开关**~~ — 采用嵌套结构（`RuleGroup { id, name, enabled, rules: Rule[] }`），storage 顶层键 `req-freedom:groups`；生效判定 = 全局开关 && `group.enabled` && `rule.enabled`，`core.collectActiveRules(groups)` 统一扁平化供 background / bridge / popup 复用。options 支持分组卡片、组开关、就地重命名、组间/组内拖拽，规则编辑器可改「所属分组」跨组移动。
 
-- [x] **P0 · 导入 / 导出**
-  - ModHeader、tweak、XSwitch 全都有，是团队协作共享配置的前提。
-  - 已落地：规则管理页可导入 / 导出完整 JSON 配置（全局开关 + 分组 + 统一规则），当前使用 `schemaVersion: 2`；导入会完整校验通道、动作、请求方法与正则，并经确认后整体替换，文档见[导入与导出配置](apps/docs/docs/guide/import-export.md)。
+- [x] ~~**P0 · 导入 / 导出**~~ — 规则管理页可导入 / 导出完整 JSON 配置（全局开关 + 分组 + 统一规则），当前 `schemaVersion: 2`；导入完整校验通道、动作、请求方法与正则并经确认后整体替换。文档见 [导入与导出配置](apps/docs/docs/guide/import-export.md)。
 
-- [x] **P1 · 作用域过滤（tab / 窗口 / 标签组）**
-  - ModHeader 支持按 tab、窗口、标签组限定生效范围。
-  - **这是安全考量而不只是便利性**：官方理由是防止 `Authorization` token 被误发到不想发的站点。
-  - 已落地：规则新增可选 `scope`（`RuleScopeType`：`all-tabs` / `tab` / `window` / `tab-group`，多选目标对象），与 URL / 方法 / 请求体条件并列。两条通道均生效：页面补丁通道由桥接脚本按自身标签的 `tabId` / `windowId` / `groupId` 过滤（`core.matchScope` / `filterRulesByScope`），DNR 通道把作用域解析成一组 `tabId` 后以 **session 规则**的 `tabIds` 条件承载（`utils/scope.resolveScopeTabIds`），并随标签 / 窗口 / 标签组事件动态重算；不限定作用域的规则仍走可跨重启保留的 dynamic 规则。编辑器实时列出当前打开的标签页 / 窗口 / 标签组供勾选，已关闭目标标注失效（fail-closed）。文档见 [作用域过滤](apps/docs/docs/guide/features/scope-filter.md)。
+- [x] ~~**P1 · 作用域过滤（tab / 窗口 / 标签组）**~~ — 规则新增可选 `scope`（`RuleScopeType`：`all-tabs` / `tab` / `window` / `tab-group`，多选目标）。两条通道均生效：页面补丁按桥接脚本自身 `tabId` / `windowId` / `groupId` 过滤（`core.matchScope`），DNR 把作用域解析成 `tabId` 集合以 session 规则的 `tabIds` 条件承载（`utils/scope.resolveScopeTabIds`）并随标签事件重算，不限定作用域的规则仍走可跨重启的 dynamic 规则；编辑器实时列出可选对象，已关闭目标标注失效（fail-closed）。文档见 [作用域过滤](apps/docs/docs/guide/features/scope-filter.md)。
 
-- [x] **P1 · 动态变量**
-  - ModHeader 免费提供，tweak 放在付费档。时间戳、随机数、UUID 等内置变量，规则里以占位符引用。
-  - 已落地：取值字段支持 `{{变量}}` 占位符（`{{uuid}}` / `{{timestamp}}` / `{{timestampMs}}` / `{{isoTime}}` / `{{randomFloat}}` / `{{randomInt(min,max)}}` / `{{randomString(length)}}`），元数据在 `shared` 单一维护，解析器 `core.resolveDynamicVariables`。两条通道解析时机不同：**页面补丁通道**（静态 Mock 响应体 / 响应头、静态改请求体）**逐请求求值**（真·动态）；**DNR 通道**（重定向 / 注入参数 / Header 值）声明式无法逐请求求值，在规则同步时解析一次。未识别占位符原样保留。编辑器在支持的取值字段旁提供「变量」浮层，一键复制占位符。文档见 [动态变量](apps/docs/docs/guide/features/dynamic-variables.md)。
+- [x] ~~**P1 · 动态变量**~~ — 取值字段支持 `{{变量}}` 占位符（`{{uuid}}` / `{{timestamp}}` / `{{timestampMs}}` / `{{isoTime}}` / `{{randomFloat}}` / `{{randomInt(min,max)}}` / `{{randomString(length)}}`），元数据在 `shared` 单一维护，解析器 `core.resolveDynamicVariables`。页面补丁通道（静态 Mock 响应体 / 响应头、静态改请求体）逐请求求值，DNR 通道（重定向 / 注入参数 / Header 值）在规则同步时解析一次，未识别占位符原样保留；编辑器提供「变量」浮层一键复制占位符。文档见 [动态变量](apps/docs/docs/guide/features/dynamic-variables.md)。
 
 - [ ] **P1 · 常用规则模板库（含 CORS 解除预设）**
   - 内置一批开箱预设：解除 CORS（补 `Access-Control-Allow-*`）、禁用缓存、强制 HTTPS、常见移动端 UA。
@@ -110,12 +88,7 @@ flowchart LR
   - 粘贴 cURL → 自动生成 Redirect / Mock；导入 HAR → 批量生成 Mock。Requestly 有，对 mock 场景是利器。
   - 与上面的「导入 / 导出」同批做，复用 schema，边际成本低。
 
-- [x] **P1 · 内嵌代码编辑器（CodeMirror 6）**
-  - 现在 `MockResponse.body` 用的是原生 `Textarea`，无高亮、无格式化。后续 `InsertScript`（注入 JS/CSS）、JS 动态生成响应、`ModifyRequestBody` 都要编辑代码/JSON，缺一个统一的编辑器组件。
-  - 选型：用 **CodeMirror 6** 而非 Monaco。Monaco 的 Web Worker 语言服务与 MV3 的 CSP（`worker-src` / `script-src`）相性差、包体积 MB 级；CodeMirror 6 可按语言 tree-shake（几十~百 KB），MV3 下直接可跑，且当前只需 JSON/JS/CSS 高亮 + 格式化，用不到 Monaco 的 IntelliSense。
-  - 落地：封装 `components/ui/code-editor`，`language` 传 `json` / `javascript` / `css`，按需引入 `@codemirror/lang-*`。先替换 `MockResponse.body` 的 `Textarea`，后续规则类型复用。
-  - 若将来某功能确实需要 Monaco 级补全（如 JS 生成响应的 `req` 类型提示），再针对该功能单独评估。
-  - 已落地：封装 `components/ui/code-editor`，支持 JSON / JavaScript / CSS 的语法高亮、行号、括号匹配、缩进与格式化；`MockResponse.body` 已切换为 JSON 编辑器，后续规则类型可直接复用。
+- [x] ~~**P1 · 内嵌代码编辑器（CodeMirror 6）**~~ — 封装 `components/ui/code-editor`，支持 JSON / JavaScript / CSS 的语法高亮、行号、括号匹配、缩进与格式化，按语言 tree-shake（`@codemirror/lang-*`）以适配 MV3 CSP；`MockResponse.body` 已切换为 JSON 编辑器，后续规则类型复用。若将来需 Monaco 级补全再单独评估。
 
 - [ ] **P2 · JSONC 配置模式**
   - XSwitch 的核心产品决策：不做表单化 UI，而是一大段可注释、可 diff、可粘贴分享的配置文本。
