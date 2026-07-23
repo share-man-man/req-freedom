@@ -28,6 +28,8 @@ import {
   getTransferDurationMs,
   modifyRequestBody,
   pickActionByType,
+  resolveDynamicVariables,
+  resolveDynamicVariablesInRecord,
   rulesNeedBody,
   sleep,
 } from '@req-freedom/core';
@@ -384,7 +386,9 @@ export default defineContentScript({
       rule: MockResponseAction,
       request: DynamicRequestContext,
     ): Promise<string> =>
-      rule.mode === MockResponseMode.Dynamic ? executeDynamicMock(rule, request) : rule.body;
+      rule.mode === MockResponseMode.Dynamic
+        ? executeDynamicMock(rule, request)
+        : resolveDynamicVariables(rule.body);
 
     /**
      * 执行动态改请求体函数并将返回值转换为最终请求体文本。
@@ -539,7 +543,7 @@ export default defineContentScript({
       // 关键步骤：命中 Mock 时直接构造响应，不发起真实请求
       if (mockRule) {
         await sleep(mockRule.delayMs ?? 0);
-        /** 动态模式读取请求快照后生成响应；静态模式直接使用配置中的 body。 */
+        /** 动态模式读取请求快照后生成响应；静态模式使用配置中的 body 并解析其中的动态变量。 */
         const mockBody =
           mockRule.mode === MockResponseMode.Dynamic
             ? await resolveMockBody(
@@ -551,7 +555,7 @@ export default defineContentScript({
                   await readFetchBodyText(input, init),
                 ),
               )
-            : mockRule.body;
+            : resolveDynamicVariables(mockRule.body);
         /** 静态模式按响应体类型推导 Content-Type，动态模式回落到默认 JSON；显式 responseHeaders 仍可覆盖。 */
         const mockContentType =
           mockRule.mode === MockResponseMode.Static
@@ -562,7 +566,7 @@ export default defineContentScript({
           status: mockRule.statusCode,
           headers: {
             'Content-Type': mockContentType,
-            ...mockRule.responseHeaders,
+            ...(mockRule.responseHeaders ? resolveDynamicVariablesInRecord(mockRule.responseHeaders) : {}),
           },
         });
         return throttleResponse(response, delayRule);
@@ -589,7 +593,7 @@ export default defineContentScript({
                 ),
                 originalBody,
               )
-            : modifyRequestBody(modifyBodyRule.mode, modifyBodyRule.content, originalBody);
+            : modifyRequestBody(modifyBodyRule.mode, resolveDynamicVariables(modifyBodyRule.content), originalBody);
         // input 为 Request 时其 method / headers 仍被保留，init.body 仅覆盖请求体
         const response = await originalFetch(input, { ...init, body: nextBody });
         return throttleResponse(response, delayRule);
@@ -699,7 +703,7 @@ export default defineContentScript({
               dispatchMockResponse(mockBody);
             });
           } else {
-            dispatchMockResponse(mockRule.body);
+            dispatchMockResponse(resolveDynamicVariables(mockRule.body));
           }
           return;
         }
@@ -741,13 +745,13 @@ export default defineContentScript({
                     )
                   : modifyRequestBody(
                       modifyBodyRule.mode,
-                      modifyBodyRule.content,
+                      resolveDynamicVariables(modifyBodyRule.content),
                       originalBody,
                     );
               dispatchSend(nextBody);
             });
           } else {
-            dispatchSend(modifyRequestBody(modifyBodyRule.mode, modifyBodyRule.content, ''));
+            dispatchSend(modifyRequestBody(modifyBodyRule.mode, resolveDynamicVariables(modifyBodyRule.content), ''));
           }
           return;
         }

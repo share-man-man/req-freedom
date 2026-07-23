@@ -8,5 +8,6 @@
   "insert-script",
   "modify-request-body",
   "request-body-match",
-  "scope-filter"
+  "scope-filter",
+  "dynamic-variables"
 ]

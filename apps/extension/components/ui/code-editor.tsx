@@ -40,6 +40,8 @@ interface CodeEditorProps {
   ariaLabel?: string;
   /** 头部左上角自定义内容，传入时替代默认的语言名标签（如类型切换下拉）。 */
   headerStart?: ReactNode;
+  /** 头部右上角自定义内容，渲染在「格式化」按钮左侧（如动态变量提示）。 */
+  headerEnd?: ReactNode;
 }
 
 /** 编辑器语言的显示名称。 */
@@ -156,6 +158,7 @@ export function CodeEditor({
   className,
   ariaLabel,
   headerStart,
+  headerEnd,
 }: CodeEditorProps) {
   /** CodeMirror 挂载节点。 */
   const containerRef = useRef<HTMLDivElement>(null);
@@ -256,28 +259,37 @@ export function CodeEditor({
   }
 
   return (
-    <div className={cn('overflow-hidden rounded-md border border-input bg-background shadow-sm focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/35', className)}>
-      <div className="flex items-center justify-between border-b border-border bg-muted/60 px-2.5 py-1.5">
+    // 根节点不裁剪溢出，让头部内的浮层（如动态变量提示）能超出编辑器边界显示；
+    // 裁剪只收窄到下方内容区，避免 CodeMirror 内容溢出圆角。
+    <div className={cn('relative rounded-md border border-input bg-background shadow-sm focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/35', className)}>
+      <div className="flex items-center justify-between rounded-t-md border-b border-border bg-muted/60 px-2.5 py-1.5">
         {/* 头部左上角：默认展示语言名，caller 可用 headerStart 换成类型切换等控件 */}
         {headerStart ?? (
           <span className="font-mono text-[11px] font-medium text-muted-foreground">
             {CODE_EDITOR_LANGUAGE_LABELS[language]}
           </span>
         )}
-        {/* 纯文本无可格式化的语法结构，隐藏格式化按钮 */}
-        {language !== 'text' && (
-          <button
-            type="button"
-            className="rounded px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={disabled}
-            onClick={handleFormat}
-          >
-            格式化
-          </button>
-        )}
+        {/* 头部右上角：自定义内容（如动态变量提示）在前，格式化按钮在后 */}
+        <div className="flex items-center gap-1">
+          {headerEnd}
+          {/* 纯文本无可格式化的语法结构，隐藏格式化按钮 */}
+          {language !== 'text' && (
+            <button
+              type="button"
+              className="rounded px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={disabled}
+              onClick={handleFormat}
+            >
+              格式化
+            </button>
+          )}
+        </div>
       </div>
-      <div ref={containerRef} />
-      {formatError && <p className="border-t border-destructive/25 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">{formatError}</p>}
+      {/* 仅裁剪内容区，让 CodeMirror 内容与错误条贴合底部圆角 */}
+      <div className="overflow-hidden rounded-b-md">
+        <div ref={containerRef} />
+        {formatError && <p className="border-t border-destructive/25 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">{formatError}</p>}
+      </div>
     </div>
   );
 }

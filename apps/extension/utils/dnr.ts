@@ -7,6 +7,7 @@ import {
   RuleActionType,
   RuleExecutionChannel,
 } from '@req-freedom/shared';
+import { resolveDynamicVariables } from '@req-freedom/core';
 
 /** DNR 规则类型别名，简化书写。 */
 type DnrRule = Browser.declarativeNetRequest.Rule;
@@ -55,6 +56,9 @@ function toDnrHeaderOperation(operation: HeaderOperation): Browser.declarativeNe
  * @param tabIds 作用域解析出的目标 tabId 列表；传入非空数组时以 session 规则语义附加 tabIds 条件，
  *   把规则限定到这些标签页（仅 declarativeNetRequest session 规则支持 tabIds 条件）
  * @returns 每个可执行动作对应的一条 DNR 规则
+ *
+ * 注意：动态变量（`{{uuid}}` 等）在此声明式编译阶段解析一次。DNR 规则由网络层原生执行，
+ * 无法逐请求求值，因此同一次同步内命中的所有请求会拿到相同的值；真·逐请求动态请走页面补丁通道。
  */
 export function toDnrRules(rule: Rule, firstDnrId: number, tabIds?: number[]): DnrRule[] {
   if (rule.channel !== RuleExecutionChannel.Dnr) {
@@ -80,8 +84,8 @@ export function toDnrRules(rule: Rule, firstDnrId: number, tabIds?: number[]): D
             type: browser.declarativeNetRequest.RuleActionType.REDIRECT,
             redirect:
               rule.matchType === MatchType.Regex
-                ? { regexSubstitution: action.redirectUrl }
-                : { url: action.redirectUrl },
+                ? { regexSubstitution: resolveDynamicVariables(action.redirectUrl) }
+                : { url: resolveDynamicVariables(action.redirectUrl) },
           },
         });
         break;
@@ -94,7 +98,7 @@ export function toDnrRules(rule: Rule, firstDnrId: number, tabIds?: number[]): D
             redirect: {
               transform: {
                 queryTransform: {
-                  addOrReplaceParams: Object.entries(action.params).map(([key, value]) => ({ key, value })),
+                  addOrReplaceParams: Object.entries(action.params).map(([key, value]) => ({ key, value: resolveDynamicVariables(value) })),
                 },
               },
             },
@@ -102,14 +106,14 @@ export function toDnrRules(rule: Rule, firstDnrId: number, tabIds?: number[]): D
         });
         break;
       case RuleActionType.ModifyHeaders: {
-        /** 请求头修改项。 */
+        /** 请求头修改项（值内动态变量在同步时解析一次）。 */
         const requestHeaders = action.headers
           .filter((item) => item.target === HeaderTarget.Request)
-          .map((item) => ({ header: item.header, operation: toDnrHeaderOperation(item.operation), value: item.value }));
-        /** 响应头修改项。 */
+          .map((item) => ({ header: item.header, operation: toDnrHeaderOperation(item.operation), ...(item.value === undefined ? {} : { value: resolveDynamicVariables(item.value) }) }));
+        /** 响应头修改项（值内动态变量在同步时解析一次）。 */
         const responseHeaders = action.headers
           .filter((item) => item.target === HeaderTarget.Response)
-          .map((item) => ({ header: item.header, operation: toDnrHeaderOperation(item.operation), value: item.value }));
+          .map((item) => ({ header: item.header, operation: toDnrHeaderOperation(item.operation), ...(item.value === undefined ? {} : { value: resolveDynamicVariables(item.value) }) }));
         if (requestHeaders.length || responseHeaders.length) {
           dnrRules.push({
             id,

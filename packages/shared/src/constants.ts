@@ -1,4 +1,10 @@
-import { MockBodyType, MockResponseMode, NetworkThrottlePreset, RequestBodySourceMode } from './enums';
+import {
+  DynamicVariableName,
+  MockBodyType,
+  MockResponseMode,
+  NetworkThrottlePreset,
+  RequestBodySourceMode,
+} from './enums';
 
 /** storage 中规则分组列表的键名（顶层文档模型：分组内嵌套规则） */
 export const STORAGE_KEY_GROUPS = 'req-freedom:groups';
@@ -87,6 +93,35 @@ export const MOCK_BODY_TYPE_CONTENT_TYPES: Record<MockBodyType, string> = {
 
 /** Mock 响应的默认 Content-Type（缺省 bodyType 与动态模式回落到此）。 */
 export const DEFAULT_MOCK_CONTENT_TYPE = MOCK_BODY_TYPE_CONTENT_TYPES[DEFAULT_MOCK_BODY_TYPE];
+
+/** 单个内置动态变量的展示元数据，供编辑器列出与插入占位符。 */
+export interface DynamicVariableMeta {
+  /** 变量名 */
+  name: DynamicVariableName;
+  /** 可直接复制使用的占位符示例（带参数变量含默认参数） */
+  placeholder: string;
+  /** 中文展示名 */
+  label: string;
+  /** 用途说明 */
+  description: string;
+  /** 一个示例输出值，帮助用户预期结果 */
+  example: string;
+}
+
+/**
+ * 内置动态变量清单（编辑器据此列出可用变量并支持一键复制占位符）。
+ *
+ * 顺序即展示顺序：无参数的常用变量在前，带参数的在后。
+ */
+export const DYNAMIC_VARIABLES: readonly DynamicVariableMeta[] = [
+  { name: DynamicVariableName.Uuid, placeholder: '{{uuid}}', label: 'UUID', description: '随机 UUID v4', example: '3f9a1c7e-9b2d-4e1a-8c7f-2b6d0a5e4c31' },
+  { name: DynamicVariableName.Timestamp, placeholder: '{{timestamp}}', label: '时间戳（秒）', description: '当前秒级 Unix 时间戳', example: '1753228800' },
+  { name: DynamicVariableName.TimestampMs, placeholder: '{{timestampMs}}', label: '时间戳（毫秒）', description: '当前毫秒级 Unix 时间戳', example: '1753228800123' },
+  { name: DynamicVariableName.IsoTime, placeholder: '{{isoTime}}', label: 'ISO 时间', description: '当前时间的 ISO 8601 字符串', example: '2026-07-23T00:00:00.000Z' },
+  { name: DynamicVariableName.RandomFloat, placeholder: '{{randomFloat}}', label: '随机小数', description: '[0, 1) 区间的随机浮点数', example: '0.6273481902' },
+  { name: DynamicVariableName.RandomInt, placeholder: '{{randomInt(1,100)}}', label: '随机整数', description: '随机整数，参数指定闭区间 [min, max]，缺省 0-100', example: '42' },
+  { name: DynamicVariableName.RandomString, placeholder: '{{randomString(8)}}', label: '随机字符串', description: '随机字母数字串，参数指定长度，缺省 8 位', example: 'a1B2c3D4' },
+];
 
 /** 单个网络档位的传输参数 */
 export interface NetworkThrottleSettings {

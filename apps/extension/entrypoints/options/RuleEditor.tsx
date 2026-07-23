@@ -38,6 +38,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CodeEditor, type CodeEditorLanguage } from '@/components/ui/code-editor';
+import { DynamicVariableHint } from '@/components/ui/dynamic-variable-hint';
 import HeadersEditor from './HeadersEditor';
 import KeyValueEditor from './KeyValueEditor';
 import {
@@ -967,12 +968,31 @@ interface ActionEditorProps {
 }
 
 /**
+ * 判断动作的取值字段是否需要在「标题行」展示动态变量提示。
+ *
+ * 仅覆盖非代码编辑器的取值字段：重定向 URL、注入参数值、Header 值。
+ * 静态 Mock 响应体与静态改请求体也支持动态变量，但它们用 CodeEditor，提示改放在编辑器右上角（headerEnd）。
+ * @param action 当前动作
+ * @returns 需要在标题行展示提示时返回 true
+ */
+function actionSupportsDynamicVariables(action: RuleAction): boolean {
+  switch (action.type) {
+    case RuleActionType.Redirect:
+    case RuleActionType.InjectParams:
+    case RuleActionType.ModifyHeaders:
+      return true;
+    default:
+      return false;
+  }
+}
+
+/**
  * 单一动作的参数编辑器。删除入口已移至左栏动作行，故此处只留标题与参数。
  * @param props 动作、更新回调、校验错误与滚动锚点
  */
 function ActionEditor({ action, onChange, error, innerRef }: ActionEditorProps) {
   // 常态无边框（外层主从面板已提供边框），仅出错时标红，避免双层边框
-  return <div ref={innerRef} className={`min-w-0 ${error ? 'rounded-lg border border-destructive px-3 py-2' : ''}`}><div className="font-medium">{RULE_ACTION_TYPE_LABELS[action.type]}</div><div className="mt-3">
+  return <div ref={innerRef} className={`min-w-0 ${error ? 'rounded-lg border border-destructive px-3 py-2' : ''}`}><div className="flex items-center justify-between gap-2"><span className="font-medium">{RULE_ACTION_TYPE_LABELS[action.type]}</span>{actionSupportsDynamicVariables(action) && <DynamicVariableHint />}</div><div className="mt-3">
     {error && <p className="mb-2 text-xs text-destructive">{error}</p>}
     {action.type === RuleActionType.Redirect && <Input aria-invalid={!!error} value={action.redirectUrl} onChange={(event) => onChange({ ...action, redirectUrl: event.target.value })} />}
     {action.type === RuleActionType.InjectParams && <KeyValueEditor initialValue={action.params} onChange={(params) => onChange({ ...action, params })} />}
@@ -1010,6 +1030,7 @@ function MockActionEditor({ action, onChange }: { action: Extract<RuleAction, { 
             <SelectContent>{Object.values(MockBodyType).map((type) => <SelectItem key={type} value={type}>{MOCK_BODY_TYPE_LABELS[type]}</SelectItem>)}</SelectContent>
           </Select>
         : undefined}
+      headerEnd={isStatic ? <DynamicVariableHint /> : undefined}
     />
     {invalidJsonBody && <p className="text-xs text-warning">响应体不是合法 JSON；若要返回其他格式，请切换上方「响应体类型」。</p>}
     {!isStatic && <p className="text-xs text-muted-foreground">动态代码可读取 req.url、req.method、req.headers、req.query、req.body、req.json。</p>}
@@ -1047,7 +1068,7 @@ function DelayActionEditor({ action, onChange }: { action: Extract<RuleAction, {
 
 /** 请求体参数编辑器。 */
 function RequestBodyActionEditor({ action, onChange }: { action: Extract<RuleAction, { type: RuleActionType.ModifyRequestBody }>; onChange: (action: RuleAction) => void; }) {
-  return <div className="space-y-3"><div className="grid grid-cols-2 gap-3"><Select value={action.sourceMode} onValueChange={(value) => onChange({ ...action, sourceMode: value as RequestBodySourceMode })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(RequestBodySourceMode).map((mode) => <SelectItem key={mode} value={mode}>{REQUEST_BODY_SOURCE_MODE_LABELS[mode]}</SelectItem>)}</SelectContent></Select>{action.sourceMode === RequestBodySourceMode.Static && <Select value={action.mode} onValueChange={(value) => onChange({ ...action, mode: value as RequestBodyMode })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(RequestBodyMode).map((mode) => <SelectItem key={mode} value={mode}>{REQUEST_BODY_MODE_LABELS[mode]}</SelectItem>)}</SelectContent></Select>}</div><CodeEditor language={action.sourceMode === RequestBodySourceMode.Dynamic ? 'javascript' : 'json'} value={action.sourceMode === RequestBodySourceMode.Dynamic ? action.functionCode ?? '' : action.content} onChange={(next) => onChange(action.sourceMode === RequestBodySourceMode.Dynamic ? { ...action, functionCode: next } : { ...action, content: next })} /><p className="text-xs text-muted-foreground">仅作用于 fetch / XHR 的可带请求体方法；异常或返回 undefined 时保留原请求体。</p></div>;
+  return <div className="space-y-3"><div className="grid grid-cols-2 gap-3"><Select value={action.sourceMode} onValueChange={(value) => onChange({ ...action, sourceMode: value as RequestBodySourceMode })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(RequestBodySourceMode).map((mode) => <SelectItem key={mode} value={mode}>{REQUEST_BODY_SOURCE_MODE_LABELS[mode]}</SelectItem>)}</SelectContent></Select>{action.sourceMode === RequestBodySourceMode.Static && <Select value={action.mode} onValueChange={(value) => onChange({ ...action, mode: value as RequestBodyMode })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(RequestBodyMode).map((mode) => <SelectItem key={mode} value={mode}>{REQUEST_BODY_MODE_LABELS[mode]}</SelectItem>)}</SelectContent></Select>}</div><CodeEditor language={action.sourceMode === RequestBodySourceMode.Dynamic ? 'javascript' : 'json'} value={action.sourceMode === RequestBodySourceMode.Dynamic ? action.functionCode ?? '' : action.content} onChange={(next) => onChange(action.sourceMode === RequestBodySourceMode.Dynamic ? { ...action, functionCode: next } : { ...action, content: next })} headerEnd={action.sourceMode === RequestBodySourceMode.Static ? <DynamicVariableHint /> : undefined} /><p className="text-xs text-muted-foreground">仅作用于 fetch / XHR 的可带请求体方法；异常或返回 undefined 时保留原请求体。</p></div>;
 }
 
 /** 脚本注入参数编辑器。 */

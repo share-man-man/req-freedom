@@ -94,8 +94,9 @@ flowchart LR
   - **这是安全考量而不只是便利性**：官方理由是防止 `Authorization` token 被误发到不想发的站点。
   - 已落地：规则新增可选 `scope`（`RuleScopeType`：`all-tabs` / `tab` / `window` / `tab-group`，多选目标对象），与 URL / 方法 / 请求体条件并列。两条通道均生效：页面补丁通道由桥接脚本按自身标签的 `tabId` / `windowId` / `groupId` 过滤（`core.matchScope` / `filterRulesByScope`），DNR 通道把作用域解析成一组 `tabId` 后以 **session 规则**的 `tabIds` 条件承载（`utils/scope.resolveScopeTabIds`），并随标签 / 窗口 / 标签组事件动态重算；不限定作用域的规则仍走可跨重启保留的 dynamic 规则。编辑器实时列出当前打开的标签页 / 窗口 / 标签组供勾选，已关闭目标标注失效（fail-closed）。文档见 [作用域过滤](apps/docs/docs/guide/features/scope-filter.md)。
 
-- [ ] **P1 · 动态变量**
+- [x] **P1 · 动态变量**
   - ModHeader 免费提供，tweak 放在付费档。时间戳、随机数、UUID 等内置变量，规则里以占位符引用。
+  - 已落地：取值字段支持 `{{变量}}` 占位符（`{{uuid}}` / `{{timestamp}}` / `{{timestampMs}}` / `{{isoTime}}` / `{{randomFloat}}` / `{{randomInt(min,max)}}` / `{{randomString(length)}}`），元数据在 `shared` 单一维护，解析器 `core.resolveDynamicVariables`。两条通道解析时机不同：**页面补丁通道**（静态 Mock 响应体 / 响应头、静态改请求体）**逐请求求值**（真·动态）；**DNR 通道**（重定向 / 注入参数 / Header 值）声明式无法逐请求求值，在规则同步时解析一次。未识别占位符原样保留。编辑器在支持的取值字段旁提供「变量」浮层，一键复制占位符。文档见 [动态变量](apps/docs/docs/guide/features/dynamic-variables.md)。
 
 - [ ] **P1 · 常用规则模板库（含 CORS 解除预设）**
   - 内置一批开箱预设：解除 CORS（补 `Access-Control-Allow-*`）、禁用缓存、强制 HTTPS、常见移动端 UA。

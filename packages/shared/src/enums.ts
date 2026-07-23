@@ -161,6 +161,31 @@ export enum BodyMatchType {
 }
 
 /**
+ * 内置动态变量名
+ *
+ * 规则的取值字段（重定向 URL、注入参数值、Header 值、Mock 响应体 / 响应头、静态改请求体内容）里可用
+ * `{{name}}` 占位符引用；带参数的变量写作 `{{name(arg1,arg2)}}`。解析时机取决于通道：
+ * 页面补丁通道逐请求解析（真·动态，每个请求可得到不同值），DNR 通道在规则同步时解析一次
+ * （声明式规则无法逐请求求值）。
+ */
+export enum DynamicVariableName {
+  /** 随机 UUID v4 */
+  Uuid = 'uuid',
+  /** 秒级 Unix 时间戳 */
+  Timestamp = 'timestamp',
+  /** 毫秒级 Unix 时间戳 */
+  TimestampMs = 'timestampMs',
+  /** 当前时间的 ISO 8601 字符串 */
+  IsoTime = 'isoTime',
+  /** 随机整数，`{{randomInt(min,max)}}` 指定闭区间，缺省 0-100 */
+  RandomInt = 'randomInt',
+  /** [0, 1) 区间的随机浮点数 */
+  RandomFloat = 'randomFloat',
+  /** 随机字母数字串，`{{randomString(length)}}` 指定长度，缺省 8 位 */
+  RandomString = 'randomString',
+}
+
+/**
  * Header 改写的作用目标
  */
 export enum HeaderTarget {
