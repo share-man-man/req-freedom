@@ -1,6 +1,7 @@
-import { Download, FolderPlus, ListChecks, Search, ToggleRight, Upload, Zap } from 'lucide-react';
+import { Download, FolderPlus, ListChecks, Search, ToggleRight, Upload } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { RuleExecutionChannel } from '@req-freedom/shared';
+import { LogoMark } from '@/components/logo-mark';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -67,7 +68,7 @@ export function OptionsPageHeader({
       <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-6 px-6 py-4">
         <div className="flex min-w-0 items-center gap-3">
           <span className="aurora-badge flex size-11 shrink-0 items-center justify-center rounded-2xl shadow-lg shadow-primary/20">
-            <Zap className="size-6" strokeWidth={2.25} />
+            <LogoMark className="size-6" />
           </span>
           <div className="min-w-0">
             <h1 className="truncate text-xl font-semibold tracking-tight">Req Freedom 规则管理</h1>

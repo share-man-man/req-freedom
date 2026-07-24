@@ -1,0 +1,25 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 品牌流光渐变：蓝→紫→品红，135° 走向，与页面 .aurora-badge 同源 -->
+  <defs>
+    <linearGradient id="reqfreedom-glow" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2a8af6"/>
+      <stop offset="0.52" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#e92a67"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 圆角方形底：流光渐变充当图标主体 -->
+  <rect x="0" y="0" width="128" height="128" rx="30" fill="url(#reqfreedom-glow)"/>
+
+  <!-- ReqFreedom 字母组合标：R 与 F 并置 -->
+  <g stroke="#ffffff" stroke-width="11" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- R：竖干 + 上碗 + 斜腿 -->
+    <path d="M29 28 L29 100"/>
+    <path d="M29 28 L49 28 C65 28 65 54 49 54 L29 54"/>
+    <path d="M43 54 L63 100"/>
+    <!-- F：竖干 + 上臂 + 中臂 -->
+    <path d="M75 28 L75 100"/>
+    <path d="M75 28 L99 28"/>
+    <path d="M75 58 L93 58"/>
+  </g>
+</svg>

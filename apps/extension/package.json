@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox",
+    "icons": "node scripts/generate-icons.mjs",
     "build": "wxt build",
     "zip": "wxt zip",
     "typecheck": "tsc --noEmit",

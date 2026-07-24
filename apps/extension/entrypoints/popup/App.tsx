@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
-import { ChevronDown, Settings2, Zap } from 'lucide-react';
+import { ChevronDown, Settings2 } from 'lucide-react';
 import type { RuleGroup } from '@req-freedom/shared';
 import { collectActiveRules } from '@req-freedom/core';
 import { getEnabled, getGroups, saveGroups, setEnabled } from '@/utils/storage';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { LogoMark } from '@/components/logo-mark';
 
 /**
  * Popup 主界面：全局开关 + 按分组快速启停
@@ -120,7 +121,7 @@ export default function App() {
       <header className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <Zap className="size-4" />
+            <LogoMark className="size-4" />
           </span>
           <div className="leading-tight">
             <h1 className="text-sm font-semibold">Req Freedom</h1>
