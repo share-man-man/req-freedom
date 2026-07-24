@@ -19,7 +19,8 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.55 0.22 264);
+  /* 主色 = 流光紫（呼应流光渐变 蓝→紫→品红 的中心色），取代原 Vercel 蓝 */
+  --primary: oklch(0.52 0.153 298);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
@@ -33,7 +34,8 @@
   --warning: oklch(0.75 0.16 75);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.55 0.22 264);
+  /* 聚焦环跟随主色（流光紫） */
+  --ring: oklch(0.52 0.153 298);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -44,7 +46,8 @@
     --card-foreground: oklch(0.985 0 0);
     --popover: oklch(0.205 0.004 265);
     --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.68 0.17 264);
+    /* 深色主色 = 流光紫（提亮档，配深色前景字），取代原蓝 */
+    --primary: oklch(0.68 0.17 294);
     --primary-foreground: oklch(0.16 0.004 265);
     --secondary: oklch(0.269 0.004 265);
     --secondary-foreground: oklch(0.985 0 0);
@@ -58,7 +61,8 @@
     --warning: oklch(0.8 0.16 75);
     --border: oklch(1 0 0 / 12%);
     --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.68 0.17 264);
+    /* 聚焦环跟随主色（流光紫） */
+    --ring: oklch(0.68 0.17 294);
   }
 }
 

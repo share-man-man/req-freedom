@@ -20,8 +20,9 @@
   /* 圆角贴近 Vercel/Linear 观感 */
   --radius: 0.75rem;
 
-  /* 主色：Vercel 蓝，明暗通用 */
-  --primary: oklch(57.61% 0.2508 258.23);
+  /* 主色 = 流光紫：直接复用描边流光的中心色 --glow-violet，让按钮/聚焦与流光同源。
+     深色下 --glow-violet 为描边发光而偏亮，白字对比不足，故在下方暗色块单独压深一档。 */
+  --primary: var(--glow-violet);
   --primary-foreground: oklch(1 0 0);
 
   /* ---- 浅色（默认） ---- */
@@ -50,8 +51,10 @@
   /* 聚焦环：半透明中性色（非蓝），沿用 border-ring / ring-ring 工具类即得玻璃质感描边；浅色用半透明黑 */
   --ring: oklch(0 0 0 / 32%);
 
-  /* 背景氛围光强度：浅色更淡，避免脏底 */
-  --aurora-opacity: 0.1;
+  /* 背景氛围光强度：浅色偏淡但略提亮，让流光在白底上更有存在感 */
+  --aurora-opacity: 0.14;
+  /* 卡片描边流光的静息不透明度：浅色下 1px 描边叠在白底上易被冲淡，故显著调高；深色见暗色块 */
+  --glow-rest-opacity: 0.85;
 
   /*
    * 浅色画布承受不住深色模式的高亮霓虹色：改用更沉稳的墨蓝、紫与莓红。
@@ -67,6 +70,9 @@
 @media (prefers-color-scheme: dark) {
   :root {
     /* ---- 深色（对齐 turborepo .dark 令牌：实心近黑背景 + 略亮深灰卡片） ---- */
+    /* 主色仍是流光紫，但比 --glow-violet 深一档，确保白字按钮 ≥ AA 对比 */
+    --primary: oklch(0.56 0.2 293);
+
     --background: oklch(0.145 0 0);
     --foreground: oklch(0.985 0 0);
     --card: oklch(0.205 0 0);
@@ -93,6 +99,8 @@
     --ring: oklch(1 0 0 / 45%);
 
     --aurora-opacity: 0.16;
+    /* 深色霓虹色在近黑底上本就清晰，静息描边维持原有克制的强度 */
+    --glow-rest-opacity: 0.4;
 
     /* 深色背景下恢复清亮的霓虹流光，保持足够的边缘对比度。 */
     --glow-blue: #2a8af6;
@@ -203,7 +211,7 @@ body::after {
   padding: 1px;
   border-radius: inherit;
   pointer-events: none;
-  opacity: 0.4;
+  opacity: var(--glow-rest-opacity, 0.4);
   transition: opacity 0.4s ease;
   /* 整圈无断口的渐变，作为卡片唯一的边（颜色随明暗主题切换） */
   background: conic-gradient(
