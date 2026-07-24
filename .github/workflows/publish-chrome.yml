@@ -1,0 +1,141 @@
+name: 发布 Chrome 扩展
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  id-token: write # 关键：允许获取 GitHub OIDC 令牌，供 WIF 无密钥鉴权
+
+# 串行执行，避免并发发布互相覆盖
+concurrency:
+  group: chrome-web-store-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: 打包并发布到 Chrome Web Store
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 检出发布标签
+        uses: actions/checkout@v4
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+          run_install: false
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.21.1
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 验证发布标签与扩展版本一致
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          # 从 package.json 读取扩展版本，要求 tag 形如 v<version>，防止误打标签发布错版本
+          package_version="$(node -p "require('./apps/extension/package.json').version")"
+          expected_tag="v${package_version}"
+          if [ "${RELEASE_TAG}" != "${expected_tag}" ]; then
+            echo "发布标签 ${RELEASE_TAG} 与扩展版本 ${package_version} 不一致；请使用 ${expected_tag}。" >&2
+            exit 1
+          fi
+          echo "PACKAGE_VERSION=${package_version}" >> "${GITHUB_ENV}"
+
+      - name: 类型检查
+        run: pnpm typecheck
+
+      - name: 使用服务账号认证到 Google Cloud
+        id: auth
+        # 无密钥鉴权（Workload Identity Federation）：以 GitHub OIDC 令牌换取对 SA 的模拟，
+        # 直接产出 chromewebstore 作用域的 access token，无需在仓库存放任何长期私钥。
+        uses: google-github-actions/auth@v3
+        with:
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/chromewebstore
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: 检查商店已发布版本
+        id: store
+        # 幂等保护：本地版本已在 published/submitted 任一 revision 中存在时跳过，
+        # 便于对同一 tag 重跑而不报「重复发布」错误。
+        env:
+          CWS_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          CHROME_EXTENSION_ID: ${{ vars.CHROME_EXTENSION_ID }}
+          CHROME_PUBLISHER_ID: ${{ vars.CHROME_PUBLISHER_ID }}
+        run: |
+          item="publishers/${CHROME_PUBLISHER_ID}/items/${CHROME_EXTENSION_ID}"
+          # 首发条目可能无 published/submitted 记录导致 404，故不加 -f，交给 jq 兜底为“未知”
+          status_json="$(curl -s \
+            -H "Authorization: Bearer ${CWS_ACCESS_TOKEN}" \
+            "https://chromewebstore.googleapis.com/v2/${item}:fetchStatus")"
+          # 汇总已发布与待审两个 revision 的所有渠道版本号
+          store_versions="$(echo "${status_json}" | jq -r '
+            [(.publishedItemRevisionStatus, .submittedItemRevisionStatus) | (.distributionChannels // [])[].crxVersion]
+            | unique | join(",")')"
+          # 本地版本命中任一已存在版本即跳过（index 命中返回下标，未命中返回 null）
+          hit="$(echo "${status_json}" | jq -r --arg v "${PACKAGE_VERSION}" '
+            [(.publishedItemRevisionStatus, .submittedItemRevisionStatus) | (.distributionChannels // [])[].crxVersion]
+            | index($v)')"
+          echo "本地版本: ${PACKAGE_VERSION}，商店已有版本: ${store_versions:-<未知>}"
+          echo "skip=$([ "${hit}" != "null" ] && echo true || echo false)" >> "${GITHUB_OUTPUT}"
+
+      - name: 打包 Chrome 扩展
+        if: steps.store.outputs.skip != 'true'
+        run: pnpm --filter @req-freedom/extension zip
+
+      - name: 验证打包产物
+        if: steps.store.outputs.skip != 'true'
+        run: |
+          extension_package="apps/extension/.output/req-freedomextension-${PACKAGE_VERSION}-chrome.zip"
+          test -f "${extension_package}"
+          echo "EXTENSION_PACKAGE=${extension_package}" >> "${GITHUB_ENV}"
+
+      - name: 上传扩展包
+        if: steps.store.outputs.skip != 'true'
+        env:
+          CWS_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          CHROME_EXTENSION_ID: ${{ vars.CHROME_EXTENSION_ID }}
+          CHROME_PUBLISHER_ID: ${{ vars.CHROME_PUBLISHER_ID }}
+        run: |
+          item="publishers/${CHROME_PUBLISHER_ID}/items/${CHROME_EXTENSION_ID}"
+          # 关键步骤：V2 媒体上传（POST + 二进制包体），校验 uploadState=SUCCEEDED
+          upload="$(curl -sf -X POST \
+            -H "Authorization: Bearer ${CWS_ACCESS_TOKEN}" \
+            -H "Content-Type: application/zip" \
+            --data-binary @"${EXTENSION_PACKAGE}" \
+            "https://chromewebstore.googleapis.com/upload/v2/${item}:upload")"
+          echo "上传结果: ${upload}"
+          # V2 返回 SUCCEEDED（V1 为 SUCCESS），两者都视为成功以兼容
+          upload_state="$(echo "${upload}" | jq -r '.uploadState // empty')"
+          if [ "${upload_state}" != "SUCCEEDED" ] && [ "${upload_state}" != "SUCCESS" ]; then
+            echo "上传失败: ${upload_state:-<未知>}" >&2
+            exit 1
+          fi
+
+      - name: 提交 Chrome Web Store 发布
+        if: steps.store.outputs.skip != 'true'
+        env:
+          CWS_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          CHROME_EXTENSION_ID: ${{ vars.CHROME_EXTENSION_ID }}
+          CHROME_PUBLISHER_ID: ${{ vars.CHROME_PUBLISHER_ID }}
+        run: |
+          item="publishers/${CHROME_PUBLISHER_ID}/items/${CHROME_EXTENSION_ID}"
+          # 关键步骤：V2 发布（默认 DEFAULT_PUBLISH，审核通过后即上线）。
+          # curl -f 已保证非 2xx 失败；发布后 state 常为待审，打印即可，不据此判失败。
+          publish="$(curl -sf -X POST \
+            -H "Authorization: Bearer ${CWS_ACCESS_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d '{"publishType":"DEFAULT_PUBLISH","blockOnWarnings":true}' \
+            "https://chromewebstore.googleapis.com/v2/${item}:publish")"
+          echo "发布结果: ${publish}"
