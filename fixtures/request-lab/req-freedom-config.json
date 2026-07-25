@@ -1,13 +1,113 @@
 {
   "schemaVersion": 2,
-  "exportedAt": "2026-07-21T00:00:00.000Z",
+  "exportedAt": "2026-07-25T00:00:00.000Z",
   "enabled": true,
   "groups": [
     {
-      "id": "grp-page-patch",
-      "name": "01 页面补丁（Mock / 限速 / 改请求体）",
+      "id": "grp-dnr",
+      "name": "01 DNR 网络规则",
       "enabled": true,
-      "updatedAt": "2026-07-21T00:00:00.000Z",
+      "updatedAt": "2026-07-25T00:00:00.000Z",
+      "rules": [
+        {
+          "id": "rule-block-tracker",
+          "name": "拦截 tracker.svg 资源",
+          "enabled": true,
+          "channel": "dnr",
+          "methods": ["GET"],
+          "matchType": "contains",
+          "pattern": "/assets/tracker.svg",
+          "actions": [{ "type": "block" }]
+        },
+        {
+          "id": "rule-redirect-source",
+          "name": "GET redirect-source → redirect-target",
+          "enabled": true,
+          "channel": "dnr",
+          "methods": ["GET"],
+          "matchType": "contains",
+          "pattern": "/api/redirect-source.json",
+          "actions": [{ "type": "redirect", "redirectUrl": "http://127.0.0.1:4317/api/redirect-target.json" }]
+        },
+        {
+          "id": "rule-inject-params",
+          "name": "GET /api/params 注入查询参数",
+          "enabled": true,
+          "channel": "dnr",
+          "methods": ["GET"],
+          "matchType": "contains",
+          "pattern": "/api/params.json",
+          "actions": [
+            { "type": "inject-params", "params": { "debug": "1", "environment": "local" } },
+            {
+              "type": "modify-headers",
+              "headers": [{ "target": "request", "operation": "set", "header": "X-Req-Freedom", "value": "enabled" }]
+            }
+          ]
+        },
+        {
+          "id": "rule-modify-headers",
+          "name": "GET /api/headers 改写请求和响应 Header",
+          "enabled": true,
+          "channel": "dnr",
+          "methods": ["GET"],
+          "matchType": "contains",
+          "pattern": "/api/headers.json",
+          "actions": [{
+            "type": "modify-headers",
+            "headers": [
+              { "target": "request", "operation": "set", "header": "X-Req-Freedom", "value": "enabled" },
+              { "target": "request", "operation": "remove", "header": "X-Remove-Me" },
+              { "target": "response", "operation": "set", "header": "X-Response-Patched", "value": "true" }
+            ]
+          }]
+        },
+        {
+          "id": "rule-modify-cookies",
+          "name": "GET /api/cookies 双向追加 Cookie",
+          "enabled": true,
+          "channel": "dnr",
+          "methods": ["GET"],
+          "matchType": "contains",
+          "pattern": "/api/cookies",
+          "actions": [{
+            "type": "modify-headers",
+            "headers": [
+              { "target": "request", "operation": "append", "header": "Cookie", "value": "req_freedom_request=enabled" },
+              { "target": "response", "operation": "append", "header": "Set-Cookie", "value": "req_freedom_response=enabled; Path=/" }
+            ]
+          }]
+        },
+        {
+          "id": "rule-enable-cors",
+          "name": "为被拦跨域端点补充 CORS 响应头",
+          "enabled": true,
+          "channel": "dnr",
+          "methods": ["GET"],
+          "matchType": "contains",
+          "pattern": "/api/cross-origin/blocked",
+          "actions": [{
+            "type": "modify-headers",
+            "headers": [{ "target": "response", "operation": "set", "header": "Access-Control-Allow-Origin", "value": "*" }]
+          }]
+        },
+        {
+          "id": "rule-block-delete",
+          "name": "DELETE /api/methods 直接拦截",
+          "enabled": true,
+          "channel": "dnr",
+          "methods": ["DELETE"],
+          "matchType": "contains",
+          "pattern": "/api/methods",
+          "actions": [{ "type": "block" }]
+        }
+      ]
+    },
+    {
+      "id": "grp-page-patch",
+      "name": "02 页面补丁（Mock / 限速 / 改请求体）",
+      "enabled": true,
+      "updatedAt": "2026-07-25T00:00:00.000Z",
       "rules": [
         {
           "id": "rule-mock-users",
@@ -26,6 +126,58 @@
           }]
         },
         {
+          "id": "rule-mock-products",
+          "name": "GET /api/products.json 返回 XHR Mock",
+          "enabled": true,
+          "channel": "page-patch",
+          "methods": ["GET"],
+          "matchType": "contains",
+          "pattern": "/api/products.json",
+          "actions": [{
+            "type": "mock-response",
+            "mode": "static",
+            "statusCode": 200,
+            "responseHeaders": { "X-Mocked-By": "req-freedom" },
+            "body": "{\"source\":\"xhr-mock\",\"items\":[]}"
+          }]
+        },
+        {
+          "id": "rule-mock-status-404",
+          "name": "GET /api/status/404 Mock 为 200",
+          "enabled": true,
+          "channel": "page-patch",
+          "methods": ["GET"],
+          "matchType": "contains",
+          "pattern": "/api/status/404",
+          "actions": [{
+            "type": "mock-response",
+            "mode": "static",
+            "statusCode": 200,
+            "responseHeaders": { "X-Mocked-By": "req-freedom" },
+            "body": "{\"code\":200,\"message\":\"404 已被 Mock 覆盖\"}"
+          }]
+        },
+        {
+          "id": "rule-slow-response",
+          "name": "GET 大响应走 Slow 3G",
+          "enabled": true,
+          "channel": "page-patch",
+          "methods": ["GET"],
+          "matchType": "contains",
+          "pattern": "/api/slow-response.txt",
+          "actions": [{ "type": "delay", "throttlePreset": "slow-3g", "latencyMs": 400, "downloadKbps": 400, "uploadKbps": 400 }]
+        },
+        {
+          "id": "rule-slow-upload",
+          "name": "POST /api/upload-probe 限制上行带宽",
+          "enabled": true,
+          "channel": "page-patch",
+          "methods": ["POST"],
+          "matchType": "contains",
+          "pattern": "/api/upload-probe",
+          "actions": [{ "type": "delay", "throttlePreset": "custom", "latencyMs": 0, "downloadKbps": 0, "uploadKbps": 128 }]
+        },
+        {
           "id": "rule-body-dynamic-echo",
           "name": "POST /api/echo 动态生成请求体",
           "enabled": true,
@@ -39,22 +191,6 @@
             "mode": "merge-json",
             "content": "",
             "functionCode": "function modify(req) { return { ...req.json, variables: { ...req.json?.variables, first: 100, dynamic: true } }; }"
-          }]
-        },
-        {
-          "id": "rule-mock-echo-dynamic",
-          "name": "POST /api/mock-echo 动态 Mock",
-          "enabled": false,
-          "channel": "page-patch",
-          "methods": ["POST"],
-          "matchType": "contains",
-          "pattern": "/api/mock-echo",
-          "actions": [{
-            "type": "mock-response",
-            "mode": "dynamic",
-            "statusCode": 200,
-            "body": "",
-            "functionCode": "function mock(req) { return { source: 'dynamic-mock', method: req.method, body: req.json ?? req.body }; }"
           }]
         },
         {
@@ -73,65 +209,14 @@
             "responseHeaders": { "X-Mocked-By": "req-freedom" },
             "body": "{\"data\":{\"user\":{\"id\":99,\"name\":\"Mock 用户\",\"role\":\"mocked\"}},\"receivedOperationName\":\"GetUser\",\"mocked\":true}"
           }]
-        },
-        {
-          "id": "rule-slow-response",
-          "name": "GET 大响应走 Slow 3G",
-          "enabled": true,
-          "channel": "page-patch",
-          "methods": ["GET"],
-          "matchType": "contains",
-          "pattern": "/api/slow-response.txt",
-          "actions": [{ "type": "delay", "throttlePreset": "slow-3g", "latencyMs": 400, "downloadKbps": 400, "uploadKbps": 400 }]
-        }
-      ]
-    },
-    {
-      "id": "grp-dnr",
-      "name": "02 DNR 网络规则",
-      "enabled": true,
-      "updatedAt": "2026-07-21T00:00:00.000Z",
-      "rules": [
-        {
-          "id": "rule-redirect-source",
-          "name": "GET redirect-source → redirect-target",
-          "enabled": true,
-          "channel": "dnr",
-          "methods": ["GET"],
-          "matchType": "contains",
-          "pattern": "/api/redirect-source.json",
-          "actions": [{ "type": "redirect", "redirectUrl": "http://127.0.0.1:4317/api/redirect-target.json" }]
-        },
-        {
-          "id": "rule-params-and-headers",
-          "name": "GET /api/params 注入参数和 Header",
-          "enabled": true,
-          "channel": "dnr",
-          "methods": ["GET"],
-          "matchType": "contains",
-          "pattern": "/api/params.json",
-          "actions": [
-            { "type": "inject-params", "params": { "debug": "1", "environment": "local" } },
-            { "type": "modify-headers", "headers": [{ "target": "request", "operation": "set", "header": "X-Req-Freedom", "value": "enabled" }] }
-          ]
-        },
-        {
-          "id": "rule-block-delete",
-          "name": "DELETE /api/methods 直接拦截",
-          "enabled": false,
-          "channel": "dnr",
-          "methods": ["DELETE"],
-          "matchType": "contains",
-          "pattern": "/api/methods",
-          "actions": [{ "type": "block" }]
         }
       ]
     },
     {
       "id": "grp-page-script",
       "name": "03 页面脚本注入",
-      "enabled": false,
-      "updatedAt": "2026-07-21T00:00:00.000Z",
+      "enabled": true,
+      "updatedAt": "2026-07-25T00:00:00.000Z",
       "rules": [{
         "id": "rule-insert-script",
         "name": "加载完成后注入调试标记",
@@ -140,7 +225,7 @@
         "methods": ["GET"],
         "matchType": "contains",
         "pattern": "127.0.0.1:4317",
-        "actions": [{ "type": "insert-script", "codeType": "js", "timing": "document_end", "code": "document.documentElement.dataset.reqFreedom = 'enabled';" }]
+        "actions": [{ "type": "insert-script", "codeType": "js", "timing": "document_end", "code": "window.__REQ_FREEDOM_LAB__ = '已由 Req Freedom 注入'; document.documentElement.dataset.reqFreedom = 'enabled';" }]
       }]
     }
   ]
