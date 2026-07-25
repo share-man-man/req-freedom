@@ -57,6 +57,32 @@ export default function App() {
   };
 
   /**
+   * 清空当前标签页累计的规则命中次数
+   */
+  const handleClearMatchedCount = async (): Promise<void> => {
+    try {
+      /** 点击清空时所在的标签页。 */
+      const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true });
+      if (activeTab?.id === undefined) {
+        return;
+      }
+      /** 重新读取最新值，避免 popup 打开后新增的命中没有被清空。 */
+      const badgeText = await browser.action.getBadgeText({ tabId: activeTab.id });
+      const count = Number.parseInt(badgeText, 10);
+      if (!Number.isFinite(count) || count <= 0) {
+        setMatchedCount(0);
+        return;
+      }
+      await browser.declarativeNetRequest.setExtensionActionOptions({
+        tabUpdate: { tabId: activeTab.id, increment: -count },
+      });
+      setMatchedCount(0);
+    } catch {
+      // 清空失败时保留原计数，用户可再次尝试。
+    }
+  };
+
+  /**
    * 更新分组列表并持久化
    * @param next 新的分组列表
    * @param updatedGroupIds 需要刷新最近更新时间的分组 ID
@@ -156,7 +182,18 @@ export default function App() {
       {matchedCount > 0 && (
         <div className="mx-3 mt-3 flex items-center gap-2 rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-primary">
           <CheckCircle2 className="size-4 shrink-0" />
-          <p className="text-xs font-medium">{t('popup.matchedCount', { count: matchedCount })}</p>
+          <p className="min-w-0 flex-1 text-xs font-medium">
+            {t('popup.matchedCount', { count: matchedCount })}
+          </p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 shrink-0 px-2 text-xs text-primary hover:bg-primary/10 hover:text-primary"
+            onClick={() => void handleClearMatchedCount()}
+          >
+            {t('popup.clearMatchedCount')}
+          </Button>
         </div>
       )}
 
