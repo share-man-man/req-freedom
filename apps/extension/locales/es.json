@@ -286,7 +286,8 @@
     "collapseGroup": "Contraer grupo",
     "ruleCount": "{{count}} reglas",
     "manageRules": "Administrar reglas",
-    "matchedCount": "Coincidencias en esta página: {{count}}"
+    "matchedCount": "Coincidencias en esta página: {{count}}",
+    "clearMatchedCount": "Borrar"
   },
   "dynamicVariableHint": {
     "title": "Ver variables dinámicas disponibles",
