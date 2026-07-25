@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
-import { CheckCircle2, ChevronDown, ExternalLink, Settings2 } from 'lucide-react';
+import { CheckCircle2, ChevronDown, Settings2, Target } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { RuleGroup, RuleMatchSummary } from '@req-freedom/shared';
 import {
@@ -311,7 +311,7 @@ export default function App() {
                                 aria-label={t('popup.jumpToRule')}
                                 onClick={() => handleJumpToRule(rule.id)}
                               >
-                                <ExternalLink className="size-3.5" />
+                                <Target className="size-3.5" />
                               </Button>
                             )}
                           </div>
