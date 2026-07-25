@@ -24,6 +24,12 @@ export const CONFIG_EXPORT_FILE_NAME_PREFIX = 'req-freedom-config';
 /** 页面内 postMessage 通信的来源标识（ISOLATED 内容脚本 -> MAIN world 注入脚本） */
 export const PAGE_MESSAGE_SOURCE = 'req-freedom:bridge';
 
+/** MAIN world 拦截脚本通知桥接脚本「页面补丁规则已命中」的消息来源标识。 */
+export const PAGE_MESSAGE_RULE_MATCHED_SOURCE = 'req-freedom:page-rule-matched';
+
+/** 桥接脚本通知 background 累加当前标签页命中次数的消息类型。 */
+export const RUNTIME_MSG_RULE_MATCHED = 'req-freedom:rule-matched';
+
 /** declarativeNetRequest 动态规则 ID 起始偏移，避免与其他来源的规则 ID 冲突 */
 export const DNR_RULE_ID_OFFSET = 1000;
 
