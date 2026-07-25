@@ -307,7 +307,8 @@
     "collapseGroup": "Свернуть группу",
     "ruleCount": "{{count}} правил",
     "manageRules": "Управление правилами",
-    "matchedCount": "Срабатываний правил на этой странице: {{count}}"
+    "matchedCount": "Срабатываний правил на этой странице: {{count}}",
+    "clearMatchedCount": "Очистить"
   },
   "dynamicVariableHint": {
     "title": "Показать доступные динамические переменные",
