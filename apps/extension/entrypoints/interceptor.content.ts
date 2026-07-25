@@ -12,6 +12,7 @@ import {
   InsertScriptTiming,
   MOCK_BODY_TYPE_CONTENT_TYPES,
   MockResponseMode,
+  PAGE_MESSAGE_RULE_MATCHED_SOURCE,
   PAGE_MESSAGE_SOURCE,
   RequestBodyMode,
   RequestBodySourceMode,
@@ -78,6 +79,17 @@ export default defineContentScript({
     /** 已注入的 InsertScript 规则 ID，防止 storage 变更重推时重复注入 */
     const injectedRuleIds = new Set<string>();
 
+    /**
+     * 通知桥接脚本当前页面有规则实际命中。
+     * @param count 本次需要累加的命中次数
+     */
+    const reportRuleMatch = (count: number = 1): void => {
+      if (count <= 0) {
+        return;
+      }
+      window.postMessage({ source: PAGE_MESSAGE_RULE_MATCHED_SOURCE, count }, '*');
+    };
+
     // 监听桥接脚本推送的规则更新
     window.addEventListener('message', (event: MessageEvent) => {
       // 只接受同窗口、带指定来源标识的消息
@@ -140,9 +152,17 @@ export default defineContentScript({
         // 立即标记，避免重推时重复注入或重复挂载 DOMContentLoaded 监听
         injectedRuleIds.add(actionId);
         if (action.timing === InsertScriptTiming.DocumentEnd && document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', () => injectCode(action), { once: true });
+          document.addEventListener(
+            'DOMContentLoaded',
+            () => {
+              injectCode(action);
+              reportRuleMatch();
+            },
+            { once: true },
+          );
         } else {
           injectCode(action);
+          reportRuleMatch();
         }
       }
     };
@@ -529,6 +549,13 @@ export default defineContentScript({
         ? filterRulesByBody(candidateRules, await readFetchBodyText(input, init))
         : candidateRules;
       const { mockRule, delayRule, modifyBodyRule } = pickPageActions(activeRules);
+      if (
+        mockRule ||
+        delayRule ||
+        (modifyBodyRule && method !== 'GET' && method !== 'HEAD')
+      ) {
+        reportRuleMatch();
+      }
 
       // 关键步骤：在请求实际发出前模拟网络往返延迟与上行传输时间
       if (delayRule) {
@@ -669,6 +696,13 @@ export default defineContentScript({
        */
       const proceed = (activeRules: Rule[]): void => {
         const { mockRule, delayRule, modifyBodyRule } = pickPageActions(activeRules);
+        if (
+          mockRule ||
+          delayRule ||
+          (modifyBodyRule && method !== 'GET' && method !== 'HEAD')
+        ) {
+          reportRuleMatch();
+        }
         /** 延迟规则与 Mock 自带延迟的总时长。XHR 不暴露可替换的响应流，因此仅模拟请求前的网络延迟与上行带宽。 */
         const totalDelayMs =
           (delayRule ? getNetworkRequestDelayMs(delayRule, getRequestBodyByteLength(body)) : 0) +
