@@ -305,8 +305,7 @@
       "title": "Req Freedom Rule Manager",
       "subtitle": "Block · Redirect · Inject params · Headers · Mock · Throttle · Insert script · Modify body",
       "import": "Import rules",
-      "export": "Export rules",
-      "addGroup": "New group"
+      "export": "Export rules"
     },
     "moreMenu": {
       "trigger": "More",
@@ -331,14 +330,7 @@
       "channelPlaceholder": "Type",
       "channelAll": "Channel: All",
       "channelDnr": "DNR network rule",
-      "channelPagePatch": "Page patch",
-      "sortPlaceholder": "Sort",
-      "sortUpdatedAt": "Sort: Recently updated",
-      "sortName": "Sort: Name",
-      "viewAriaLabel": "Group view",
-      "viewAll": "All groups",
-      "viewEnabledOnly": "Enabled only",
-      "viewRecentlyUpdated": "Recently updated"
+      "channelPagePatch": "Page patch"
     }
   },
   "keyValueEditor": {

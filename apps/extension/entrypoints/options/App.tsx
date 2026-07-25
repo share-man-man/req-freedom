@@ -43,14 +43,12 @@ import { Switch } from '@/components/ui/switch';
 import RuleEditor from './RuleEditor';
 import TemplateLibrary from './TemplateLibrary';
 import {
-  GROUP_SORT,
-  GROUP_VIEW,
   RULE_STATUS_FILTER,
   ManagementStatistics,
   OptionsPageHeader,
   RuleManagementToolbar,
 } from './ManagementDashboard';
-import type { GroupSort, GroupView, RuleStatusFilter } from './ManagementDashboard';
+import type { RuleStatusFilter } from './ManagementDashboard';
 
 /**
  * 规则「表头」与「数据行」共用的网格列模板，保证列对齐。
@@ -72,9 +70,6 @@ const RULE_ROW_GRID =
  * 中途取消则不产生空的默认分组。
  */
 const DEFAULT_GROUP_SENTINEL = '__req-freedom:default-group__';
-
-/** 「最近修改」视图默认展示的分组上限。 */
-const RECENT_GROUP_LIMIT = 5;
 
 /**
  * 执行通道对应的中性灰标签：与右侧彩色动作徽标区分开，避免同色误读。
@@ -770,10 +765,7 @@ export default function App() {
   const [statusFilter, setStatusFilter] = useState<RuleStatusFilter>(RULE_STATUS_FILTER.All);
   /** 规则执行通道筛选。 */
   const [channelFilter, setChannelFilter] = useState<RuleExecutionChannel | 'all'>('all');
-  /** 分组的派生展示排序方式。 */
-  const [groupSort, setGroupSort] = useState<GroupSort>(GROUP_SORT.UpdatedAt);
   /** 当前激活的分组视图。 */
-  const [groupView, setGroupView] = useState<GroupView>(GROUP_VIEW.All);
 
   // 初始加载分组
   useEffect(() => {
@@ -1143,19 +1135,8 @@ export default function App() {
       }
       return result;
     }, []);
-    /** 不变更原始数组的排序副本。 */
-    const sortedGroups = [...filteredGroups].sort((first, second) => {
-      if (groupSort === GROUP_SORT.Name) {
-        return first.name.localeCompare(second.name, 'zh-CN');
-      }
-      return Date.parse(second.updatedAt) - Date.parse(first.updatedAt);
-    });
-    return groupView === GROUP_VIEW.RecentlyUpdated
-      ? sortedGroups.slice(0, RECENT_GROUP_LIMIT)
-      : groupView === GROUP_VIEW.Enabled
-        ? sortedGroups.filter((group) => group.enabled)
-        : sortedGroups;
-  }, [channelFilter, groupSort, groupView, groups, normalizedSearchQuery, statusFilter]);
+    return filteredGroups;
+  }, [channelFilter, groups, normalizedSearchQuery, statusFilter]);
 
   /** 供编辑器「所属分组」下拉使用的分组精简信息 */
   const groupOptions = groups.map((group) => ({ id: group.id, name: group.name }));
@@ -1179,8 +1160,6 @@ export default function App() {
         onChange={(event) => void handleImport(event)}
       />
       <OptionsPageHeader
-        showAddGroup={groups.length > 0}
-        onAddGroup={handleAddGroup}
         onImport={handleImportClick}
         onExport={() => void handleExport()}
       />
@@ -1200,10 +1179,6 @@ export default function App() {
               onStatusFilterChange={setStatusFilter}
               channelFilter={channelFilter}
               onChannelFilterChange={setChannelFilter}
-              sort={groupSort}
-              onSortChange={setGroupSort}
-              view={groupView}
-              onViewChange={setGroupView}
             />
           </>
         )}
@@ -1282,6 +1257,13 @@ export default function App() {
             {/* 分组拖拽预览：轻量副本跟随光标，真实卡片淡化为占位 */}
             <DragOverlay>{activeGroup ? <GroupCardOverlay group={activeGroup} /> : null}</DragOverlay>
           </DndContext>
+        )}
+
+        {groups.length > 0 && (
+          <Button variant="outline" className="w-full" onClick={handleAddGroup}>
+            <FolderPlus />
+            {t('app.newGroup')}
+          </Button>
         )}
       </main>
 

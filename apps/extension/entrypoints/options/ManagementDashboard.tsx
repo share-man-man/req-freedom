@@ -161,30 +161,7 @@ export const RULE_STATUS_FILTER = {
 /** 规则状态筛选的可选取值类型。 */
 export type RuleStatusFilter = (typeof RULE_STATUS_FILTER)[keyof typeof RULE_STATUS_FILTER];
 
-/** 分组视图切换的统一取值。 */
-export const GROUP_VIEW = {
-  All: 'all',
-  Enabled: 'enabled',
-  RecentlyUpdated: 'recent',
-} as const;
-
-/** 分组视图切换的可选取值类型。 */
-export type GroupView = (typeof GROUP_VIEW)[keyof typeof GROUP_VIEW];
-
-/** 分组排序方式的统一取值。 */
-export const GROUP_SORT = {
-  UpdatedAt: 'updated-at',
-  Name: 'name',
-} as const;
-
-/** 分组排序方式的可选取值类型。 */
-export type GroupSort = (typeof GROUP_SORT)[keyof typeof GROUP_SORT];
-
 interface OptionsPageHeaderProps {
-  /** 是否展示顶栏的新建分组按钮。 */
-  showAddGroup: boolean;
-  /** 点击新建分组后的回调。 */
-  onAddGroup: () => void;
   /** 点击导入规则后的回调。 */
   onImport: () => void;
   /** 点击导出规则后的回调。 */
@@ -196,8 +173,6 @@ interface OptionsPageHeaderProps {
  * @param props 顶栏交互回调
  */
 export function OptionsPageHeader({
-  showAddGroup,
-  onAddGroup,
   onImport,
   onExport,
 }: OptionsPageHeaderProps) {
@@ -215,12 +190,6 @@ export function OptionsPageHeader({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {showAddGroup && (
-            <Button variant="outline" onClick={onAddGroup}>
-              <FolderPlus />
-              {t('dashboard.header.addGroup')}
-            </Button>
-          )}
           <MoreMenu onImport={onImport} onExport={onExport} />
         </div>
       </div>
@@ -323,14 +292,6 @@ interface RuleManagementToolbarProps {
   channelFilter: RuleExecutionChannel | 'all';
   /** 执行通道筛选变化后的回调。 */
   onChannelFilterChange: (channel: RuleExecutionChannel | 'all') => void;
-  /** 分组排序方式。 */
-  sort: GroupSort;
-  /** 分组排序变化后的回调。 */
-  onSortChange: (sort: GroupSort) => void;
-  /** 当前激活的分组视图。 */
-  view: GroupView;
-  /** 分组视图切换后的回调。 */
-  onViewChange: (view: GroupView) => void;
 }
 
 /**
@@ -344,10 +305,6 @@ export function RuleManagementToolbar({
   onStatusFilterChange,
   channelFilter,
   onChannelFilterChange,
-  sort,
-  onSortChange,
-  view,
-  onViewChange,
 }: RuleManagementToolbarProps) {
   const { t } = useTranslation();
   return (
@@ -386,55 +343,7 @@ export function RuleManagementToolbar({
             ))}
           </SelectContent>
         </Select>
-        <Select value={sort} onValueChange={(value) => onSortChange(value as GroupSort)}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder={t('dashboard.toolbar.sortPlaceholder')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={GROUP_SORT.UpdatedAt}>{t('dashboard.toolbar.sortUpdatedAt')}</SelectItem>
-            <SelectItem value={GROUP_SORT.Name}>{t('dashboard.toolbar.sortName')}</SelectItem>
-          </SelectContent>
-        </Select>
-        <div className="ml-auto flex overflow-hidden rounded-md border border-border" role="group" aria-label={t('dashboard.toolbar.viewAriaLabel')}>
-          <ViewButton active={view === GROUP_VIEW.All} onClick={() => onViewChange(GROUP_VIEW.All)}>
-            {t('dashboard.toolbar.viewAll')}
-          </ViewButton>
-          <ViewButton active={view === GROUP_VIEW.Enabled} onClick={() => onViewChange(GROUP_VIEW.Enabled)}>
-            {t('dashboard.toolbar.viewEnabledOnly')}
-          </ViewButton>
-          <ViewButton active={view === GROUP_VIEW.RecentlyUpdated} onClick={() => onViewChange(GROUP_VIEW.RecentlyUpdated)}>
-            {t('dashboard.toolbar.viewRecentlyUpdated')}
-          </ViewButton>
-        </div>
       </div>
     </section>
-  );
-}
-
-interface ViewButtonProps {
-  /** 当前按钮是否为选中状态。 */
-  active: boolean;
-  /** 点击后的视图切换回调。 */
-  onClick: () => void;
-  /** 按钮文本。 */
-  children: ReactNode;
-}
-
-/**
- * 工具栏中的分组视图切换按钮。
- * @param props 选中状态、点击回调与文案
- */
-function ViewButton({ active, onClick, children }: ViewButtonProps) {
-  return (
-    <button
-      type="button"
-      className={`h-9 px-3 text-sm font-medium transition-colors ${
-        active ? 'bg-primary/10 text-primary shadow-inner' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-      }`}
-      onClick={onClick}
-      aria-pressed={active}
-    >
-      {children}
-    </button>
   );
 }

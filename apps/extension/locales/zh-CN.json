@@ -305,8 +305,7 @@
       "title": "Req Freedom 规则管理",
       "subtitle": "拦截 · 重定向 · 参数注入 · Header · Mock · 延迟 · 脚本注入 · 改请求体",
       "import": "导入规则",
-      "export": "导出规则",
-      "addGroup": "新建分组"
+      "export": "导出规则"
     },
     "moreMenu": {
       "trigger": "更多",
@@ -331,14 +330,7 @@
       "channelPlaceholder": "类型",
       "channelAll": "通道：全部",
       "channelDnr": "DNR 网络规则",
-      "channelPagePatch": "页面补丁",
-      "sortPlaceholder": "排序",
-      "sortUpdatedAt": "排序：最近更新",
-      "sortName": "排序：名称",
-      "viewAriaLabel": "分组视图",
-      "viewAll": "全部分组",
-      "viewEnabledOnly": "仅启用",
-      "viewRecentlyUpdated": "最近修改"
+      "channelPagePatch": "页面补丁"
     }
   },
   "keyValueEditor": {
