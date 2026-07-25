@@ -29,34 +29,13 @@
     }
   },
   "dynamicVariable": {
-    "uuid": {
-      "label": "UUID",
-      "description": "ランダムな UUID v4"
-    },
-    "timestamp": {
-      "label": "タイムスタンプ（秒）",
-      "description": "現在の Unix タイムスタンプ（秒）"
-    },
-    "timestampMs": {
-      "label": "タイムスタンプ（ミリ秒）",
-      "description": "現在の Unix タイムスタンプ（ミリ秒）"
-    },
-    "isoTime": {
-      "label": "ISO 時刻",
-      "description": "現在時刻の ISO 8601 文字列"
-    },
-    "randomFloat": {
-      "label": "ランダム小数",
-      "description": "[0, 1) の範囲のランダムな小数"
-    },
-    "randomInt": {
-      "label": "ランダム整数",
-      "description": "ランダムな整数。引数で閉区間 [min, max] を指定し、デフォルトは 0-100"
-    },
-    "randomString": {
-      "label": "ランダム文字列",
-      "description": "ランダムな英数字文字列。引数で長さを指定し、デフォルトは 8"
-    }
+    "uuid": { "label": "UUID", "description": "ランダムな UUID v4" },
+    "timestamp": { "label": "タイムスタンプ（秒）", "description": "現在の Unix タイムスタンプ（秒）" },
+    "timestampMs": { "label": "タイムスタンプ（ミリ秒）", "description": "現在の Unix タイムスタンプ（ミリ秒）" },
+    "isoTime": { "label": "ISO 時刻", "description": "現在時刻の ISO 8601 文字列" },
+    "randomFloat": { "label": "ランダム小数", "description": "[0, 1) の範囲のランダムな小数" },
+    "randomInt": { "label": "ランダム整数", "description": "ランダムな整数。引数で閉区間 [min, max] を指定し、デフォルトは 0-100" },
+    "randomString": { "label": "ランダム文字列", "description": "ランダムな英数字文字列。引数で長さを指定し、デフォルトは 8" }
   },
   "configTransfer": {
     "invalidJson": "ファイルは有効な JSON ではありません。",
