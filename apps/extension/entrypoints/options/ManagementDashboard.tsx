@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Download, FolderPlus, Languages, ListChecks, MoreHorizontal, Search, ToggleRight, Upload } from 'lucide-react';
+import { Check, ChevronLeft, Download, FolderPlus, Languages, ListChecks, MoreHorizontal, Search, ToggleRight, Upload } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RuleExecutionChannel } from '@req-freedom/shared';
@@ -49,6 +49,8 @@ function MoreMenu({ onImport, onExport }: MoreMenuProps) {
   const { t, i18n } = useTranslation();
   /** 菜单是否展开。 */
   const [open, setOpen] = useState(false);
+  /** 语言二级菜单是否展开。 */
+  const [languageOpen, setLanguageOpen] = useState(false);
   /** 触发按钮的包裹节点，用于测量位置与判定点击外部。 */
   const triggerRef = useRef<HTMLDivElement>(null);
   /** 菜单节点，用于判定点击外部。 */
@@ -60,6 +62,7 @@ function MoreMenu({ onImport, onExport }: MoreMenuProps) {
   useEffect(() => {
     if (!open) {
       setPosition(null);
+      setLanguageOpen(false);
       return;
     }
     /** 依据触发按钮的视口矩形更新菜单坐标（右对齐、下方 4px）。 */
@@ -115,7 +118,7 @@ function MoreMenu({ onImport, onExport }: MoreMenuProps) {
           ref={menuRef}
           role="menu"
           style={{ top: position.top, right: position.right }}
-          className="fixed z-50 max-h-[min(32rem,calc(100vh-1rem))] w-56 overflow-y-auto rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md"
+          className="fixed z-50 w-56 overflow-visible rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md"
         >
           <button
             type="button"
@@ -136,22 +139,42 @@ function MoreMenu({ onImport, onExport }: MoreMenuProps) {
             {t('dashboard.header.export')}
           </button>
           <div className="my-1 border-t border-border" />
-          <div className="px-2.5 pb-1 pt-1.5 text-xs font-medium text-muted-foreground">
-            <span className="flex items-center gap-1.5"><Languages className="size-3.5" />{t('dashboard.moreMenu.language')}</span>
-          </div>
-          {SUPPORTED_LOCALES.map((locale) => (
+          <div className="relative">
             <button
-              key={locale}
               type="button"
-              role="menuitemradio"
-              aria-checked={i18n.language === locale}
-              onClick={() => choose(() => void changeLocale(locale))}
+              role="menuitem"
+              aria-haspopup="menu"
+              aria-expanded={languageOpen}
+              onClick={() => setLanguageOpen((value) => !value)}
               className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-muted"
             >
-              <Check className={`size-3.5 shrink-0 ${i18n.language === locale ? 'text-primary' : 'text-transparent'}`} />
-              {LOCALE_DISPLAY_NAMES[locale]}
+              <Languages className="size-4 text-muted-foreground" />
+              <span className="flex-1">{t('dashboard.moreMenu.language')}</span>
+              <span className="text-xs text-muted-foreground">{LOCALE_DISPLAY_NAMES[i18n.language as SupportedLocale]}</span>
+              <ChevronLeft className="size-3.5 text-muted-foreground" />
             </button>
-          ))}
+            {languageOpen && (
+              <div
+                role="menu"
+                aria-label={t('dashboard.moreMenu.language')}
+                className="absolute right-[calc(100%+0.5rem)] top-0 z-10 max-h-[min(20rem,calc(100vh-1rem))] w-48 overflow-y-auto rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md"
+              >
+                {SUPPORTED_LOCALES.map((locale) => (
+                  <button
+                    key={locale}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={i18n.language === locale}
+                    onClick={() => choose(() => void changeLocale(locale))}
+                    className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+                  >
+                    <Check className={`size-3.5 shrink-0 ${i18n.language === locale ? 'text-primary' : 'text-transparent'}`} />
+                    {LOCALE_DISPLAY_NAMES[locale]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>,
         document.body,
       )}
