@@ -286,7 +286,8 @@
     "collapseGroup": "グループを折りたたむ",
     "ruleCount": "{{count}} 件のルール",
     "manageRules": "ルールを管理",
-    "matchedCount": "このページでのルール一致: {{count}} 回"
+    "matchedCount": "このページでのルール一致: {{count}} 回",
+    "clearMatchedCount": "クリア"
   },
   "dynamicVariableHint": {
     "title": "利用可能な動的変数を表示",
