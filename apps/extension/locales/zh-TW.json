@@ -29,34 +29,13 @@
     }
   },
   "dynamicVariable": {
-    "uuid": {
-      "label": "UUID",
-      "description": "隨機 UUID v4"
-    },
-    "timestamp": {
-      "label": "時間戳（秒）",
-      "description": "當前秒級 Unix 時間戳"
-    },
-    "timestampMs": {
-      "label": "時間戳（毫秒）",
-      "description": "當前毫秒級 Unix 時間戳"
-    },
-    "isoTime": {
-      "label": "ISO 時間",
-      "description": "當前時間的 ISO 8601 字串"
-    },
-    "randomFloat": {
-      "label": "隨機小數",
-      "description": "[0, 1) 區間的隨機浮點數"
-    },
-    "randomInt": {
-      "label": "隨機整數",
-      "description": "隨機整數，引數指定閉區間 [min, max]，預設 0-100"
-    },
-    "randomString": {
-      "label": "隨機字串",
-      "description": "隨機字母數字串，引數指定長度，預設 8 位"
-    }
+    "uuid": { "label": "UUID", "description": "隨機 UUID v4" },
+    "timestamp": { "label": "時間戳（秒）", "description": "當前秒級 Unix 時間戳" },
+    "timestampMs": { "label": "時間戳（毫秒）", "description": "當前毫秒級 Unix 時間戳" },
+    "isoTime": { "label": "ISO 時間", "description": "當前時間的 ISO 8601 字串" },
+    "randomFloat": { "label": "隨機小數", "description": "[0, 1) 區間的隨機浮點數" },
+    "randomInt": { "label": "隨機整數", "description": "隨機整數，引數指定閉區間 [min, max]，預設 0-100" },
+    "randomString": { "label": "隨機字串", "description": "隨機字母數字串，引數指定長度，預設 8 位" }
   },
   "configTransfer": {
     "invalidJson": "檔案不是有效的 JSON。",
