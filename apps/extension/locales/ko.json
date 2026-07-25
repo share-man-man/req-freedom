@@ -306,7 +306,8 @@
     "expandGroup": "그룹 펼치기",
     "collapseGroup": "그룹 접기",
     "ruleCount": "규칙 {{count}}개",
-    "manageRules": "규칙 관리"
+    "manageRules": "규칙 관리",
+    "matchedCount": "이 페이지의 규칙 일치: {{count}}회"
   },
   "dynamicVariableHint": {
     "title": "사용 가능한 동적 변수 보기",
