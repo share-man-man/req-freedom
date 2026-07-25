@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
-import { ChevronDown, Settings2 } from 'lucide-react';
+import { CheckCircle2, ChevronDown, Settings2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { RuleGroup } from '@req-freedom/shared';
 import { collectActiveRules } from '@req-freedom/core';
@@ -21,12 +21,29 @@ export default function App() {
   const [groups, setGroups] = useState<RuleGroup[]>([]);
   /** 已折叠的分组 ID 集合，仅保留在当前弹窗会话中 */
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
+  /** 当前页面累计命中次数；由扩展图标徽标统一承载两条执行通道的计数。 */
+  const [matchedCount, setMatchedCount] = useState(0);
 
   // 初始加载 storage 中的开关与分组
   useEffect(() => {
     void (async () => {
-      setEnabledState(await getEnabled());
-      setGroups(await getGroups());
+      /** 并行读取配置，缩短 popup 首次渲染等待。 */
+      const [nextEnabled, nextGroups] = await Promise.all([getEnabled(), getGroups()]);
+      setEnabledState(nextEnabled);
+      setGroups(nextGroups);
+      try {
+        /** 点击扩展图标打开 popup 时所在的标签页。 */
+        const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true });
+        if (activeTab?.id === undefined) {
+          return;
+        }
+        /** DNR 与页面补丁共用的扩展图标徽标文本。 */
+        const badgeText = await browser.action.getBadgeText({ tabId: activeTab.id });
+        const count = Number.parseInt(badgeText, 10);
+        setMatchedCount(Number.isFinite(count) && count > 0 ? count : 0);
+      } catch {
+        // 特殊页面或浏览器不支持 action 查询时，不展示命中提示即可。
+      }
     })();
   }, []);
 
@@ -134,6 +151,14 @@ export default function App() {
         </div>
         <Switch checked={enabled} onCheckedChange={handleToggleGlobal} />
       </header>
+
+      {/* 当前页面命中提示：计数同时包含 DNR 与页面补丁通道。 */}
+      {matchedCount > 0 && (
+        <div className="mx-3 mt-3 flex items-center gap-2 rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-primary">
+          <CheckCircle2 className="size-4 shrink-0" />
+          <p className="text-xs font-medium">{t('popup.matchedCount', { count: matchedCount })}</p>
+        </div>
+      )}
 
       {/* 分组列表 */}
       <div className="max-h-96 overflow-y-auto p-2">
