@@ -307,7 +307,8 @@
     "collapseGroup": "Réduire le groupe",
     "ruleCount": "{{count}} règles",
     "manageRules": "Gérer les règles",
-    "matchedCount": "Correspondances sur cette page : {{count}}"
+    "matchedCount": "Correspondances sur cette page : {{count}}",
+    "clearMatchedCount": "Effacer"
   },
   "dynamicVariableHint": {
     "title": "Voir les variables dynamiques disponibles",
