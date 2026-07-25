@@ -4,6 +4,7 @@ import type { Rule, ScopeContext } from '@req-freedom/shared';
 import {
   DNR_RULE_ID_OFFSET,
   RUNTIME_MSG_GET_SCOPE_CONTEXT,
+  RUNTIME_MSG_RULE_MATCHED,
   RUNTIME_MSG_SCOPE_CONTEXT_CHANGED,
   STORAGE_KEY_ENABLED,
   STORAGE_KEY_GROUPS,
@@ -191,6 +192,12 @@ async function pushScopeContext(tabId: number): Promise<void> {
 }
 
 export default defineBackground(() => {
+  // DNR 原生记录网络层命中次数；页面补丁通道也会累加到同一个标签页计数。
+  void browser.declarativeNetRequest.setExtensionActionOptions({
+    displayActionCountAsBadgeText: true,
+  });
+  void browser.action.setBadgeBackgroundColor({ color: '#7c3aed' });
+
   // 启动时各同步一次，保证 DNR 规则与 storage 一致
   void syncDynamicRules();
   void syncSessionRules();
@@ -208,7 +215,24 @@ export default defineBackground(() => {
 
   // 桥接脚本请求自身标签上下文：从 sender.tab 读取后回传（内容脚本拿不到自己的 tabId）
   browser.runtime.onMessage.addListener((message, sender) => {
-    if ((message as { type?: string } | undefined)?.type === RUNTIME_MSG_GET_SCOPE_CONTEXT) {
+    /** 当前消息的类型标识。 */
+    const messageType = (message as { type?: string } | undefined)?.type;
+    if (messageType === RUNTIME_MSG_RULE_MATCHED) {
+      /** 只接受由标签页内容脚本发出的命中消息。 */
+      const tabId = sender.tab?.id;
+      if (tabId === undefined) {
+        return undefined;
+      }
+      /** 单次消息的增量需为正整数，并限制上限以防页面伪造消息造成异常跳数。 */
+      const requestedIncrement = Number((message as { count?: unknown }).count);
+      const increment = Number.isFinite(requestedIncrement)
+        ? Math.min(100, Math.max(1, Math.floor(requestedIncrement)))
+        : 1;
+      return browser.declarativeNetRequest.setExtensionActionOptions({
+        tabUpdate: { tabId, increment },
+      });
+    }
+    if (messageType === RUNTIME_MSG_GET_SCOPE_CONTEXT) {
       /** 从消息发送方标签解析出的作用域上下文。 */
       const context: ScopeContext = {
         tabId: sender.tab?.id,
