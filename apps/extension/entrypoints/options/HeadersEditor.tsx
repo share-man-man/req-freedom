@@ -1,4 +1,5 @@
 import { AlertTriangle, Info, Plus, X } from 'lucide-react';
+import { Trans, useTranslation } from 'react-i18next';
 import type { HeaderModification } from '@req-freedom/shared';
 import {
   APPENDABLE_REQUEST_HEADERS,
@@ -6,7 +7,7 @@ import {
   HeaderTarget,
   isAppendableRequestHeader,
 } from '@req-freedom/shared';
-import { HEADER_OPERATION_LABELS, HEADER_TARGET_LABELS } from '@/utils/labels';
+import { getLabels } from '@/utils/labels';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -52,6 +53,9 @@ interface HeadersEditorProps {
  * Header 修改项编辑器：编辑「目标 + 操作 + 名称 + 值」的列表
  */
 export default function HeadersEditor({ value, onChange }: HeadersEditorProps) {
+  const { t } = useTranslation();
+  /** 各枚举展示名映射。 */
+  const labels = getLabels(t);
   /**
    * 修改某一行的字段
    *
@@ -114,7 +118,7 @@ export default function HeadersEditor({ value, onChange }: HeadersEditorProps) {
                 <SelectContent>
                   {Object.values(HeaderTarget).map((target) => (
                     <SelectItem key={target} value={target}>
-                      {HEADER_TARGET_LABELS[target]}
+                      {labels.HEADER_TARGET_LABELS[target]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -129,7 +133,7 @@ export default function HeadersEditor({ value, onChange }: HeadersEditorProps) {
                 <SelectContent>
                   {Object.values(HeaderOperation).map((operation) => (
                     <SelectItem key={operation} value={operation}>
-                      {HEADER_OPERATION_LABELS[operation]}
+                      {labels.HEADER_OPERATION_LABELS[operation]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -139,7 +143,7 @@ export default function HeadersEditor({ value, onChange }: HeadersEditorProps) {
                 variant="ghost"
                 size="icon"
                 className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
-                title="删除"
+                title={t('headersEditor.delete')}
                 onClick={() => onChange(value.filter((_, i) => i !== index))}
               >
                 <X className="size-4" />
@@ -154,7 +158,7 @@ export default function HeadersEditor({ value, onChange }: HeadersEditorProps) {
                   onValueChange={(v) => handleRowChange(index, { header: v })}
                 >
                   <SelectTrigger className="h-8 flex-1">
-                    <SelectValue placeholder="选择可追加的请求头" />
+                    <SelectValue placeholder={t('headersEditor.appendableHeaderPlaceholder')} />
                   </SelectTrigger>
                   <SelectContent>
                     {APPENDABLE_REQUEST_HEADERS.map((header) => (
@@ -167,14 +171,14 @@ export default function HeadersEditor({ value, onChange }: HeadersEditorProps) {
               ) : (
                 <Input
                   className="h-8 flex-1"
-                  placeholder="Header 名称"
+                  placeholder={t('headersEditor.headerNamePlaceholder')}
                   value={item.header}
                   onChange={(e) => handleRowChange(index, { header: e.target.value })}
                 />
               )}
               <Input
                 className="h-8 flex-1"
-                placeholder="值（移除时留空）"
+                placeholder={t('headersEditor.valuePlaceholder')}
                 value={item.value ?? ''}
                 disabled={item.operation === HeaderOperation.Remove}
                 onChange={(e) => handleRowChange(index, { value: e.target.value })}
@@ -184,31 +188,33 @@ export default function HeadersEditor({ value, onChange }: HeadersEditorProps) {
           {/* 请求头 + 追加模式下：指明自定义头的出口是「设置」，避免用户卡在下拉里 */}
           {isRequestAppend(item) && (
             <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-              「追加」仅支持以上少数可多值的标准头；公司自定义头请改用「设置」，头名可任意填写。
+              {t('headersEditor.appendHint')}
             </p>
           )}
           {/* 兜底：导入/历史数据里残留的无效 append 组合，仍给出提示 */}
           {isIneffectiveAppend(item) && (
             <p className="mt-1.5 flex items-start gap-1.5 rounded-md border border-warning/40 bg-warning/10 px-2 py-1.5 text-xs leading-relaxed text-warning">
               <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-              <span>
-                自定义请求头不支持「追加」，会被浏览器静默忽略，请改用「设置」。仅 Cookie、
-                User-Agent、X-Forwarded-For 等少数标准头可追加。
-              </span>
+              <span>{t('headersEditor.ineffectiveAppendWarning')}</span>
             </p>
           )}
         </div>
       ))}
       <Button variant="outline" size="sm" onClick={handleAdd}>
         <Plus />
-        添加修改项
+        {t('headersEditor.addItem')}
       </Button>
       {/* 响应头改写在浏览器「网络」面板里看不到，但实际已生效 */}
       <p className="mt-1 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
         <Info className="mt-0.5 size-3.5 shrink-0" />
         <span>
-          提示：<strong className="font-medium text-foreground">响应头</strong>的改写不会显示在浏览器「网络」面板里，看不到不等于没生效，可在控制台用{' '}
-          <code className="rounded bg-muted px-1 py-0.5 font-mono">fetch(url).then((r) =&gt; r.headers.get('...'))</code> 读取验证。
+          <Trans
+            i18nKey="headersEditor.responseHeaderHint"
+            components={{
+              strong: <strong className="font-medium text-foreground" />,
+              code: <code className="rounded bg-muted px-1 py-0.5 font-mono" />,
+            }}
+          />
         </span>
       </p>
     </div>

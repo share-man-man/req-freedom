@@ -4,34 +4,50 @@ import {
   MatchType,
   RuleActionType,
   RuleExecutionChannel,
-  RuleTemplateCategory,
-} from './enums';
-import type { Rule } from './types';
+} from '@req-freedom/shared';
+import type { Rule } from '@req-freedom/shared';
+
+/**
+ * 常用规则模板的归类
+ *
+ * 仅用于模板库 UI 的分区展示，不参与规则的执行语义。UI 展示文案见 `RULE_TEMPLATE_CATEGORY_LABELS`。
+ */
+export enum RuleTemplateCategory {
+  /** 跨域（CORS）相关 */
+  Cors = 'cors',
+  /** 缓存控制相关 */
+  Cache = 'cache',
+  /** 协议 / 重定向相关 */
+  Protocol = 'protocol',
+  /** User-Agent 切换相关 */
+  UserAgent = 'user-agent',
+}
 
 /**
  * 规则模板承载的规则草稿
  *
- * 模板是「除运行时 id 外都填好的规则」：ID 只在真正落库时由使用方补上（`crypto.randomUUID()`），
+ * 模板是「除运行时 id 与名称外都填好的规则」：ID 与 name 只在真正实例化时由
+ * `instantiateRuleTemplate` 补上（name 取自当前语言下 `nameKey` 的翻译），
  * 模板本身保持无副作用的纯数据，可安全跨上下文复用。
  */
-type RuleTemplateDraft = Omit<Rule, 'id'>;
+type RuleTemplateDraft = Omit<Rule, 'id' | 'name'>;
 
 /**
  * 一条开箱即用的常用规则模板
  *
  * 模板本质是对既有动作（多为 Header 改写 / 重定向）的语法糖封装，把「本地联调第一高频需求」
- * 沉淀成一键预设。使用时把 `rule` 补上运行时 id 后放进任意分组，再按需微调匹配范围即可。
+ * 沉淀成一键预设。使用时把 `rule` 补上运行时 id 与翻译后的名称后放进任意分组，再按需微调匹配范围即可。
  */
 export interface RuleTemplate {
   /** 模板稳定标识，用于 UI key 与去重（与规则运行时 id 无关） */
   id: string;
   /** 模板归类，仅用于模板库分区展示 */
   category: RuleTemplateCategory;
-  /** 模板展示名 */
-  name: string;
-  /** 用途与典型场景的一句话说明 */
-  description: string;
-  /** 生成的规则草稿（不含运行时 id） */
+  /** 模板展示名对应的 i18n key（写入规则前需用当前语言翻译成普通字符串） */
+  nameKey: string;
+  /** 用途与典型场景说明对应的 i18n key */
+  descriptionKey: string;
+  /** 生成的规则草稿（不含运行时 id 与 name） */
   rule: RuleTemplateDraft;
 }
 
@@ -47,10 +63,9 @@ export const RULE_TEMPLATES: readonly RuleTemplate[] = [
   {
     id: 'cors-allow-all',
     category: RuleTemplateCategory.Cors,
-    name: '解除 CORS 跨域限制',
-    description: '为匹配的响应补上 Access-Control-Allow-* 头，解决本地联调时的跨域拦截。请把匹配内容改成你的接口地址。',
+    nameKey: 'template.corsAllowAll.name',
+    descriptionKey: 'template.corsAllowAll.description',
     rule: {
-      name: '解除 CORS 跨域限制',
       enabled: true,
       channel: RuleExecutionChannel.Dnr,
       methods: [],
@@ -73,10 +88,9 @@ export const RULE_TEMPLATES: readonly RuleTemplate[] = [
   {
     id: 'disable-cache',
     category: RuleTemplateCategory.Cache,
-    name: '禁用缓存',
-    description: '为请求与响应都补上不缓存的 Cache-Control，确保每次都拿到最新资源。请把匹配内容改成目标地址。',
+    nameKey: 'template.disableCache.name',
+    descriptionKey: 'template.disableCache.description',
     rule: {
-      name: '禁用缓存',
       enabled: true,
       channel: RuleExecutionChannel.Dnr,
       methods: [],
@@ -97,10 +111,9 @@ export const RULE_TEMPLATES: readonly RuleTemplate[] = [
   {
     id: 'force-https',
     category: RuleTemplateCategory.Protocol,
-    name: '强制 HTTPS',
-    description: '把匹配到的 http 请求重定向到同地址的 https。默认命中全部 http 请求。',
+    nameKey: 'template.forceHttps.name',
+    descriptionKey: 'template.forceHttps.description',
     rule: {
-      name: '强制 HTTPS',
       enabled: true,
       channel: RuleExecutionChannel.Dnr,
       methods: [],
@@ -113,10 +126,9 @@ export const RULE_TEMPLATES: readonly RuleTemplate[] = [
   {
     id: 'mobile-ua-ios',
     category: RuleTemplateCategory.UserAgent,
-    name: '移动端 UA · iPhone',
-    description: '把 User-Agent 改成 iOS Safari，让站点返回移动端页面。请把匹配内容改成目标站点。',
+    nameKey: 'template.mobileUaIos.name',
+    descriptionKey: 'template.mobileUaIos.description',
     rule: {
-      name: '移动端 UA · iPhone',
       enabled: true,
       channel: RuleExecutionChannel.Dnr,
       methods: [],
@@ -135,10 +147,9 @@ export const RULE_TEMPLATES: readonly RuleTemplate[] = [
   {
     id: 'mobile-ua-android',
     category: RuleTemplateCategory.UserAgent,
-    name: '移动端 UA · Android',
-    description: '把 User-Agent 改成 Android Chrome，让站点返回移动端页面。请把匹配内容改成目标站点。',
+    nameKey: 'template.mobileUaAndroid.name',
+    descriptionKey: 'template.mobileUaAndroid.description',
     rule: {
-      name: '移动端 UA · Android',
       enabled: true,
       channel: RuleExecutionChannel.Dnr,
       methods: [],

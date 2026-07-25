@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import {
   bracketMatching,
@@ -44,13 +45,19 @@ interface CodeEditorProps {
   headerEnd?: ReactNode;
 }
 
-/** 编辑器语言的显示名称。 */
-const CODE_EDITOR_LANGUAGE_LABELS: Readonly<Record<CodeEditorLanguage, string>> = {
-  json: 'JSON',
-  javascript: 'JavaScript',
-  css: 'CSS',
-  text: '文本',
-};
+/**
+ * 按当前语言构建编辑器语言的显示名称。
+ * @param t 当前语言下的翻译函数
+ * @returns 各代码语言 → 展示名的映射
+ */
+function getCodeEditorLanguageLabels(t: (key: string) => string): Readonly<Record<CodeEditorLanguage, string>> {
+  return {
+    json: 'JSON',
+    javascript: 'JavaScript',
+    css: 'CSS',
+    text: t('label.mockBodyType.text'),
+  };
+}
 
 /** CodeMirror 的基础按键与编辑能力。 */
 const CODE_EDITOR_BASE_EXTENSIONS: readonly Extension[] = [
@@ -160,6 +167,9 @@ export function CodeEditor({
   headerStart,
   headerEnd,
 }: CodeEditorProps) {
+  const { t } = useTranslation();
+  /** 当前语言下各代码语言的展示名。 */
+  const languageLabels = getCodeEditorLanguageLabels(t);
   /** CodeMirror 挂载节点。 */
   const containerRef = useRef<HTMLDivElement>(null);
   /** CodeMirror 视图实例。 */
@@ -190,7 +200,7 @@ export function CodeEditor({
         CODE_EDITOR_LANGUAGE_COMPARTMENT.of([]),
         EditorState.readOnly.of(disabled),
         EditorView.editable.of(!disabled),
-        EditorView.contentAttributes.of({ 'aria-label': ariaLabel ?? `${CODE_EDITOR_LANGUAGE_LABELS[language]} 编辑器` }),
+        EditorView.contentAttributes.of({ 'aria-label': ariaLabel ?? t('codeEditor.ariaLabel', { language: languageLabels[language] }) }),
         ...(placeholder ? [editorPlaceholder(placeholder)] : []),
         EditorView.updateListener.of((update) => {
           if (!update.docChanged) {
@@ -248,7 +258,7 @@ export function CodeEditor({
         const formattedValue = JSON.stringify(JSON.parse(view.state.doc.toString()), null, 2);
         replaceEditorValue(view, formattedValue);
       } catch {
-        setFormatError('JSON 格式无效，无法格式化。');
+        setFormatError(t('codeEditor.invalidJson'));
       }
       return;
     }
@@ -266,7 +276,7 @@ export function CodeEditor({
         {/* 头部左上角：默认展示语言名，caller 可用 headerStart 换成类型切换等控件 */}
         {headerStart ?? (
           <span className="font-mono text-[11px] font-medium text-muted-foreground">
-            {CODE_EDITOR_LANGUAGE_LABELS[language]}
+            {languageLabels[language]}
           </span>
         )}
         {/* 头部右上角：自定义内容（如动态变量提示）在前，格式化按钮在后 */}
@@ -280,7 +290,7 @@ export function CodeEditor({
               disabled={disabled}
               onClick={handleFormat}
             >
-              格式化
+              {t('codeEditor.format')}
             </button>
           )}
         </div>

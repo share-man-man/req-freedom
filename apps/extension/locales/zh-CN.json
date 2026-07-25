@@ -1,0 +1,442 @@
+{
+  "group": {
+    "defaultName": "新建分组",
+    "autoDefaultName": "默认分组"
+  },
+  "rule": {
+    "defaultName": "新规则"
+  },
+  "template": {
+    "corsAllowAll": {
+      "name": "解除 CORS 跨域限制",
+      "description": "为匹配的响应补上 Access-Control-Allow-* 头，解决本地联调时的跨域拦截。请把匹配内容改成你的接口地址。"
+    },
+    "disableCache": {
+      "name": "禁用缓存",
+      "description": "为请求与响应都补上不缓存的 Cache-Control，确保每次都拿到最新资源。请把匹配内容改成目标地址。"
+    },
+    "forceHttps": {
+      "name": "强制 HTTPS",
+      "description": "把匹配到的 http 请求重定向到同地址的 https。默认命中全部 http 请求。"
+    },
+    "mobileUaIos": {
+      "name": "移动端 UA · iPhone",
+      "description": "把 User-Agent 改成 iOS Safari，让站点返回移动端页面。请把匹配内容改成目标站点。"
+    },
+    "mobileUaAndroid": {
+      "name": "移动端 UA · Android",
+      "description": "把 User-Agent 改成 Android Chrome，让站点返回移动端页面。请把匹配内容改成目标站点。"
+    }
+  },
+  "dynamicVariable": {
+    "uuid": { "label": "UUID", "description": "随机 UUID v4" },
+    "timestamp": { "label": "时间戳（秒）", "description": "当前秒级 Unix 时间戳" },
+    "timestampMs": { "label": "时间戳（毫秒）", "description": "当前毫秒级 Unix 时间戳" },
+    "isoTime": { "label": "ISO 时间", "description": "当前时间的 ISO 8601 字符串" },
+    "randomFloat": { "label": "随机小数", "description": "[0, 1) 区间的随机浮点数" },
+    "randomInt": { "label": "随机整数", "description": "随机整数，参数指定闭区间 [min, max]，缺省 0-100" },
+    "randomString": { "label": "随机字符串", "description": "随机字母数字串，参数指定长度，缺省 8 位" }
+  },
+  "configTransfer": {
+    "invalidJson": "文件不是有效的 JSON。",
+    "mustBeObject": "{{label}}必须是对象。",
+    "requiredNonEmpty": "{{label}}不能为空。",
+    "mustBeNonNegativeNumber": "{{label}}必须是非负数字。",
+    "valuesMustBeStrings": "{{label}}中的值必须都是字符串。",
+    "schemaVersionUnsupported": "仅支持 schemaVersion {{version}}。",
+    "missingExportedAt": "配置文件缺少有效的 exportedAt 时间。",
+    "invalidEnabledOrGroups": "配置文件的 enabled 或 groups 格式不正确。",
+    "duplicateGroupId": "分组 ID {{id}} 重复。",
+    "invalidGroupFormat": "分组「{{id}}」格式不正确。",
+    "missingGroupUpdatedAt": "分组「{{id}}」缺少有效更新时间。",
+    "duplicateRuleId": "规则 ID {{id}} 重复。",
+    "invalidRuleBaseFields": "规则「{{id}}」的基础字段不合法。",
+    "invalidRuleChannel": "规则「{{id}}」的执行通道不合法。",
+    "invalidRuleMethods": "规则「{{id}}」的请求方法不合法。",
+    "ruleActionsRequired": "规则「{{id}}」至少需要一个动作。",
+    "invalidRuleRegex": "规则「{{id}}」的正则表达式语法错误。",
+    "exclusiveActionsConflict": "规则「{{id}}」不能同时配置拦截、重定向和参数注入。",
+    "getHeadCannotModifyBody": "规则「{{id}}」的 GET / HEAD 不能改请求体。",
+    "invalidScopeType": "规则「{{ruleId}}」的作用域类型不合法。",
+    "scopeTargetsRequired": "规则「{{ruleId}}」的作用域至少需要一个目标对象。",
+    "scopeTargetIdMustBeInteger": "规则「{{ruleId}}」的作用域目标 id 必须是整数。",
+    "bodyMatchChannelInvalid": "规则「{{ruleId}}」的请求体匹配仅页面补丁通道可用。",
+    "invalidBodyMatchType": "规则「{{ruleId}}」的请求体匹配方式不合法。",
+    "invalidBodyMatchRegex": "规则「{{ruleId}}」的请求体匹配正则语法错误。",
+    "invalidActionType": "规则「{{ruleId}}」的动作类型不合法。",
+    "actionChannelMismatch": "规则「{{ruleId}}」的动作与执行通道不匹配。",
+    "invalidMockConfig": "规则「{{ruleId}}」的 Mock 配置不合法。",
+    "dynamicMockFunctionRequired": "规则「{{ruleId}}」的动态 Mock 函数不能为空。",
+    "invalidThrottlePreset": "规则「{{ruleId}}」的限速档位不合法。",
+    "invalidInsertScriptConfig": "规则「{{ruleId}}」的注入配置不合法。",
+    "invalidRequestBodyConfig": "规则「{{ruleId}}」的请求体配置不合法。",
+    "dynamicRequestBodyFunctionRequired": "规则「{{ruleId}}」的动态请求体函数不能为空。",
+    "headersMustBeArray": "Header 修改项必须是数组。",
+    "invalidHeaderTargetOrOperation": "Header 修改项的目标或操作不合法。",
+    "label": {
+      "configRoot": "配置根节点",
+      "nthGroup": "第 {{n}} 个分组",
+      "groupId": "分组 id",
+      "groupName": "分组「{{id}}」名称",
+      "nthRuleInGroup": "分组「{{groupId}}」中的第 {{n}} 条规则",
+      "ruleId": "规则 id",
+      "rulePattern": "规则「{{id}}」的匹配内容",
+      "ruleName": "规则「{{id}}」的名称",
+      "ruleScope": "规则「{{ruleId}}」的作用域",
+      "scopeTarget": "规则「{{ruleId}}」的作用域目标",
+      "ruleBodyMatch": "规则「{{ruleId}}」的请求体匹配",
+      "ruleBodyMatchValue": "规则「{{ruleId}}」的请求体匹配值",
+      "nthActionInRule": "规则「{{ruleId}}」的第 {{n}} 个动作",
+      "redirectUrl": "重定向地址",
+      "params": "参数",
+      "mockDelay": "Mock 延迟",
+      "mockResponseHeaders": "Mock 响应头",
+      "networkLatency": "网络延迟",
+      "downloadBandwidth": "下行带宽",
+      "uploadBandwidth": "上行带宽",
+      "insertScriptCode": "注入代码",
+      "headerModification": "Header 修改项",
+      "headerName": "Header 名称"
+    }
+  },
+  "ruleEditor": {
+    "titleNew": "新建规则",
+    "titleEdit": "编辑规则",
+    "group": "所属分组",
+    "name": "规则名称",
+    "matchType": "匹配方式",
+    "pattern": "匹配内容",
+    "methods": "请求方法",
+    "advanced": "高级",
+    "optional": "选填",
+    "bodyMatchLabel": "请求体匹配",
+    "scope": "作用域",
+    "cancel": "取消",
+    "save": "保存",
+    "deleteAction": "删除{{actionLabel}}",
+    "deleteActionSr": "删除动作",
+    "selectActionHint": "勾选一个「{{groupTitle}}」动作开始配置",
+    "actionDescription": {
+      "block": "直接阻断匹配到的请求",
+      "redirect": "把请求转发到另一个地址",
+      "injectParams": "向 URL 查询串追加或覆盖参数",
+      "modifyHeaders": "增删改请求头或响应头",
+      "mockResponse": "拦截请求并返回自定义响应",
+      "delay": "为请求注入延迟与带宽限制",
+      "modifyRequestBody": "在请求发送前改写请求体",
+      "insertScript": "按页面 URL 注入 JS / CSS"
+    },
+    "actionGroup": {
+      "dnr": {
+        "title": "网络层",
+        "hint": "作用于全部请求（含页面导航、静态资源），但读不到请求体",
+        "note": "拦截 / 重定向 / 参数注入三选一，Header 改写可叠加"
+      },
+      "pagePatch": {
+        "title": "页面内补丁",
+        "hint": "仅作用于页面脚本发起的 fetch / XHR，可读写请求体与响应",
+        "note": "返回值 Mock / 限速 / 改请求体可叠加；脚本注入需单独使用"
+      }
+    },
+    "describeAction": {
+      "block": "拦截：请求被直接阻断",
+      "redirect": "重定向 → {{url}}",
+      "injectParams": "注入参数：{{params}}",
+      "empty": "（空）",
+      "modifyHeaders": "改写 Header：{{count}} 项",
+      "mockResponse": "Mock 返回 HTTP {{statusCode}}",
+      "delay": "限速：{{preset}}",
+      "modifyRequestBody": "改请求体（{{sourceMode}}）",
+      "insertScript": "注入 {{codeType}}（{{timing}}）"
+    },
+    "describeEffect": {
+      "none": "尚未配置任何动作",
+      "separator": "；"
+    },
+    "validation": {
+      "actionsRequired": "至少选择一个动作",
+      "nameRequired": "规则名称不能为空",
+      "patternRequired": "匹配内容不能为空",
+      "patternRegexInvalid": "正则表达式语法错误",
+      "bodyMethodsRequired": "改请求体需选择 POST / PUT / PATCH / DELETE / OPTIONS",
+      "bodyMatchValueRequired": "请求体匹配值不能为空",
+      "bodyMatchRegexInvalid": "请求体匹配正则语法错误",
+      "scopeTargetRequired": "请至少选择一个{{scopeNoun}}",
+      "scopeNoun": {
+        "tab": "标签页",
+        "window": "窗口",
+        "tabGroup": "标签组"
+      },
+      "exclusiveDnrActions": "拦截、重定向和参数注入只能选择其中一项",
+      "redirectUrlRequired": "重定向目标不能为空",
+      "redirectUrlAbsolute": "重定向目标需为绝对地址，如 http://127.0.0.1:4317/api/redirect-target.json",
+      "insertScriptCodeRequired": "注入代码不能为空",
+      "mockStatusCodeRange": "Mock 状态码需在 100 - 599 之间",
+      "dynamicMockFunctionRequired": "动态 Mock 函数不能为空",
+      "requestBodyContentRequired": "请求体内容不能为空",
+      "requestBodyFunctionRequired": "请求体函数不能为空"
+    },
+    "matchTester": {
+      "trigger": "命中测试",
+      "placeholder": "输入测试路径 / URL",
+      "test": "测试",
+      "matched": "命中",
+      "notMatched": "未命中，该 URL 不会被此规则处理"
+    },
+    "methodPicker": {
+      "scriptOnlyHint": "脚本注入按页面 URL 命中，无需配置请求方法。",
+      "all": "全部",
+      "bodyHint": "改请求体只作用于可携带请求体的方法，已自动排除 GET / HEAD 与「全部」。"
+    },
+    "bodyMatchEditor": {
+      "off": "不限制请求体",
+      "hint": "只按页面脚本 fetch / XHR 的请求体收敛；GraphQL 同 URL 的多个操作可用「操作名」精确区分。"
+    },
+    "scopeEditor": {
+      "unnamedTab": "标签页 #{{id}}",
+      "windowLabel": "窗口 {{index}}",
+      "windowHint": "{{count}} 个标签页{{current}}",
+      "currentSuffix": " · 当前",
+      "unnamedTabGroup": "未命名标签组",
+      "refresh": "刷新列表",
+      "loading": "加载中…",
+      "noOptions": "没有可选对象，请先打开对应的标签页 / 窗口 / 标签组",
+      "closed": "已关闭",
+      "allTabsHint": "默认对所有标签页生效。限定作用域可避免把敏感 Header（如 Authorization）误发到其他站点。",
+      "limitedHint": "{{emptyHint}}；对象 ID 为会话级，浏览器重启后需重新选择。"
+    },
+    "mockActionEditor": {
+      "bodyTypeAriaLabel": "响应体类型",
+      "invalidJsonHint": "响应体不是合法 JSON；若要返回其他格式，请切换上方「响应体类型」。",
+      "dynamicHint": "动态代码可读取 req.url、req.method、req.headers、req.query、req.body、req.json。"
+    },
+    "delayActionEditor": {
+      "preset": "网络档位",
+      "latency": "延迟(ms)",
+      "download": "下行({{unit}})",
+      "upload": "上行({{unit}})"
+    },
+    "requestBodyActionEditor": {
+      "hint": "仅作用于 fetch / XHR 的可带请求体方法；异常或返回 undefined 时保留原请求体。"
+    }
+  },
+  "app": {
+    "scopeBadge": {
+      "title": "{{scopeLabel}} · {{count}} 个对象"
+    },
+    "relativeTime": {
+      "none": "暂无记录",
+      "justNow": "刚刚更新",
+      "minutesAgo": "{{count}} 分钟前更新",
+      "hoursAgo": "{{count}} 小时前更新",
+      "daysAgo": "{{count}} 天前更新"
+    },
+    "groupNamePlaceholder": "分组名称",
+    "dragToReorder": "拖拽排序",
+    "dragToReorderGroup": "拖拽排序分组",
+    "edit": "编辑",
+    "delete": "删除",
+    "expand": "展开",
+    "collapse": "折叠",
+    "disableGroup": "整组停用",
+    "enableGroup": "整组启用",
+    "groupRuleCount": "{{count}} 条规则",
+    "groupEnabled": "启用中",
+    "groupDisabled": "已停用",
+    "lastUpdated": "最近更新 {{time}}",
+    "addRule": "添加规则",
+    "deleteGroup": "删除分组",
+    "emptyGroupHint": "该分组暂无规则，点击右上角「添加规则」创建",
+    "columns": {
+      "enabled": "启用",
+      "name": "名称",
+      "channel": "执行通道",
+      "actions": "动作",
+      "pattern": "匹配内容",
+      "operations": "操作"
+    },
+    "addRuleMenu": {
+      "blank": "空白规则",
+      "fromTemplate": "从模板库…"
+    },
+    "transfer": {
+      "exportSuccess": "配置已导出。",
+      "exportFailure": "导出失败，请重试。",
+      "importConfirm": "将导入 {{groupCount}} 个分组、{{ruleCount}} 条规则，并替换当前全部配置。确定继续吗？",
+      "importSuccess": "已导入 {{groupCount}} 个分组、{{ruleCount}} 条规则。",
+      "importParseFailure": "导入失败，请确认文件内容后重试。",
+      "importFailure": "导入失败：{{message}}"
+    },
+    "deleteGroupConfirm": "分组「{{name}}」下还有 {{count}} 条规则，确定要删除整组吗？",
+    "newRule": "新建规则",
+    "newGroup": "新建分组",
+    "emptyState": {
+      "title": "还没有规则",
+      "hint": "直接新建规则即可，会自动归入「{{defaultGroupName}}」；也可先建分组再收纳"
+    },
+    "noMatchingGroups": "没有找到匹配的规则分组",
+    "noMatchingGroupsHint": "调整搜索或筛选条件后再试"
+  },
+  "popup": {
+    "activeCount": "{{count}} 条规则生效中",
+    "globallyDisabled": "已全局停用",
+    "noRules": "暂无规则",
+    "noRulesHint": "去管理页添加你的第一条规则",
+    "expandGroup": "展开分组",
+    "collapseGroup": "折叠分组",
+    "ruleCount": "{{count}} 条",
+    "manageRules": "管理规则"
+  },
+  "dynamicVariableHint": {
+    "title": "查看可用的动态变量",
+    "trigger": "变量",
+    "hint": "在取值字段里用占位符引用；点击复制。页面补丁通道逐请求求值，网络层（DNR）在规则同步时求值一次。"
+  },
+  "dialog": {
+    "close": "关闭"
+  },
+  "codeEditor": {
+    "ariaLabel": "{{language}} 编辑器",
+    "invalidJson": "JSON 格式无效，无法格式化。",
+    "format": "格式化"
+  },
+  "dashboard": {
+    "header": {
+      "title": "Req Freedom 规则管理",
+      "subtitle": "拦截 · 重定向 · 参数注入 · Header · Mock · 延迟 · 脚本注入 · 改请求体",
+      "import": "导入规则",
+      "export": "导出规则",
+      "addGroup": "新建分组"
+    },
+    "moreMenu": {
+      "trigger": "更多",
+      "language": "界面语言"
+    },
+    "statistics": {
+      "ariaLabel": "规则统计",
+      "groupLabel": "分组",
+      "groupSuffix": "个分组",
+      "ruleLabel": "规则",
+      "ruleSuffix": "条规则",
+      "enabledLabel": "已启用"
+    },
+    "toolbar": {
+      "ariaLabel": "规则筛选",
+      "searchPlaceholder": "搜索分组或规则名称、匹配内容…",
+      "searchAriaLabel": "搜索分组或规则",
+      "statusPlaceholder": "状态",
+      "statusAll": "状态：全部",
+      "statusEnabled": "状态：已启用",
+      "statusDisabled": "状态：已停用",
+      "channelPlaceholder": "类型",
+      "channelAll": "通道：全部",
+      "channelDnr": "DNR 网络规则",
+      "channelPagePatch": "页面补丁",
+      "sortPlaceholder": "排序",
+      "sortUpdatedAt": "排序：最近更新",
+      "sortName": "排序：名称",
+      "viewAriaLabel": "分组视图",
+      "viewAll": "全部分组",
+      "viewEnabledOnly": "仅启用",
+      "viewRecentlyUpdated": "最近修改"
+    }
+  },
+  "keyValueEditor": {
+    "keyPlaceholder": "键",
+    "valuePlaceholder": "值",
+    "delete": "删除",
+    "addItem": "添加一项"
+  },
+  "headersEditor": {
+    "delete": "删除",
+    "appendableHeaderPlaceholder": "选择可追加的请求头",
+    "headerNamePlaceholder": "Header 名称",
+    "valuePlaceholder": "值（移除时留空）",
+    "appendHint": "「追加」仅支持以上少数可多值的标准头；公司自定义头请改用「设置」，头名可任意填写。",
+    "ineffectiveAppendWarning": "自定义请求头不支持「追加」，会被浏览器静默忽略，请改用「设置」。仅 Cookie、User-Agent、X-Forwarded-For 等少数标准头可追加。",
+    "addItem": "添加修改项",
+    "responseHeaderHint": "提示：<strong>响应头</strong>的改写不会显示在浏览器「网络」面板里，看不到不等于没生效，可在控制台用 <code>fetch(url).then((r) =&gt; r.headers.get('...'))</code> 读取验证。"
+  },
+  "templateLibrary": {
+    "title": "常用规则模板库",
+    "hint": "选用模板会打开规则编辑器并预填好动作，你只需把匹配内容改成自己的目标地址即可保存。",
+    "channelPagePatch": "页面补丁",
+    "use": "使用"
+  },
+  "label": {
+    "ruleTemplateCategory": {
+      "cors": "跨域 CORS",
+      "cache": "缓存控制",
+      "protocol": "协议与重定向",
+      "userAgent": "User-Agent"
+    },
+    "ruleActionType": {
+      "block": "拦截请求",
+      "redirect": "重定向",
+      "injectParams": "参数注入",
+      "modifyHeaders": "Header 改写",
+      "mockResponse": "返回值 Mock",
+      "delay": "网络限速",
+      "modifyRequestBody": "改请求体",
+      "insertScript": "脚本注入"
+    },
+    "requestBodyMode": {
+      "replace": "整体替换",
+      "mergeJson": "JSON 深合并"
+    },
+    "requestBodySourceMode": {
+      "static": "静态改写",
+      "dynamic": "JavaScript 动态生成"
+    },
+    "mockResponseMode": {
+      "static": "静态响应体",
+      "dynamic": "JavaScript 动态生成"
+    },
+    "mockBodyType": {
+      "text": "文本"
+    },
+    "networkThrottlePreset": {
+      "custom": "自定义"
+    },
+    "insertScriptTiming": {
+      "documentStart": "文档开始 (document_start)",
+      "documentEnd": "文档就绪 (document_end)"
+    },
+    "bodyMatchType": {
+      "contains": "包含子串",
+      "regex": "正则",
+      "graphqlOperation": "GraphQL 操作名"
+    },
+    "bodyMatchValuePlaceholder": {
+      "contains": "请求体需包含的子串",
+      "regex": "匹配请求体的正则，如 \"mutation\\\\s+Login\"",
+      "graphqlOperation": "operationName，如 GetUser"
+    },
+    "ruleScopeType": {
+      "allTabs": "全部标签页",
+      "tab": "指定标签页",
+      "window": "指定窗口",
+      "tabGroup": "指定标签组"
+    },
+    "ruleScopeEmptyHint": {
+      "tab": "勾选一个或多个当前打开的标签页",
+      "window": "勾选一个或多个当前打开的窗口",
+      "tabGroup": "勾选一个或多个当前的标签组"
+    },
+    "matchType": {
+      "contains": "包含",
+      "equals": "完全相等",
+      "wildcard": "通配符",
+      "regex": "正则"
+    },
+    "headerTarget": {
+      "request": "请求头",
+      "response": "响应头"
+    },
+    "headerOperation": {
+      "set": "设置",
+      "append": "追加",
+      "remove": "移除"
+    }
+  }
+}

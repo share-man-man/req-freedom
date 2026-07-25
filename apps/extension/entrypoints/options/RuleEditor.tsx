@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { browser } from 'wxt/browser';
 import { Check, CheckCircle2, ChevronDown, FlaskConical, Info, RefreshCw, Trash2, XCircle } from 'lucide-react';
 import type { ReactNode, Ref } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import type { BodyMatcher, Rule, RuleAction, RuleScope, ScopeTarget } from '@req-freedom/shared';
 import { matchUrl } from '@req-freedom/core';
 import {
@@ -41,21 +43,7 @@ import { CodeEditor, type CodeEditorLanguage } from '@/components/ui/code-editor
 import { DynamicVariableHint } from '@/components/ui/dynamic-variable-hint';
 import HeadersEditor from './HeadersEditor';
 import KeyValueEditor from './KeyValueEditor';
-import {
-  BODY_MATCH_TYPE_LABELS,
-  BODY_MATCH_VALUE_PLACEHOLDERS,
-  INSERT_SCRIPT_CODE_TYPE_LABELS,
-  INSERT_SCRIPT_TIMING_LABELS,
-  MATCH_TYPE_LABELS,
-  MOCK_BODY_TYPE_LABELS,
-  MOCK_RESPONSE_MODE_LABELS,
-  NETWORK_THROTTLE_PRESET_LABELS,
-  REQUEST_BODY_MODE_LABELS,
-  REQUEST_BODY_SOURCE_MODE_LABELS,
-  RULE_ACTION_TYPE_LABELS,
-  RULE_SCOPE_EMPTY_HINTS,
-  RULE_SCOPE_TYPE_LABELS,
-} from '@/utils/labels';
+import { getLabels } from '@/utils/labels';
 
 /** 供所属分组下拉选择的分组简要信息。 */
 export interface GroupOption { id: string; name: string; }
@@ -92,20 +80,30 @@ const MOCK_BODY_TYPE_EDITOR_LANGUAGE: Record<MockBodyType, CodeEditorLanguage> =
   [MockBodyType.Css]: 'css',
 };
 
-/** 动作的一句话说明，帮助用户在选择前理解各动作的作用。 */
-const ACTION_DESCRIPTIONS: Record<RuleActionType, string> = {
-  [RuleActionType.Block]: '直接阻断匹配到的请求',
-  [RuleActionType.Redirect]: '把请求转发到另一个地址',
-  [RuleActionType.InjectParams]: '向 URL 查询串追加或覆盖参数',
-  [RuleActionType.ModifyHeaders]: '增删改请求头或响应头',
-  [RuleActionType.MockResponse]: '拦截请求并返回自定义响应',
-  [RuleActionType.Delay]: '为请求注入延迟与带宽限制',
-  [RuleActionType.ModifyRequestBody]: '在请求发送前改写请求体',
-  [RuleActionType.InsertScript]: '按页面 URL 注入 JS / CSS',
-};
+/**
+ * 按当前语言构建动作的一句话说明，帮助用户在选择前理解各动作的作用。
+ * @param t 当前语言下的翻译函数
+ * @returns 各动作类型 → 说明文案的映射
+ */
+function getActionDescriptions(t: TFunction): Record<RuleActionType, string> {
+  return {
+    [RuleActionType.Block]: t('ruleEditor.actionDescription.block'),
+    [RuleActionType.Redirect]: t('ruleEditor.actionDescription.redirect'),
+    [RuleActionType.InjectParams]: t('ruleEditor.actionDescription.injectParams'),
+    [RuleActionType.ModifyHeaders]: t('ruleEditor.actionDescription.modifyHeaders'),
+    [RuleActionType.MockResponse]: t('ruleEditor.actionDescription.mockResponse'),
+    [RuleActionType.Delay]: t('ruleEditor.actionDescription.delay'),
+    [RuleActionType.ModifyRequestBody]: t('ruleEditor.actionDescription.modifyRequestBody'),
+    [RuleActionType.InsertScript]: t('ruleEditor.actionDescription.insertScript'),
+  };
+}
 
-/** 动作分组元信息：以用户视角描述作用范围与组合规则，隐藏底层执行通道细节。 */
-const ACTION_GROUPS: ReadonlyArray<{
+/**
+ * 按当前语言构建动作分组元信息：以用户视角描述作用范围与组合规则，隐藏底层执行通道细节。
+ * @param t 当前语言下的翻译函数
+ * @returns 各通道对应的分组元信息
+ */
+function getActionGroups(t: TFunction): ReadonlyArray<{
   /** 组对应的执行通道。 */
   channel: RuleExecutionChannel;
   /** 组标题。 */
@@ -116,10 +114,12 @@ const ACTION_GROUPS: ReadonlyArray<{
   types: readonly RuleActionType[];
   /** 组内动作的组合约束说明。 */
   note: string;
-}> = [
-  { channel: RuleExecutionChannel.Dnr, title: '网络层', hint: '作用于全部请求（含页面导航、静态资源），但读不到请求体', types: DNR_ACTIONS, note: '拦截 / 重定向 / 参数注入三选一，Header 改写可叠加' },
-  { channel: RuleExecutionChannel.PagePatch, title: '页面内补丁', hint: '仅作用于页面脚本发起的 fetch / XHR，可读写请求体与响应', types: PAGE_ACTIONS, note: '返回值 Mock / 限速 / 改请求体可叠加；脚本注入需单独使用' },
-];
+}> {
+  return [
+    { channel: RuleExecutionChannel.Dnr, title: t('ruleEditor.actionGroup.dnr.title'), hint: t('ruleEditor.actionGroup.dnr.hint'), types: DNR_ACTIONS, note: t('ruleEditor.actionGroup.dnr.note') },
+    { channel: RuleExecutionChannel.PagePatch, title: t('ruleEditor.actionGroup.pagePatch.title'), hint: t('ruleEditor.actionGroup.pagePatch.hint'), types: PAGE_ACTIONS, note: t('ruleEditor.actionGroup.pagePatch.note') },
+  ];
+}
 
 /** 一次规则命中测试的结果。 */
 interface TestResult {
@@ -153,34 +153,38 @@ function guessTestUrl(pattern: string, matchType: MatchType): string {
 
 /**
  * 计算单个动作命中后的效果预览文案（仅用于测试展示，不真正发请求）。
+ * @param t 当前语言下的翻译函数
  * @param action 命中的动作
  * @returns 人类可读的效果描述
  */
-function describeAction(action: RuleAction): string {
+function describeAction(t: TFunction, action: RuleAction): string {
+  /** 各枚举展示名映射。 */
+  const labels = getLabels(t);
   switch (action.type) {
-    case RuleActionType.Block: return '拦截：请求被直接阻断';
-    case RuleActionType.Redirect: return `重定向 → ${action.redirectUrl}`;
+    case RuleActionType.Block: return t('ruleEditor.describeAction.block');
+    case RuleActionType.Redirect: return t('ruleEditor.describeAction.redirect', { url: action.redirectUrl });
     case RuleActionType.InjectParams: {
       /** 注入参数的键值对预览。 */
       const pairs = Object.entries(action.params).map(([key, value]) => `${key}=${value}`);
-      return `注入参数：${pairs.length ? pairs.join('&') : '（空）'}`;
+      return t('ruleEditor.describeAction.injectParams', { params: pairs.length ? pairs.join('&') : t('ruleEditor.describeAction.empty') });
     }
-    case RuleActionType.ModifyHeaders: return `改写 Header：${action.headers.length} 项`;
-    case RuleActionType.MockResponse: return `Mock 返回 HTTP ${action.statusCode}`;
-    case RuleActionType.Delay: return `限速：${NETWORK_THROTTLE_PRESET_LABELS[action.throttlePreset]}`;
-    case RuleActionType.ModifyRequestBody: return `改请求体（${REQUEST_BODY_SOURCE_MODE_LABELS[action.sourceMode]}）`;
-    case RuleActionType.InsertScript: return `注入 ${INSERT_SCRIPT_CODE_TYPE_LABELS[action.codeType]}（${INSERT_SCRIPT_TIMING_LABELS[action.timing]}）`;
+    case RuleActionType.ModifyHeaders: return t('ruleEditor.describeAction.modifyHeaders', { count: action.headers.length });
+    case RuleActionType.MockResponse: return t('ruleEditor.describeAction.mockResponse', { statusCode: action.statusCode });
+    case RuleActionType.Delay: return t('ruleEditor.describeAction.delay', { preset: labels.NETWORK_THROTTLE_PRESET_LABELS[action.throttlePreset] });
+    case RuleActionType.ModifyRequestBody: return t('ruleEditor.describeAction.modifyRequestBody', { sourceMode: labels.REQUEST_BODY_SOURCE_MODE_LABELS[action.sourceMode] });
+    case RuleActionType.InsertScript: return t('ruleEditor.describeAction.insertScript', { codeType: labels.INSERT_SCRIPT_CODE_TYPE_LABELS[action.codeType], timing: labels.INSERT_SCRIPT_TIMING_LABELS[action.timing] });
   }
 }
 
 /**
  * 汇总命中后全部动作的效果预览。
+ * @param t 当前语言下的翻译函数
  * @param rule 规则草稿
  * @returns 各动作效果的合并描述；无动作时为提示文案
  */
-function describeEffect(rule: Rule): string {
-  if (rule.actions.length === 0) return '尚未配置任何动作';
-  return rule.actions.map(describeAction).join('；');
+function describeEffect(t: TFunction, rule: Rule): string {
+  if (rule.actions.length === 0) return t('ruleEditor.describeEffect.none');
+  return rule.actions.map((action) => describeAction(t, action)).join(t('ruleEditor.describeEffect.separator'));
 }
 
 interface FieldProps { label: string; children: ReactNode; error?: string; innerRef?: Ref<HTMLDivElement>; }
@@ -284,43 +288,49 @@ function actionFieldKey(type: RuleActionType): string {
 
 /**
  * 校验规则草稿。
+ * @param t 当前语言下的翻译函数
  * @param rule 待保存的规则
  * @returns 首个校验错误（含定位字段），合法时为 null
  */
-function validateRule(rule: Rule): ValidationError | null {
-  if (rule.actions.length === 0) return { field: 'actions', message: '至少选择一个动作' };
-  if (!rule.name.trim()) return { field: 'name', message: '规则名称不能为空' };
-  if (!rule.pattern.trim()) return { field: 'pattern', message: '匹配内容不能为空' };
-  if (rule.matchType === MatchType.Regex) { try { new RegExp(rule.pattern); } catch { return { field: 'pattern', message: '正则表达式语法错误' }; } }
+function validateRule(t: TFunction, rule: Rule): ValidationError | null {
+  if (rule.actions.length === 0) return { field: 'actions', message: t('ruleEditor.validation.actionsRequired') };
+  if (!rule.name.trim()) return { field: 'name', message: t('ruleEditor.validation.nameRequired') };
+  if (!rule.pattern.trim()) return { field: 'pattern', message: t('ruleEditor.validation.patternRequired') };
+  if (rule.matchType === MatchType.Regex) { try { new RegExp(rule.pattern); } catch { return { field: 'pattern', message: t('ruleEditor.validation.patternRegexInvalid') }; } }
   /** 是否有不允许 body 的方法。 */
   const hasBodylessMethod = rule.methods.length === 0 || rule.methods.includes(HttpMethod.Get) || rule.methods.includes(HttpMethod.Head);
-  if (hasBodylessMethod && rule.actions.some((action) => action.type === RuleActionType.ModifyRequestBody)) return { field: 'methods', message: '改请求体需选择 POST / PUT / PATCH / DELETE / OPTIONS' };
+  if (hasBodylessMethod && rule.actions.some((action) => action.type === RuleActionType.ModifyRequestBody)) return { field: 'methods', message: t('ruleEditor.validation.bodyMethodsRequired') };
   if (rule.bodyMatch !== undefined) {
-    if (!rule.bodyMatch.value.trim()) return { field: 'bodyMatch', message: '请求体匹配值不能为空' };
-    if (rule.bodyMatch.type === BodyMatchType.Regex) { try { new RegExp(rule.bodyMatch.value); } catch { return { field: 'bodyMatch', message: '请求体匹配正则语法错误' }; } }
+    if (!rule.bodyMatch.value.trim()) return { field: 'bodyMatch', message: t('ruleEditor.validation.bodyMatchValueRequired') };
+    if (rule.bodyMatch.type === BodyMatchType.Regex) { try { new RegExp(rule.bodyMatch.value); } catch { return { field: 'bodyMatch', message: t('ruleEditor.validation.bodyMatchRegexInvalid') }; } }
   }
   // 作用域限定了范围（非全部标签页）时，必须至少选中一个目标对象，否则规则永远命不中
   if (rule.scope !== undefined && rule.scope.type !== RuleScopeType.AllTabs && rule.scope.targets.length === 0) {
-    return { field: 'scope', message: `请至少选择一个${RULE_SCOPE_TYPE_LABELS[rule.scope.type].replace('指定', '')}` };
+    /** 作用域名词（不带「指定」前缀），用于拼接成「请至少选择一个 X」。 */
+    const scopeNounKey =
+      rule.scope.type === RuleScopeType.Tab ? 'ruleEditor.validation.scopeNoun.tab'
+      : rule.scope.type === RuleScopeType.Window ? 'ruleEditor.validation.scopeNoun.window'
+      : 'ruleEditor.validation.scopeNoun.tabGroup';
+    return { field: 'scope', message: t('ruleEditor.validation.scopeTargetRequired', { scopeNoun: t(scopeNounKey) }) };
   }
   /** 当前选择的 DNR 路由动作数量。 */
   const exclusiveDnrCount = rule.actions.filter((action) => EXCLUSIVE_DNR_ACTIONS.includes(action.type as (typeof EXCLUSIVE_DNR_ACTIONS)[number])).length;
-  if (exclusiveDnrCount > 1) return { field: 'actions', message: '拦截、重定向和参数注入只能选择其中一项' };
+  if (exclusiveDnrCount > 1) return { field: 'actions', message: t('ruleEditor.validation.exclusiveDnrActions') };
   for (const action of rule.actions) {
     if (action.type === RuleActionType.Redirect) {
-      if (!action.redirectUrl.trim()) return { field: actionFieldKey(action.type), message: '重定向目标不能为空' };
+      if (!action.redirectUrl.trim()) return { field: actionFieldKey(action.type), message: t('ruleEditor.validation.redirectUrlRequired') };
       // 正则匹配可用 \1 等捕获组动态拼装目标，无法静态判定为合法 URL，此处放行
-      if (rule.matchType !== MatchType.Regex && !isAbsoluteHttpUrl(action.redirectUrl)) return { field: actionFieldKey(action.type), message: '重定向目标需为绝对地址，如 http://127.0.0.1:4317/api/redirect-target.json' };
+      if (rule.matchType !== MatchType.Regex && !isAbsoluteHttpUrl(action.redirectUrl)) return { field: actionFieldKey(action.type), message: t('ruleEditor.validation.redirectUrlAbsolute') };
     }
-    if (action.type === RuleActionType.InsertScript && !action.code.trim()) return { field: actionFieldKey(action.type), message: '注入代码不能为空' };
+    if (action.type === RuleActionType.InsertScript && !action.code.trim()) return { field: actionFieldKey(action.type), message: t('ruleEditor.validation.insertScriptCodeRequired') };
     if (action.type === RuleActionType.MockResponse) {
-      if (action.statusCode < 100 || action.statusCode > 599) return { field: actionFieldKey(action.type), message: 'Mock 状态码需在 100 - 599 之间' };
+      if (action.statusCode < 100 || action.statusCode > 599) return { field: actionFieldKey(action.type), message: t('ruleEditor.validation.mockStatusCodeRange') };
       // 扩展页禁用 eval，无法在保存时静态执行/编译校验动态函数；以完整命名函数模板降低写错概率，运行期错误由运行时兜底
-      if (action.mode === MockResponseMode.Dynamic && !action.functionCode?.trim()) return { field: actionFieldKey(action.type), message: '动态 Mock 函数不能为空' };
+      if (action.mode === MockResponseMode.Dynamic && !action.functionCode?.trim()) return { field: actionFieldKey(action.type), message: t('ruleEditor.validation.dynamicMockFunctionRequired') };
     }
     if (action.type === RuleActionType.ModifyRequestBody) {
-      if (action.sourceMode === RequestBodySourceMode.Static && !action.content.trim()) return { field: actionFieldKey(action.type), message: '请求体内容不能为空' };
-      if (action.sourceMode === RequestBodySourceMode.Dynamic && !action.functionCode?.trim()) return { field: actionFieldKey(action.type), message: '请求体函数不能为空' };
+      if (action.sourceMode === RequestBodySourceMode.Static && !action.content.trim()) return { field: actionFieldKey(action.type), message: t('ruleEditor.validation.requestBodyContentRequired') };
+      if (action.sourceMode === RequestBodySourceMode.Dynamic && !action.functionCode?.trim()) return { field: actionFieldKey(action.type), message: t('ruleEditor.validation.requestBodyFunctionRequired') };
     }
   }
   return null;
@@ -332,6 +342,9 @@ function validateRule(rule: Rule): ValidationError | null {
  * @param props 编辑器参数
  */
 export default function RuleEditor({ rule, isNew, groups, groupId, onSave, onCancel }: RuleEditorProps) {
+  const { t } = useTranslation();
+  /** 各枚举展示名映射。 */
+  const labels = getLabels(t);
   /** 编辑中的规则草稿。 */
   const [draft, setDraft] = useState<Rule>(() => structuredClone(rule));
   /** 保存目标分组。 */
@@ -437,7 +450,7 @@ export default function RuleEditor({ rule, isNew, groups, groupId, onSave, onCan
     // 作用域为「全部标签页」等价于不限制，归一化为无作用域，避免落库空目标条件
     if (normalized.scope && normalized.scope.type === RuleScopeType.AllTabs) delete normalized.scope;
     /** 校验结果。 */
-    const validation = validateRule(normalized);
+    const validation = validateRule(t, normalized);
     if (validation) {
       setError(validation);
       // 出错项在高级面板内（请求体匹配 / 作用域）时先展开面板，否则字段未挂载滚不到、也看不见标红
@@ -460,18 +473,18 @@ export default function RuleEditor({ rule, isNew, groups, groupId, onSave, onCan
 
   /** 高级面板内已配置的条件摘要，折叠时显示，便于发现隐藏其中的条件。 */
   const advancedSummary = [
-    ...(supportsBodyMatch && draft.bodyMatch ? ['请求体匹配'] : []),
-    ...(draft.scope ? [RULE_SCOPE_TYPE_LABELS[draft.scope.type]] : []),
+    ...(supportsBodyMatch && draft.bodyMatch ? [t('ruleEditor.bodyMatchLabel')] : []),
+    ...(draft.scope ? [labels.RULE_SCOPE_TYPE_LABELS[draft.scope.type]] : []),
   ].join(' · ');
 
   return <div className="flex max-h-[82vh] min-h-0 flex-1 flex-col overflow-hidden">
-    <DialogHeader><DialogTitle>{isNew ? '新建规则' : '编辑规则'}</DialogTitle></DialogHeader>
+    <DialogHeader><DialogTitle>{isNew ? t('ruleEditor.titleNew') : t('ruleEditor.titleEdit')}</DialogTitle></DialogHeader>
     <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-5">
 
       {/* 基本信息：所属分组与规则名称同行排列 */}
       <div className="grid grid-cols-2 gap-4">
-        <Field label="所属分组"><Select value={targetGroupId} onValueChange={setTargetGroupId}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{groups.map((group) => <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>)}</SelectContent></Select></Field>
-        <Field label="规则名称" error={error?.field === 'name' ? error.message : undefined} innerRef={registerField('name')}><Input aria-invalid={error?.field === 'name'} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></Field>
+        <Field label={t('ruleEditor.group')}><Select value={targetGroupId} onValueChange={setTargetGroupId}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{groups.map((group) => <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>)}</SelectContent></Select></Field>
+        <Field label={t('ruleEditor.name')} error={error?.field === 'name' ? error.message : undefined} innerRef={registerField('name')}><Input aria-invalid={error?.field === 'name'} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></Field>
       </div>
 
       {/* 第一步：这条规则要做什么（动作工作台自带通道标签页，无需额外标题） */}
@@ -497,32 +510,32 @@ export default function RuleEditor({ rule, isNew, groups, groupId, onSave, onCan
       {/* 第二步：对哪些请求生效 */}
       <section className="space-y-4">
         {/* 匹配方式与匹配内容各占一行，与请求方法 / 请求体匹配的行式布局保持一致 */}
-        <Field label="匹配方式"><Select value={draft.matchType} onValueChange={(value) => setDraft({ ...draft, matchType: value as MatchType })}><SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger><SelectContent>{Object.values(MatchType).map((type) => <SelectItem key={type} value={type}>{MATCH_TYPE_LABELS[type]}</SelectItem>)}</SelectContent></Select></Field>
-        <Field label="匹配内容" error={error?.field === 'pattern' ? error.message : undefined} innerRef={registerField('pattern')}>
+        <Field label={t('ruleEditor.matchType')}><Select value={draft.matchType} onValueChange={(value) => setDraft({ ...draft, matchType: value as MatchType })}><SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger><SelectContent>{Object.values(MatchType).map((type) => <SelectItem key={type} value={type}>{labels.MATCH_TYPE_LABELS[type]}</SelectItem>)}</SelectContent></Select></Field>
+        <Field label={t('ruleEditor.pattern')} error={error?.field === 'pattern' ? error.message : undefined} innerRef={registerField('pattern')}>
           <div className="flex items-center gap-2">
             <Input className="flex-1" aria-invalid={error?.field === 'pattern'} value={draft.pattern} onChange={(event) => setDraft({ ...draft, pattern: event.target.value })} />
             <MatchTester draft={draft} />
           </div>
         </Field>
-        <Field label="请求方法" error={error?.field === 'methods' ? error.message : undefined} innerRef={registerField('methods')}><MethodPicker draft={draft} onToggle={toggleMethod} onSelectAll={() => setDraft({ ...draft, methods: [] })} /></Field>
+        <Field label={t('ruleEditor.methods')} error={error?.field === 'methods' ? error.message : undefined} innerRef={registerField('methods')}><MethodPicker draft={draft} onToggle={toggleMethod} onSelectAll={() => setDraft({ ...draft, methods: [] })} /></Field>
 
         {/* 高级（选填）：请求体匹配 / 作用域，默认折叠，收纳不常用的收敛条件 */}
         <div className="rounded-lg border border-border">
           <button type="button" onClick={() => setAdvancedOpen((open) => !open)} className="flex w-full items-center gap-2 px-3 py-2.5 text-left" aria-expanded={advancedOpen}>
             <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform ${advancedOpen ? '' : '-rotate-90'}`} />
-            <span className="text-sm font-medium">高级</span>
-            <span className="text-xs text-muted-foreground">选填</span>
+            <span className="text-sm font-medium">{t('ruleEditor.advanced')}</span>
+            <span className="text-xs text-muted-foreground">{t('ruleEditor.optional')}</span>
             {/* 折叠时展示已配置条件摘要，避免隐藏在里面的条件被忽略 */}
             {!advancedOpen && advancedSummary && <span className="ml-auto truncate text-xs text-primary">{advancedSummary}</span>}
           </button>
           {advancedOpen && (
             <div className="space-y-4 border-t border-border px-3 py-4">
               {supportsBodyMatch && (
-                <Field label="请求体匹配" error={error?.field === 'bodyMatch' ? error.message : undefined} innerRef={registerField('bodyMatch')}>
+                <Field label={t('ruleEditor.bodyMatchLabel')} error={error?.field === 'bodyMatch' ? error.message : undefined} innerRef={registerField('bodyMatch')}>
                   <BodyMatchEditor value={draft.bodyMatch} invalid={error?.field === 'bodyMatch'} onChange={setBodyMatch} />
                 </Field>
               )}
-              <Field label="作用域" error={error?.field === 'scope' ? error.message : undefined} innerRef={registerField('scope')}>
+              <Field label={t('ruleEditor.scope')} error={error?.field === 'scope' ? error.message : undefined} innerRef={registerField('scope')}>
                 <ScopeEditor value={draft.scope} invalid={error?.field === 'scope'} onChange={setScope} />
               </Field>
             </div>
@@ -530,7 +543,7 @@ export default function RuleEditor({ rule, isNew, groups, groupId, onSave, onCan
         </div>
       </section>
     </div>
-    <DialogFooter><Button variant="outline" onClick={onCancel}>取消</Button><Button onClick={handleSave}>保存</Button></DialogFooter>
+    <DialogFooter><Button variant="outline" onClick={onCancel}>{t('ruleEditor.cancel')}</Button><Button onClick={handleSave}>{t('ruleEditor.save')}</Button></DialogFooter>
   </div>;
 }
 
@@ -544,6 +557,7 @@ interface MatchTesterProps {
  * @param props 命中测试参数
  */
 function MatchTester({ draft }: MatchTesterProps) {
+  const { t } = useTranslation();
   /** 气泡是否展开。 */
   const [open, setOpen] = useState(false);
   /** 测试输入的 URL（首次按当前匹配模式预填）。 */
@@ -574,11 +588,11 @@ function MatchTester({ draft }: MatchTesterProps) {
   const handleTest = (): void => {
     /** 测试 URL 是否命中草稿的匹配条件。 */
     const matched = matchUrl(testUrl, draft.matchType, draft.pattern);
-    setResult({ matched, effect: matched ? describeEffect(draft) : '' });
+    setResult({ matched, effect: matched ? describeEffect(t, draft) : '' });
   };
 
   return <div ref={rootRef} className="relative shrink-0">
-    <Button type="button" variant="outline" size="icon" aria-label="命中测试" title="命中测试" onClick={() => setOpen((value) => !value)}>
+    <Button type="button" variant="outline" size="icon" aria-label={t('ruleEditor.matchTester.trigger')} title={t('ruleEditor.matchTester.trigger')} onClick={() => setOpen((value) => !value)}>
       <FlaskConical className="size-4" />
     </Button>
     {open && (
@@ -587,20 +601,20 @@ function MatchTester({ draft }: MatchTesterProps) {
           <Input
             autoFocus
             className="h-8 flex-1 font-mono text-xs"
-            placeholder="输入测试路径 / URL"
+            placeholder={t('ruleEditor.matchTester.placeholder')}
             value={testUrl}
             onChange={(event) => setTestUrl(event.target.value)}
             onKeyDown={(event) => { if (event.key === 'Enter') handleTest(); }}
           />
-          <Button type="button" size="sm" className="shrink-0" onClick={handleTest}>测试</Button>
+          <Button type="button" size="sm" className="shrink-0" onClick={handleTest}>{t('ruleEditor.matchTester.test')}</Button>
         </div>
         {result && (
           <div className={`mt-2 flex items-start gap-1.5 text-xs leading-relaxed ${result.matched ? 'text-success' : 'text-muted-foreground'}`}>
             {result.matched ? <CheckCircle2 className="mt-0.5 size-3.5 shrink-0" /> : <XCircle className="mt-0.5 size-3.5 shrink-0" />}
             <span className="min-w-0 break-all">
               {result.matched
-                ? <><strong className="font-medium text-foreground">命中</strong>：{result.effect}</>
-                : '未命中，该 URL 不会被此规则处理'}
+                ? <><strong className="font-medium text-foreground">{t('ruleEditor.matchTester.matched')}</strong>：{result.effect}</>
+                : t('ruleEditor.matchTester.notMatched')}
             </span>
           </div>
         )}
@@ -640,8 +654,15 @@ interface ActionWorkbenchProps {
  * @param props 工作台参数
  */
 function ActionWorkbench({ draft, focusedType, channelTab, onChannelTab, onToggle, onFocus, onChange, onRemove, errorField, errorMessage, registerField }: ActionWorkbenchProps) {
+  const { t } = useTranslation();
+  /** 各枚举展示名映射。 */
+  const labels = getLabels(t);
+  /** 当前语言下的动作分组元信息。 */
+  const actionGroups = getActionGroups(t);
+  /** 当前语言下各动作的一句话说明。 */
+  const actionDescriptions = getActionDescriptions(t);
   /** 当前 tab 对应的动作分组。 */
-  const currentGroup = ACTION_GROUPS.find((group) => group.channel === channelTab) ?? ACTION_GROUPS[0];
+  const currentGroup = actionGroups.find((group) => group.channel === channelTab) ?? actionGroups[0];
   /** 实际聚焦的动作类型：focusedType 缺省或已被移除时回退到首个动作。 */
   const activeType = draft.actions.some((action) => action.type === focusedType) ? focusedType : draft.actions[0]?.type ?? null;
   /** 当前聚焦的动作对象。 */
@@ -654,7 +675,7 @@ function ActionWorkbench({ draft, focusedType, channelTab, onChannelTab, onToggl
   return <div className="rounded-lg border border-border">
     {/* 通道 tab：横跨整个面板作为标题头，网络层 / 页面内补丁二选一 */}
     <div className="flex gap-1 border-b border-border px-2 pt-2">
-      {ACTION_GROUPS.map((group) => {
+      {actionGroups.map((group) => {
         /** 该通道是否为当前 tab。 */
         const activeTab = group.channel === channelTab;
         /** 选中动作落在「另一个（非当前）」通道时，用小圆点提示选择在别的 tab。 */
@@ -693,20 +714,20 @@ function ActionWorkbench({ draft, focusedType, channelTab, onChannelTab, onToggl
                 {hasError
                   ? <span className="size-1.5 shrink-0 rounded-full bg-destructive" />
                   : <Check className={`size-3.5 shrink-0 ${selectedAction ? 'text-primary' : 'text-transparent'}`} />}
-                <span className={`truncate text-sm font-medium ${selectedAction ? 'text-foreground' : 'text-muted-foreground'}`}>{RULE_ACTION_TYPE_LABELS[type]}</span>
+                <span className={`truncate text-sm font-medium ${selectedAction ? 'text-foreground' : 'text-muted-foreground'}`}>{labels.RULE_ACTION_TYPE_LABELS[type]}</span>
                 {/* 动作说明移入 hover 气泡：默认展示动作用途，已选时展示当前配置预览 */}
                 <span className="group/desc relative inline-flex shrink-0">
                   <Info className="size-3 text-muted-foreground" />
                   <span className="pointer-events-none absolute left-0 top-full z-50 mt-1.5 w-56 rounded-md border border-border bg-popover px-2.5 py-1.5 text-left text-[11px] font-normal leading-snug text-popover-foreground opacity-0 shadow-md transition-opacity group-hover/desc:opacity-100">
-                    {selectedAction ? describeAction(selectedAction) : ACTION_DESCRIPTIONS[type]}
+                    {selectedAction ? describeAction(t, selectedAction) : actionDescriptions[type]}
                   </span>
                 </span>
               </button>
               {/* 删除入口：仅已选动作可删；聚焦行常显，其余行悬停浮现 */}
               {selectedAction && (
-                <button type="button" title={`删除${RULE_ACTION_TYPE_LABELS[type]}`} onClick={() => onRemove(type)} className={`shrink-0 rounded p-1 text-muted-foreground transition-opacity hover:text-destructive ${active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                <button type="button" title={t('ruleEditor.deleteAction', { actionLabel: labels.RULE_ACTION_TYPE_LABELS[type] })} onClick={() => onRemove(type)} className={`shrink-0 rounded p-1 text-muted-foreground transition-opacity hover:text-destructive ${active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                   <Trash2 className="size-3.5" />
-                  <span className="sr-only">删除动作</span>
+                  <span className="sr-only">{t('ruleEditor.deleteActionSr')}</span>
                 </button>
               )}
             </div>;
@@ -717,7 +738,7 @@ function ActionWorkbench({ draft, focusedType, channelTab, onChannelTab, onToggl
       <div className="min-w-0">
         {activeAction
           ? <ActionEditor key={activeAction.type} action={activeAction} onChange={onChange} error={activeError} innerRef={registerField(actionFieldKey(activeAction.type))} />
-          : <div className="flex h-full min-h-[120px] items-center justify-center text-center text-xs text-muted-foreground">{`勾选一个「${currentGroup.title}」动作开始配置`}</div>}
+          : <div className="flex h-full min-h-[120px] items-center justify-center text-center text-xs text-muted-foreground">{t('ruleEditor.selectActionHint', { groupTitle: currentGroup.title })}</div>}
       </div>
     </div>
   </div>;
@@ -737,10 +758,11 @@ interface MethodPickerProps {
  * @param props 方法选择器参数
  */
 function MethodPicker({ draft, onToggle, onSelectAll }: MethodPickerProps) {
+  const { t } = useTranslation();
   /** 当前是否仅为按页面 URL 命中的脚本注入。 */
   const isScriptOnly = draft.actions.length === 1 && draft.actions[0].type === RuleActionType.InsertScript;
   if (isScriptOnly) {
-    return <p className="pt-2 text-sm text-muted-foreground">脚本注入按页面 URL 命中，无需配置请求方法。</p>;
+    return <p className="pt-2 text-sm text-muted-foreground">{t('ruleEditor.methodPicker.scriptOnlyHint')}</p>;
   }
   /** 当前是否包含改请求体动作。 */
   const hasRequestBody = draft.actions.some((action) => action.type === RuleActionType.ModifyRequestBody);
@@ -748,10 +770,10 @@ function MethodPicker({ draft, onToggle, onSelectAll }: MethodPickerProps) {
   const methods: readonly HttpMethod[] = hasRequestBody ? BODY_METHODS : Object.values(HttpMethod);
   return <div>
     <div className="flex flex-wrap gap-2">
-      {!hasRequestBody && <Button size="sm" variant={draft.methods.length === 0 ? 'default' : 'outline'} onClick={onSelectAll}>全部</Button>}
+      {!hasRequestBody && <Button size="sm" variant={draft.methods.length === 0 ? 'default' : 'outline'} onClick={onSelectAll}>{t('ruleEditor.methodPicker.all')}</Button>}
       {methods.map((method) => <Button key={method} size="sm" variant={draft.methods.includes(method) ? 'default' : 'outline'} onClick={() => onToggle(method)}>{method}</Button>)}
     </div>
-    {hasRequestBody && <p className="mt-1.5 text-xs text-muted-foreground">改请求体只作用于可携带请求体的方法，已自动排除 GET / HEAD 与「全部」。</p>}
+    {hasRequestBody && <p className="mt-1.5 text-xs text-muted-foreground">{t('ruleEditor.methodPicker.bodyHint')}</p>}
   </div>;
 }
 
@@ -770,18 +792,21 @@ interface BodyMatchEditorProps {
  * @param props 请求体条件、校验标红与变更回调
  */
 function BodyMatchEditor({ value, invalid, onChange }: BodyMatchEditorProps) {
+  const { t } = useTranslation();
+  /** 各枚举展示名映射。 */
+  const labels = getLabels(t);
   return <div className="space-y-1.5">
     <div className="flex items-center gap-2">
       <Select value={value?.type ?? BODY_MATCH_OFF} onValueChange={(next) => onChange(next === BODY_MATCH_OFF ? undefined : { type: next as BodyMatchType, value: value?.value ?? '' })}>
         <SelectTrigger className="w-40 shrink-0"><SelectValue /></SelectTrigger>
         <SelectContent>
-          <SelectItem value={BODY_MATCH_OFF}>不限制请求体</SelectItem>
-          {Object.values(BodyMatchType).map((type) => <SelectItem key={type} value={type}>{BODY_MATCH_TYPE_LABELS[type]}</SelectItem>)}
+          <SelectItem value={BODY_MATCH_OFF}>{t('ruleEditor.bodyMatchEditor.off')}</SelectItem>
+          {Object.values(BodyMatchType).map((type) => <SelectItem key={type} value={type}>{labels.BODY_MATCH_TYPE_LABELS[type]}</SelectItem>)}
         </SelectContent>
       </Select>
-      {value && <Input className="flex-1 font-mono text-xs" aria-invalid={invalid} placeholder={BODY_MATCH_VALUE_PLACEHOLDERS[value.type]} value={value.value} onChange={(event) => onChange({ ...value, value: event.target.value })} />}
+      {value && <Input className="flex-1 font-mono text-xs" aria-invalid={invalid} placeholder={labels.BODY_MATCH_VALUE_PLACEHOLDERS[value.type]} value={value.value} onChange={(event) => onChange({ ...value, value: event.target.value })} />}
     </div>
-    <p className="text-xs text-muted-foreground">只按页面脚本 fetch / XHR 的请求体收敛；GraphQL 同 URL 的多个操作可用「操作名」精确区分。</p>
+    <p className="text-xs text-muted-foreground">{t('ruleEditor.bodyMatchEditor.hint')}</p>
   </div>;
 }
 
@@ -797,16 +822,17 @@ interface ScopeOption {
 
 /**
  * 加载指定作用域类型当前可选的目标对象。
+ * @param t 当前语言下的翻译函数
  * @param type 作用域类型
  * @returns 当前打开的标签页 / 窗口 / 标签组选项列表
  */
-async function loadScopeOptions(type: RuleScopeType): Promise<ScopeOption[]> {
+async function loadScopeOptions(t: TFunction, type: RuleScopeType): Promise<ScopeOption[]> {
   if (type === RuleScopeType.Tab) {
     /** 当前全部标签页。 */
     const tabs = await browser.tabs.query({});
     return tabs
       .filter((tab): tab is typeof tab & { id: number } => tab.id !== undefined)
-      .map((tab) => ({ id: tab.id, label: tab.title?.trim() || tab.url || `标签页 #${tab.id}`, hint: tab.url }));
+      .map((tab) => ({ id: tab.id, label: tab.title?.trim() || tab.url || t('ruleEditor.scopeEditor.unnamedTab', { id: tab.id }), hint: tab.url }));
   }
   if (type === RuleScopeType.Window) {
     /** 当前全部窗口（含标签页以便统计数量）。 */
@@ -815,8 +841,8 @@ async function loadScopeOptions(type: RuleScopeType): Promise<ScopeOption[]> {
       .filter((win): win is typeof win & { id: number } => win.id !== undefined)
       .map((win, index) => ({
         id: win.id,
-        label: `窗口 ${index + 1}`,
-        hint: `${win.tabs?.length ?? 0} 个标签页${win.focused ? ' · 当前' : ''}`,
+        label: t('ruleEditor.scopeEditor.windowLabel', { index: index + 1 }),
+        hint: t('ruleEditor.scopeEditor.windowHint', { count: win.tabs?.length ?? 0, current: win.focused ? t('ruleEditor.scopeEditor.currentSuffix') : '' }),
       }));
   }
   if (type === RuleScopeType.TabGroup) {
@@ -824,7 +850,7 @@ async function loadScopeOptions(type: RuleScopeType): Promise<ScopeOption[]> {
     if (!browser.tabGroups) return [];
     /** 当前全部标签组。 */
     const groups = await browser.tabGroups.query({});
-    return groups.map((group) => ({ id: group.id, label: group.title?.trim() || '未命名标签组', hint: group.color }));
+    return groups.map((group) => ({ id: group.id, label: group.title?.trim() || t('ruleEditor.scopeEditor.unnamedTabGroup'), hint: group.color }));
   }
   return [];
 }
@@ -846,6 +872,9 @@ interface ScopeEditorProps {
  * @param props 作用域条件、校验标红与变更回调
  */
 function ScopeEditor({ value, invalid, onChange }: ScopeEditorProps) {
+  const { t } = useTranslation();
+  /** 各枚举展示名映射。 */
+  const labels = getLabels(t);
   /** 当前作用域类型（缺省为全部标签页）。 */
   const type = value?.type ?? RuleScopeType.AllTabs;
   /** 当前已选目标对象。 */
@@ -866,13 +895,13 @@ function ScopeEditor({ value, invalid, onChange }: ScopeEditorProps) {
     }
     setLoading(true);
     try {
-      setOptions(await loadScopeOptions(nextType));
+      setOptions(await loadScopeOptions(t, nextType));
     } catch {
       setOptions([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   // 类型变化时重新拉取可选对象
   useEffect(() => { void refresh(type); }, [type, refresh]);
@@ -922,11 +951,11 @@ function ScopeEditor({ value, invalid, onChange }: ScopeEditorProps) {
       <Select value={type} onValueChange={handleTypeChange}>
         <SelectTrigger className="w-40 shrink-0"><SelectValue /></SelectTrigger>
         <SelectContent>
-          {Object.values(RuleScopeType).map((scopeType) => <SelectItem key={scopeType} value={scopeType}>{RULE_SCOPE_TYPE_LABELS[scopeType]}</SelectItem>)}
+          {Object.values(RuleScopeType).map((scopeType) => <SelectItem key={scopeType} value={scopeType}>{labels.RULE_SCOPE_TYPE_LABELS[scopeType]}</SelectItem>)}
         </SelectContent>
       </Select>
       {type !== RuleScopeType.AllTabs && (
-        <Button type="button" variant="outline" size="icon" title="刷新列表" onClick={() => void refresh(type)}>
+        <Button type="button" variant="outline" size="icon" title={t('ruleEditor.scopeEditor.refresh')} onClick={() => void refresh(type)}>
           <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} />
         </Button>
       )}
@@ -934,9 +963,9 @@ function ScopeEditor({ value, invalid, onChange }: ScopeEditorProps) {
     {type !== RuleScopeType.AllTabs && (
       <div className={`max-h-48 overflow-y-auto rounded-md border ${invalid ? 'border-destructive' : 'border-border'}`}>
         {loading && rows.length === 0
-          ? <p className="px-3 py-4 text-center text-xs text-muted-foreground">加载中…</p>
+          ? <p className="px-3 py-4 text-center text-xs text-muted-foreground">{t('ruleEditor.scopeEditor.loading')}</p>
           : rows.length === 0
-            ? <p className="px-3 py-4 text-center text-xs text-muted-foreground">没有可选对象，请先打开对应的标签页 / 窗口 / 标签组</p>
+            ? <p className="px-3 py-4 text-center text-xs text-muted-foreground">{t('ruleEditor.scopeEditor.noOptions')}</p>
             : rows.map((row) => {
                 /** 该对象是否已选中。 */
                 const selected = targets.some((target) => target.id === row.id);
@@ -944,7 +973,7 @@ function ScopeEditor({ value, invalid, onChange }: ScopeEditorProps) {
                   <Check className={`size-3.5 shrink-0 ${selected ? 'text-primary' : 'text-transparent'}`} />
                   <span className="min-w-0 flex-1 truncate text-sm" title={row.hint ?? row.label}>{row.label}</span>
                   {row.stale
-                    ? <span className="shrink-0 text-[11px] text-warning">已关闭</span>
+                    ? <span className="shrink-0 text-[11px] text-warning">{t('ruleEditor.scopeEditor.closed')}</span>
                     : row.hint && <span className="max-w-[45%] shrink-0 truncate text-[11px] text-muted-foreground">{row.hint}</span>}
                 </button>;
               })}
@@ -952,8 +981,8 @@ function ScopeEditor({ value, invalid, onChange }: ScopeEditorProps) {
     )}
     <p className="text-xs text-muted-foreground">
       {type === RuleScopeType.AllTabs
-        ? '默认对所有标签页生效。限定作用域可避免把敏感 Header（如 Authorization）误发到其他站点。'
-        : `${RULE_SCOPE_EMPTY_HINTS[type]}；对象 ID 为会话级，浏览器重启后需重新选择。`}
+        ? t('ruleEditor.scopeEditor.allTabsHint')
+        : t('ruleEditor.scopeEditor.limitedHint', { emptyHint: labels.RULE_SCOPE_EMPTY_HINTS[type] })}
     </p>
   </div>;
 }
@@ -993,8 +1022,11 @@ function actionSupportsDynamicVariables(action: RuleAction): boolean {
  * @param props 动作、更新回调、校验错误与滚动锚点
  */
 function ActionEditor({ action, onChange, error, innerRef }: ActionEditorProps) {
+  const { t } = useTranslation();
+  /** 各枚举展示名映射。 */
+  const labels = getLabels(t);
   // 常态无边框（外层主从面板已提供边框），仅出错时标红，避免双层边框
-  return <div ref={innerRef} className={`min-w-0 ${error ? 'rounded-lg border border-destructive px-3 py-2' : ''}`}><div className="flex items-center justify-between gap-2"><span className="font-medium">{RULE_ACTION_TYPE_LABELS[action.type]}</span>{actionSupportsDynamicVariables(action) && <DynamicVariableHint />}</div><div className="mt-3">
+  return <div ref={innerRef} className={`min-w-0 ${error ? 'rounded-lg border border-destructive px-3 py-2' : ''}`}><div className="flex items-center justify-between gap-2"><span className="font-medium">{labels.RULE_ACTION_TYPE_LABELS[action.type]}</span>{actionSupportsDynamicVariables(action) && <DynamicVariableHint />}</div><div className="mt-3">
     {error && <p className="mb-2 text-xs text-destructive">{error}</p>}
     {action.type === RuleActionType.Redirect && <Input aria-invalid={!!error} value={action.redirectUrl} onChange={(event) => onChange({ ...action, redirectUrl: event.target.value })} />}
     {action.type === RuleActionType.InjectParams && <KeyValueEditor initialValue={action.params} onChange={(params) => onChange({ ...action, params })} />}
@@ -1008,6 +1040,9 @@ function ActionEditor({ action, onChange, error, innerRef }: ActionEditorProps) 
 
 /** Mock 参数编辑器。 */
 function MockActionEditor({ action, onChange }: { action: Extract<RuleAction, { type: RuleActionType.MockResponse }>; onChange: (action: RuleAction) => void; }) {
+  const { t } = useTranslation();
+  /** 各枚举展示名映射。 */
+  const labels = getLabels(t);
   /** 当前是否为静态响应体模式。 */
   const isStatic = action.mode === MockResponseMode.Static;
   /** 静态模式的响应体类型（缺省 JSON，兼容旧数据）。 */
@@ -1018,7 +1053,7 @@ function MockActionEditor({ action, onChange }: { action: Extract<RuleAction, { 
   const editorLanguage: CodeEditorLanguage = isStatic ? MOCK_BODY_TYPE_EDITOR_LANGUAGE[bodyType] : 'javascript';
   return <div className="space-y-3">
     <div className="grid grid-cols-2 gap-3">
-      <Select value={action.mode} onValueChange={(value) => onChange({ ...action, mode: value as MockResponseMode })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(MockResponseMode).map((mode) => <SelectItem key={mode} value={mode}>{MOCK_RESPONSE_MODE_LABELS[mode]}</SelectItem>)}</SelectContent></Select>
+      <Select value={action.mode} onValueChange={(value) => onChange({ ...action, mode: value as MockResponseMode })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(MockResponseMode).map((mode) => <SelectItem key={mode} value={mode}>{labels.MOCK_RESPONSE_MODE_LABELS[mode]}</SelectItem>)}</SelectContent></Select>
       <Input type="number" value={action.statusCode} onChange={(event) => onChange({ ...action, statusCode: Number(event.target.value) })} />
     </div>
     {/* 静态模式：把响应体类型下拉塞进编辑器左上角（替代语言名标签），切换后同步驱动高亮与交付时的 Content-Type */}
@@ -1028,19 +1063,22 @@ function MockActionEditor({ action, onChange }: { action: Extract<RuleAction, { 
       onChange={(next) => onChange(isStatic ? { ...action, body: next } : { ...action, functionCode: next })}
       headerStart={isStatic
         ? <Select value={bodyType} onValueChange={(value) => onChange({ ...action, bodyType: value as MockBodyType })}>
-            <SelectTrigger className="h-6 w-auto gap-1 border-0 bg-transparent px-1 py-0 text-[11px] font-medium text-muted-foreground shadow-none hover:text-foreground focus:border-0 focus:ring-0" aria-label="响应体类型"><SelectValue /></SelectTrigger>
-            <SelectContent>{Object.values(MockBodyType).map((type) => <SelectItem key={type} value={type}>{MOCK_BODY_TYPE_LABELS[type]}</SelectItem>)}</SelectContent>
+            <SelectTrigger className="h-6 w-auto gap-1 border-0 bg-transparent px-1 py-0 text-[11px] font-medium text-muted-foreground shadow-none hover:text-foreground focus:border-0 focus:ring-0" aria-label={t('ruleEditor.mockActionEditor.bodyTypeAriaLabel')}><SelectValue /></SelectTrigger>
+            <SelectContent>{Object.values(MockBodyType).map((type) => <SelectItem key={type} value={type}>{labels.MOCK_BODY_TYPE_LABELS[type]}</SelectItem>)}</SelectContent>
           </Select>
         : undefined}
       headerEnd={isStatic ? <DynamicVariableHint /> : undefined}
     />
-    {invalidJsonBody && <p className="text-xs text-warning">响应体不是合法 JSON；若要返回其他格式，请切换上方「响应体类型」。</p>}
-    {!isStatic && <p className="text-xs text-muted-foreground">动态代码可读取 req.url、req.method、req.headers、req.query、req.body、req.json。</p>}
+    {invalidJsonBody && <p className="text-xs text-warning">{t('ruleEditor.mockActionEditor.invalidJsonHint')}</p>}
+    {!isStatic && <p className="text-xs text-muted-foreground">{t('ruleEditor.mockActionEditor.dynamicHint')}</p>}
   </div>;
 }
 
 /** 限速参数编辑器。 */
 function DelayActionEditor({ action, onChange }: { action: Extract<RuleAction, { type: RuleActionType.Delay }>; onChange: (action: RuleAction) => void; }) {
+  const { t } = useTranslation();
+  /** 各枚举展示名映射。 */
+  const labels = getLabels(t);
   /**
    * 切换预设并同步对应参数。
    * @param value 预设值
@@ -1061,19 +1099,25 @@ function DelayActionEditor({ action, onChange }: { action: Extract<RuleAction, {
   };
   // 右栏 detail 列偏窄，四列并排会把「下行(KB/s)」等标签挤到放不下，改 2×2 每格更从容
   return <div className="grid grid-cols-2 gap-3">
-    <div className="space-y-1"><Label className="text-xs text-muted-foreground">网络档位</Label><Select value={action.throttlePreset} onValueChange={changePreset}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(NetworkThrottlePreset).map((preset) => <SelectItem key={preset} value={preset}>{NETWORK_THROTTLE_PRESET_LABELS[preset]}</SelectItem>)}</SelectContent></Select></div>
-    <div className="space-y-1"><Label className="text-xs text-muted-foreground">延迟(ms)</Label><Input type="number" min={0} value={action.latencyMs} onChange={(event) => editField({ latencyMs: Number(event.target.value) })} /></div>
-    <div className="space-y-1"><Label className="text-xs text-muted-foreground">{`下行(${NETWORK_SPEED_DISPLAY_UNIT})`}</Label><Input type="number" min={0} step="0.1" value={kilobitsPerSecondToKilobytesPerSecond(action.downloadKbps)} onChange={(event) => editField({ downloadKbps: kilobytesPerSecondToKilobitsPerSecond(Number(event.target.value)) })} /></div>
-    <div className="space-y-1"><Label className="text-xs text-muted-foreground">{`上行(${NETWORK_SPEED_DISPLAY_UNIT})`}</Label><Input type="number" min={0} step="0.1" value={kilobitsPerSecondToKilobytesPerSecond(action.uploadKbps)} onChange={(event) => editField({ uploadKbps: kilobytesPerSecondToKilobitsPerSecond(Number(event.target.value)) })} /></div>
+    <div className="space-y-1"><Label className="text-xs text-muted-foreground">{t('ruleEditor.delayActionEditor.preset')}</Label><Select value={action.throttlePreset} onValueChange={changePreset}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(NetworkThrottlePreset).map((preset) => <SelectItem key={preset} value={preset}>{labels.NETWORK_THROTTLE_PRESET_LABELS[preset]}</SelectItem>)}</SelectContent></Select></div>
+    <div className="space-y-1"><Label className="text-xs text-muted-foreground">{t('ruleEditor.delayActionEditor.latency')}</Label><Input type="number" min={0} value={action.latencyMs} onChange={(event) => editField({ latencyMs: Number(event.target.value) })} /></div>
+    <div className="space-y-1"><Label className="text-xs text-muted-foreground">{t('ruleEditor.delayActionEditor.download', { unit: NETWORK_SPEED_DISPLAY_UNIT })}</Label><Input type="number" min={0} step="0.1" value={kilobitsPerSecondToKilobytesPerSecond(action.downloadKbps)} onChange={(event) => editField({ downloadKbps: kilobytesPerSecondToKilobitsPerSecond(Number(event.target.value)) })} /></div>
+    <div className="space-y-1"><Label className="text-xs text-muted-foreground">{t('ruleEditor.delayActionEditor.upload', { unit: NETWORK_SPEED_DISPLAY_UNIT })}</Label><Input type="number" min={0} step="0.1" value={kilobitsPerSecondToKilobytesPerSecond(action.uploadKbps)} onChange={(event) => editField({ uploadKbps: kilobytesPerSecondToKilobitsPerSecond(Number(event.target.value)) })} /></div>
   </div>;
 }
 
 /** 请求体参数编辑器。 */
 function RequestBodyActionEditor({ action, onChange }: { action: Extract<RuleAction, { type: RuleActionType.ModifyRequestBody }>; onChange: (action: RuleAction) => void; }) {
-  return <div className="space-y-3"><div className="grid grid-cols-2 gap-3"><Select value={action.sourceMode} onValueChange={(value) => onChange({ ...action, sourceMode: value as RequestBodySourceMode })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(RequestBodySourceMode).map((mode) => <SelectItem key={mode} value={mode}>{REQUEST_BODY_SOURCE_MODE_LABELS[mode]}</SelectItem>)}</SelectContent></Select>{action.sourceMode === RequestBodySourceMode.Static && <Select value={action.mode} onValueChange={(value) => onChange({ ...action, mode: value as RequestBodyMode })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(RequestBodyMode).map((mode) => <SelectItem key={mode} value={mode}>{REQUEST_BODY_MODE_LABELS[mode]}</SelectItem>)}</SelectContent></Select>}</div><CodeEditor language={action.sourceMode === RequestBodySourceMode.Dynamic ? 'javascript' : 'json'} value={action.sourceMode === RequestBodySourceMode.Dynamic ? action.functionCode ?? '' : action.content} onChange={(next) => onChange(action.sourceMode === RequestBodySourceMode.Dynamic ? { ...action, functionCode: next } : { ...action, content: next })} headerEnd={action.sourceMode === RequestBodySourceMode.Static ? <DynamicVariableHint /> : undefined} /><p className="text-xs text-muted-foreground">仅作用于 fetch / XHR 的可带请求体方法；异常或返回 undefined 时保留原请求体。</p></div>;
+  const { t } = useTranslation();
+  /** 各枚举展示名映射。 */
+  const labels = getLabels(t);
+  return <div className="space-y-3"><div className="grid grid-cols-2 gap-3"><Select value={action.sourceMode} onValueChange={(value) => onChange({ ...action, sourceMode: value as RequestBodySourceMode })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(RequestBodySourceMode).map((mode) => <SelectItem key={mode} value={mode}>{labels.REQUEST_BODY_SOURCE_MODE_LABELS[mode]}</SelectItem>)}</SelectContent></Select>{action.sourceMode === RequestBodySourceMode.Static && <Select value={action.mode} onValueChange={(value) => onChange({ ...action, mode: value as RequestBodyMode })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(RequestBodyMode).map((mode) => <SelectItem key={mode} value={mode}>{labels.REQUEST_BODY_MODE_LABELS[mode]}</SelectItem>)}</SelectContent></Select>}</div><CodeEditor language={action.sourceMode === RequestBodySourceMode.Dynamic ? 'javascript' : 'json'} value={action.sourceMode === RequestBodySourceMode.Dynamic ? action.functionCode ?? '' : action.content} onChange={(next) => onChange(action.sourceMode === RequestBodySourceMode.Dynamic ? { ...action, functionCode: next } : { ...action, content: next })} headerEnd={action.sourceMode === RequestBodySourceMode.Static ? <DynamicVariableHint /> : undefined} /><p className="text-xs text-muted-foreground">{t('ruleEditor.requestBodyActionEditor.hint')}</p></div>;
 }
 
 /** 脚本注入参数编辑器。 */
 function InsertScriptActionEditor({ action, onChange }: { action: Extract<RuleAction, { type: RuleActionType.InsertScript }>; onChange: (action: RuleAction) => void; }) {
-  return <div className="space-y-3"><div className="grid grid-cols-2 gap-3"><Select value={action.codeType} onValueChange={(value) => onChange({ ...action, codeType: value as InsertScriptCodeType })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(InsertScriptCodeType).map((codeType) => <SelectItem key={codeType} value={codeType}>{INSERT_SCRIPT_CODE_TYPE_LABELS[codeType]}</SelectItem>)}</SelectContent></Select><Select value={action.timing} onValueChange={(value) => onChange({ ...action, timing: value as InsertScriptTiming })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(InsertScriptTiming).map((timing) => <SelectItem key={timing} value={timing}>{INSERT_SCRIPT_TIMING_LABELS[timing]}</SelectItem>)}</SelectContent></Select></div><CodeEditor language={action.codeType === InsertScriptCodeType.Css ? 'css' : 'javascript'} value={action.code} onChange={(next) => onChange({ ...action, code: next })} /></div>;
+  const { t } = useTranslation();
+  /** 各枚举展示名映射。 */
+  const labels = getLabels(t);
+  return <div className="space-y-3"><div className="grid grid-cols-2 gap-3"><Select value={action.codeType} onValueChange={(value) => onChange({ ...action, codeType: value as InsertScriptCodeType })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(InsertScriptCodeType).map((codeType) => <SelectItem key={codeType} value={codeType}>{labels.INSERT_SCRIPT_CODE_TYPE_LABELS[codeType]}</SelectItem>)}</SelectContent></Select><Select value={action.timing} onValueChange={(value) => onChange({ ...action, timing: value as InsertScriptTiming })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(InsertScriptTiming).map((timing) => <SelectItem key={timing} value={timing}>{labels.INSERT_SCRIPT_TIMING_LABELS[timing]}</SelectItem>)}</SelectContent></Select></div><CodeEditor language={action.codeType === InsertScriptCodeType.Css ? 'css' : 'javascript'} value={action.code} onChange={(next) => onChange({ ...action, code: next })} /></div>;
 }

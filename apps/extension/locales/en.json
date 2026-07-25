@@ -1,0 +1,442 @@
+{
+  "group": {
+    "defaultName": "New Group",
+    "autoDefaultName": "Default Group"
+  },
+  "rule": {
+    "defaultName": "New Rule"
+  },
+  "template": {
+    "corsAllowAll": {
+      "name": "Disable CORS restriction",
+      "description": "Adds Access-Control-Allow-* headers to matching responses to unblock CORS during local debugging. Change the match pattern to your own API address."
+    },
+    "disableCache": {
+      "name": "Disable cache",
+      "description": "Adds no-cache Cache-Control headers to both request and response so you always get the latest resource. Change the match pattern to your target address."
+    },
+    "forceHttps": {
+      "name": "Force HTTPS",
+      "description": "Redirects matching http requests to the same address over https. Matches all http requests by default."
+    },
+    "mobileUaIos": {
+      "name": "Mobile UA · iPhone",
+      "description": "Changes the User-Agent to iOS Safari so the site returns its mobile page. Change the match pattern to your target site."
+    },
+    "mobileUaAndroid": {
+      "name": "Mobile UA · Android",
+      "description": "Changes the User-Agent to Android Chrome so the site returns its mobile page. Change the match pattern to your target site."
+    }
+  },
+  "dynamicVariable": {
+    "uuid": { "label": "UUID", "description": "Random UUID v4" },
+    "timestamp": { "label": "Timestamp (seconds)", "description": "Current Unix timestamp in seconds" },
+    "timestampMs": { "label": "Timestamp (ms)", "description": "Current Unix timestamp in milliseconds" },
+    "isoTime": { "label": "ISO time", "description": "Current time as an ISO 8601 string" },
+    "randomFloat": { "label": "Random float", "description": "Random float in the range [0, 1)" },
+    "randomInt": { "label": "Random integer", "description": "Random integer; argument sets the inclusive range [min, max], defaults to 0-100" },
+    "randomString": { "label": "Random string", "description": "Random alphanumeric string; argument sets the length, defaults to 8" }
+  },
+  "configTransfer": {
+    "invalidJson": "The file is not valid JSON.",
+    "mustBeObject": "{{label}} must be an object.",
+    "requiredNonEmpty": "{{label}} cannot be empty.",
+    "mustBeNonNegativeNumber": "{{label}} must be a non-negative number.",
+    "valuesMustBeStrings": "All values in {{label}} must be strings.",
+    "schemaVersionUnsupported": "Only schemaVersion {{version}} is supported.",
+    "missingExportedAt": "The configuration file is missing a valid exportedAt time.",
+    "invalidEnabledOrGroups": "The configuration file's enabled or groups field is malformed.",
+    "duplicateGroupId": "Duplicate group ID {{id}}.",
+    "invalidGroupFormat": "Group \"{{id}}\" is malformed.",
+    "missingGroupUpdatedAt": "Group \"{{id}}\" is missing a valid updated time.",
+    "duplicateRuleId": "Duplicate rule ID {{id}}.",
+    "invalidRuleBaseFields": "Rule \"{{id}}\" has invalid base fields.",
+    "invalidRuleChannel": "Rule \"{{id}}\" has an invalid execution channel.",
+    "invalidRuleMethods": "Rule \"{{id}}\" has invalid request methods.",
+    "ruleActionsRequired": "Rule \"{{id}}\" needs at least one action.",
+    "invalidRuleRegex": "Rule \"{{id}}\" has invalid regex syntax.",
+    "exclusiveActionsConflict": "Rule \"{{id}}\" cannot combine Block, Redirect, and Inject params.",
+    "getHeadCannotModifyBody": "Rule \"{{id}}\" cannot modify the body on GET / HEAD.",
+    "invalidScopeType": "Rule \"{{ruleId}}\" has an invalid scope type.",
+    "scopeTargetsRequired": "Rule \"{{ruleId}}\" needs at least one scope target.",
+    "scopeTargetIdMustBeInteger": "Rule \"{{ruleId}}\" scope target id must be an integer.",
+    "bodyMatchChannelInvalid": "Rule \"{{ruleId}}\" body match is only available on the page-patch channel.",
+    "invalidBodyMatchType": "Rule \"{{ruleId}}\" has an invalid body match type.",
+    "invalidBodyMatchRegex": "Rule \"{{ruleId}}\" has invalid body match regex syntax.",
+    "invalidActionType": "Rule \"{{ruleId}}\" has an invalid action type.",
+    "actionChannelMismatch": "Rule \"{{ruleId}}\" action doesn't match its execution channel.",
+    "invalidMockConfig": "Rule \"{{ruleId}}\" has an invalid mock configuration.",
+    "dynamicMockFunctionRequired": "Rule \"{{ruleId}}\" dynamic mock function cannot be empty.",
+    "invalidThrottlePreset": "Rule \"{{ruleId}}\" has an invalid throttle preset.",
+    "invalidInsertScriptConfig": "Rule \"{{ruleId}}\" has an invalid script-injection configuration.",
+    "invalidRequestBodyConfig": "Rule \"{{ruleId}}\" has an invalid request body configuration.",
+    "dynamicRequestBodyFunctionRequired": "Rule \"{{ruleId}}\" dynamic request body function cannot be empty.",
+    "headersMustBeArray": "Header modifications must be an array.",
+    "invalidHeaderTargetOrOperation": "Header modification has an invalid target or operation.",
+    "label": {
+      "configRoot": "configuration root",
+      "nthGroup": "group #{{n}}",
+      "groupId": "group id",
+      "groupName": "group \"{{id}}\" name",
+      "nthRuleInGroup": "rule #{{n}} in group \"{{groupId}}\"",
+      "ruleId": "rule id",
+      "rulePattern": "rule \"{{id}}\" match pattern",
+      "ruleName": "rule \"{{id}}\" name",
+      "ruleScope": "rule \"{{ruleId}}\" scope",
+      "scopeTarget": "rule \"{{ruleId}}\" scope target",
+      "ruleBodyMatch": "rule \"{{ruleId}}\" body match",
+      "ruleBodyMatchValue": "rule \"{{ruleId}}\" body match value",
+      "nthActionInRule": "action #{{n}} in rule \"{{ruleId}}\"",
+      "redirectUrl": "redirect address",
+      "params": "params",
+      "mockDelay": "mock delay",
+      "mockResponseHeaders": "mock response headers",
+      "networkLatency": "network latency",
+      "downloadBandwidth": "download bandwidth",
+      "uploadBandwidth": "upload bandwidth",
+      "insertScriptCode": "injected code",
+      "headerModification": "header modification",
+      "headerName": "header name"
+    }
+  },
+  "ruleEditor": {
+    "titleNew": "New Rule",
+    "titleEdit": "Edit Rule",
+    "group": "Group",
+    "name": "Rule name",
+    "matchType": "Match type",
+    "pattern": "Match pattern",
+    "methods": "Methods",
+    "advanced": "Advanced",
+    "optional": "Optional",
+    "bodyMatchLabel": "Body match",
+    "scope": "Scope",
+    "cancel": "Cancel",
+    "save": "Save",
+    "deleteAction": "Delete {{actionLabel}}",
+    "deleteActionSr": "Delete action",
+    "selectActionHint": "Check a \"{{groupTitle}}\" action to start configuring",
+    "actionDescription": {
+      "block": "Block the matched request directly",
+      "redirect": "Forward the request to another address",
+      "injectParams": "Append or override query string params",
+      "modifyHeaders": "Add, remove, or modify request/response headers",
+      "mockResponse": "Intercept the request and return a custom response",
+      "delay": "Inject latency and bandwidth limits into the request",
+      "modifyRequestBody": "Rewrite the request body before it's sent",
+      "insertScript": "Inject JS / CSS by page URL"
+    },
+    "actionGroup": {
+      "dnr": {
+        "title": "Network layer",
+        "hint": "Applies to all requests (including navigation and static assets), but can't read the request body",
+        "note": "Block / Redirect / Inject params are mutually exclusive; Modify headers can be combined"
+      },
+      "pagePatch": {
+        "title": "Page patch",
+        "hint": "Only applies to fetch / XHR made by page scripts; can read and write the request body and response",
+        "note": "Mock response / Throttle / Modify body can be combined; Insert script must be used alone"
+      }
+    },
+    "describeAction": {
+      "block": "Block: request blocked directly",
+      "redirect": "Redirect → {{url}}",
+      "injectParams": "Inject params: {{params}}",
+      "empty": "(empty)",
+      "modifyHeaders": "Modify headers: {{count}} item(s)",
+      "mockResponse": "Mock returns HTTP {{statusCode}}",
+      "delay": "Throttle: {{preset}}",
+      "modifyRequestBody": "Modify body ({{sourceMode}})",
+      "insertScript": "Insert {{codeType}} ({{timing}})"
+    },
+    "describeEffect": {
+      "none": "No actions configured yet",
+      "separator": "; "
+    },
+    "validation": {
+      "actionsRequired": "Select at least one action",
+      "nameRequired": "Rule name cannot be empty",
+      "patternRequired": "Match pattern cannot be empty",
+      "patternRegexInvalid": "Invalid regex syntax",
+      "bodyMethodsRequired": "Modifying the body requires POST / PUT / PATCH / DELETE / OPTIONS",
+      "bodyMatchValueRequired": "Body match value cannot be empty",
+      "bodyMatchRegexInvalid": "Invalid body match regex syntax",
+      "scopeTargetRequired": "Select at least one {{scopeNoun}}",
+      "scopeNoun": {
+        "tab": "tab",
+        "window": "window",
+        "tabGroup": "tab group"
+      },
+      "exclusiveDnrActions": "Block, Redirect, and Inject params are mutually exclusive",
+      "redirectUrlRequired": "Redirect target cannot be empty",
+      "redirectUrlAbsolute": "Redirect target must be an absolute address, e.g. http://127.0.0.1:4317/api/redirect-target.json",
+      "insertScriptCodeRequired": "Injected code cannot be empty",
+      "mockStatusCodeRange": "Mock status code must be between 100 and 599",
+      "dynamicMockFunctionRequired": "Dynamic mock function cannot be empty",
+      "requestBodyContentRequired": "Request body content cannot be empty",
+      "requestBodyFunctionRequired": "Request body function cannot be empty"
+    },
+    "matchTester": {
+      "trigger": "Test match",
+      "placeholder": "Enter a test path / URL",
+      "test": "Test",
+      "matched": "Matched",
+      "notMatched": "Not matched — this URL won't be handled by this rule"
+    },
+    "methodPicker": {
+      "scriptOnlyHint": "Script injection matches by page URL, no method configuration needed.",
+      "all": "All",
+      "bodyHint": "Modifying the body only applies to methods that can carry a body; GET / HEAD and \"All\" are automatically excluded."
+    },
+    "bodyMatchEditor": {
+      "off": "No body restriction",
+      "hint": "Narrows matches by the fetch / XHR request body from page scripts; for GraphQL, use \"operation name\" to distinguish operations sharing the same URL."
+    },
+    "scopeEditor": {
+      "unnamedTab": "Tab #{{id}}",
+      "windowLabel": "Window {{index}}",
+      "windowHint": "{{count}} tabs{{current}}",
+      "currentSuffix": " · current",
+      "unnamedTabGroup": "Unnamed tab group",
+      "refresh": "Refresh list",
+      "loading": "Loading…",
+      "noOptions": "No options available — open the corresponding tab / window / tab group first",
+      "closed": "Closed",
+      "allTabsHint": "Applies to all tabs by default. Limiting the scope helps avoid leaking sensitive headers (like Authorization) to other sites.",
+      "limitedHint": "{{emptyHint}}; object IDs are session-scoped and must be reselected after a browser restart."
+    },
+    "mockActionEditor": {
+      "bodyTypeAriaLabel": "Response body type",
+      "invalidJsonHint": "The response body isn't valid JSON; to return another format, switch the \"Body type\" above.",
+      "dynamicHint": "The dynamic function can read req.url, req.method, req.headers, req.query, req.body, req.json."
+    },
+    "delayActionEditor": {
+      "preset": "Network preset",
+      "latency": "Latency (ms)",
+      "download": "Download ({{unit}})",
+      "upload": "Upload ({{unit}})"
+    },
+    "requestBodyActionEditor": {
+      "hint": "Only applies to fetch / XHR methods that can carry a body; the original body is kept on error or when undefined is returned."
+    }
+  },
+  "app": {
+    "scopeBadge": {
+      "title": "{{scopeLabel}} · {{count}} objects"
+    },
+    "relativeTime": {
+      "none": "No record",
+      "justNow": "Updated just now",
+      "minutesAgo": "Updated {{count}}m ago",
+      "hoursAgo": "Updated {{count}}h ago",
+      "daysAgo": "Updated {{count}}d ago"
+    },
+    "groupNamePlaceholder": "Group name",
+    "dragToReorder": "Drag to reorder",
+    "dragToReorderGroup": "Drag to reorder group",
+    "edit": "Edit",
+    "delete": "Delete",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "disableGroup": "Disable group",
+    "enableGroup": "Enable group",
+    "groupRuleCount": "{{count}} rules",
+    "groupEnabled": "Enabled",
+    "groupDisabled": "Disabled",
+    "lastUpdated": "Last updated {{time}}",
+    "addRule": "Add rule",
+    "deleteGroup": "Delete group",
+    "emptyGroupHint": "This group has no rules yet — click \"Add rule\" in the top right to create one",
+    "columns": {
+      "enabled": "Enabled",
+      "name": "Name",
+      "channel": "Channel",
+      "actions": "Actions",
+      "pattern": "Match pattern",
+      "operations": "Operations"
+    },
+    "addRuleMenu": {
+      "blank": "Blank rule",
+      "fromTemplate": "From template library…"
+    },
+    "transfer": {
+      "exportSuccess": "Configuration exported.",
+      "exportFailure": "Export failed, please try again.",
+      "importConfirm": "This will import {{groupCount}} groups and {{ruleCount}} rules, replacing your entire current configuration. Continue?",
+      "importSuccess": "Imported {{groupCount}} groups and {{ruleCount}} rules.",
+      "importParseFailure": "Import failed. Please check the file contents and try again.",
+      "importFailure": "Import failed: {{message}}"
+    },
+    "deleteGroupConfirm": "Group \"{{name}}\" still has {{count}} rules. Delete the whole group?",
+    "newRule": "New rule",
+    "newGroup": "New group",
+    "emptyState": {
+      "title": "No rules yet",
+      "hint": "Just create a rule — it'll automatically go into \"{{defaultGroupName}}\"; or create a group first"
+    },
+    "noMatchingGroups": "No matching rule groups found",
+    "noMatchingGroupsHint": "Try adjusting your search or filters"
+  },
+  "popup": {
+    "activeCount": "{{count}} rules active",
+    "globallyDisabled": "Globally disabled",
+    "noRules": "No rules yet",
+    "noRulesHint": "Go to the manager page to add your first rule",
+    "expandGroup": "Expand group",
+    "collapseGroup": "Collapse group",
+    "ruleCount": "{{count}} rules",
+    "manageRules": "Manage rules"
+  },
+  "dynamicVariableHint": {
+    "title": "View available dynamic variables",
+    "trigger": "Variables",
+    "hint": "Reference these placeholders in value fields; click to copy. The page-patch channel evaluates per request; the network layer (DNR) evaluates once when rules sync."
+  },
+  "dialog": {
+    "close": "Close"
+  },
+  "codeEditor": {
+    "ariaLabel": "{{language}} editor",
+    "invalidJson": "Invalid JSON — can't format.",
+    "format": "Format"
+  },
+  "dashboard": {
+    "header": {
+      "title": "Req Freedom Rule Manager",
+      "subtitle": "Block · Redirect · Inject params · Headers · Mock · Throttle · Insert script · Modify body",
+      "import": "Import rules",
+      "export": "Export rules",
+      "addGroup": "New group"
+    },
+    "moreMenu": {
+      "trigger": "More",
+      "language": "Language"
+    },
+    "statistics": {
+      "ariaLabel": "Rule statistics",
+      "groupLabel": "Groups",
+      "groupSuffix": "groups",
+      "ruleLabel": "Rules",
+      "ruleSuffix": "rules",
+      "enabledLabel": "Enabled"
+    },
+    "toolbar": {
+      "ariaLabel": "Rule filters",
+      "searchPlaceholder": "Search groups or rules by name, match pattern…",
+      "searchAriaLabel": "Search groups or rules",
+      "statusPlaceholder": "Status",
+      "statusAll": "Status: All",
+      "statusEnabled": "Status: Enabled",
+      "statusDisabled": "Status: Disabled",
+      "channelPlaceholder": "Type",
+      "channelAll": "Channel: All",
+      "channelDnr": "DNR network rule",
+      "channelPagePatch": "Page patch",
+      "sortPlaceholder": "Sort",
+      "sortUpdatedAt": "Sort: Recently updated",
+      "sortName": "Sort: Name",
+      "viewAriaLabel": "Group view",
+      "viewAll": "All groups",
+      "viewEnabledOnly": "Enabled only",
+      "viewRecentlyUpdated": "Recently updated"
+    }
+  },
+  "keyValueEditor": {
+    "keyPlaceholder": "Key",
+    "valuePlaceholder": "Value",
+    "delete": "Delete",
+    "addItem": "Add item"
+  },
+  "headersEditor": {
+    "delete": "Delete",
+    "appendableHeaderPlaceholder": "Select an appendable request header",
+    "headerNamePlaceholder": "Header name",
+    "valuePlaceholder": "Value (leave blank to remove)",
+    "appendHint": "\"Append\" only supports the few multi-value standard headers above; for custom headers use \"Set\" instead, where the header name can be anything.",
+    "ineffectiveAppendWarning": "Custom request headers don't support \"Append\" — the browser silently ignores it. Use \"Set\" instead. Only a few standard headers like Cookie, User-Agent, and X-Forwarded-For can be appended.",
+    "addItem": "Add modification",
+    "responseHeaderHint": "Tip: changes to <strong>response headers</strong> won't show up in the browser's Network panel — that doesn't mean they didn't take effect. Verify in the console with <code>fetch(url).then((r) =&gt; r.headers.get('...'))</code>."
+  },
+  "templateLibrary": {
+    "title": "Rule Template Library",
+    "hint": "Using a template opens the rule editor with actions pre-filled — just change the match pattern to your own target address and save.",
+    "channelPagePatch": "Page patch",
+    "use": "Use"
+  },
+  "label": {
+    "ruleTemplateCategory": {
+      "cors": "CORS",
+      "cache": "Cache control",
+      "protocol": "Protocol & redirect",
+      "userAgent": "User-Agent"
+    },
+    "ruleActionType": {
+      "block": "Block request",
+      "redirect": "Redirect",
+      "injectParams": "Inject params",
+      "modifyHeaders": "Modify headers",
+      "mockResponse": "Mock response",
+      "delay": "Throttle",
+      "modifyRequestBody": "Modify request body",
+      "insertScript": "Insert script"
+    },
+    "requestBodyMode": {
+      "replace": "Replace entirely",
+      "mergeJson": "Deep-merge JSON"
+    },
+    "requestBodySourceMode": {
+      "static": "Static rewrite",
+      "dynamic": "Generate with JavaScript"
+    },
+    "mockResponseMode": {
+      "static": "Static response body",
+      "dynamic": "Generate with JavaScript"
+    },
+    "mockBodyType": {
+      "text": "Text"
+    },
+    "networkThrottlePreset": {
+      "custom": "Custom"
+    },
+    "insertScriptTiming": {
+      "documentStart": "Document start (document_start)",
+      "documentEnd": "Document ready (document_end)"
+    },
+    "bodyMatchType": {
+      "contains": "Contains substring",
+      "regex": "Regex",
+      "graphqlOperation": "GraphQL operation name"
+    },
+    "bodyMatchValuePlaceholder": {
+      "contains": "Substring the request body must contain",
+      "regex": "Regex to match the request body, e.g. \"mutation\\\\s+Login\"",
+      "graphqlOperation": "operationName, e.g. GetUser"
+    },
+    "ruleScopeType": {
+      "allTabs": "All tabs",
+      "tab": "Specific tabs",
+      "window": "Specific windows",
+      "tabGroup": "Specific tab groups"
+    },
+    "ruleScopeEmptyHint": {
+      "tab": "Check one or more currently open tabs",
+      "window": "Check one or more currently open windows",
+      "tabGroup": "Check one or more current tab groups"
+    },
+    "matchType": {
+      "contains": "Contains",
+      "equals": "Equals",
+      "wildcard": "Wildcard",
+      "regex": "Regex"
+    },
+    "headerTarget": {
+      "request": "Request header",
+      "response": "Response header"
+    },
+    "headerOperation": {
+      "set": "Set",
+      "append": "Append",
+      "remove": "Remove"
+    }
+  }
+}

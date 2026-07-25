@@ -1,0 +1,8 @@
+{
+  "extName": {
+    "message": "Req Freedom"
+  },
+  "extDescription": {
+    "message": "Request debugging toolkit: block, redirect, inject params, rewrite headers, mock responses, simulate latency"
+  }
+}

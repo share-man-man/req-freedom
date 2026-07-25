@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, FolderPlus, GripVertical, LayoutTemplate, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { ChangeEvent } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import {
   DndContext,
   DragOverlay,
@@ -21,8 +23,8 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { AUTO_DEFAULT_GROUP_NAME, RuleActionType, RuleExecutionChannel } from '@req-freedom/shared';
-import type { Rule, RuleGroup, RuleTemplate } from '@req-freedom/shared';
+import { RuleActionType, RuleExecutionChannel } from '@req-freedom/shared';
+import type { Rule, RuleGroup } from '@req-freedom/shared';
 import { getEnabled, getGroups, saveConfiguration, saveGroups } from '@/utils/storage';
 import {
   createConfigurationExport,
@@ -30,7 +32,8 @@ import {
   parseConfigurationExport,
 } from '@/utils/config-transfer';
 import { createRuleGroup, createSampleRule, instantiateRuleTemplate } from '@/utils/factories';
-import { RULE_ACTION_TYPE_LABELS, RULE_SCOPE_TYPE_LABELS } from '@/utils/labels';
+import { getLabels } from '@/utils/labels';
+import type { RuleTemplate } from '@/utils/templates';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -102,16 +105,19 @@ const ACTION_BADGE_CLASS: Record<RuleActionType, string> = {
  * @param scope 规则作用域（缺省表示全部标签页，不展示徽标）
  */
 function ScopeBadge({ scope }: { scope: Rule['scope'] }) {
+  const { t } = useTranslation();
   if (!scope) {
     return null;
   }
+  /** 各枚举展示名映射。 */
+  const labels = getLabels(t);
   return (
     <Badge
       variant="secondary"
       className="shrink-0 border-transparent bg-amber-500/15 text-[var(--accent-amber)]"
-      title={`${RULE_SCOPE_TYPE_LABELS[scope.type]} · ${scope.targets.length} 个对象`}
+      title={t('app.scopeBadge.title', { scopeLabel: labels.RULE_SCOPE_TYPE_LABELS[scope.type], count: scope.targets.length })}
     >
-      {RULE_SCOPE_TYPE_LABELS[scope.type]}
+      {labels.RULE_SCOPE_TYPE_LABELS[scope.type]}
     </Badge>
   );
 }
@@ -149,31 +155,32 @@ function useSortableSensors() {
 
 /**
  * 将 ISO 时间格式化为用于分组摘要的相对时间。
+ * @param t 当前语言下的翻译函数
  * @param updatedAt 分组最近更新时间
  * @returns 便于快速扫读的相对时间文案
  */
-function formatRelativeTime(updatedAt: string): string {
+function formatRelativeTime(t: TFunction, updatedAt: string): string {
   /** 解析后的时间戳。 */
   const timestamp = Date.parse(updatedAt);
   if (Number.isNaN(timestamp)) {
-    return '暂无记录';
+    return t('app.relativeTime.none');
   }
   /** 当前时间与目标时间的分钟差，未来时间按刚刚处理。 */
   const elapsedMinutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
   if (elapsedMinutes < 1) {
-    return '刚刚更新';
+    return t('app.relativeTime.justNow');
   }
   if (elapsedMinutes < 60) {
-    return `${elapsedMinutes} 分钟前更新`;
+    return t('app.relativeTime.minutesAgo', { count: elapsedMinutes });
   }
   /** 当前时间与目标时间的小时差。 */
   const elapsedHours = Math.floor(elapsedMinutes / 60);
   if (elapsedHours < 24) {
-    return `${elapsedHours} 小时前更新`;
+    return t('app.relativeTime.hoursAgo', { count: elapsedHours });
   }
   /** 当前时间与目标时间的天数差。 */
   const elapsedDays = Math.floor(elapsedHours / 24);
-  return `${elapsedDays} 天前更新`;
+  return t('app.relativeTime.daysAgo', { count: elapsedDays });
 }
 
 /** 规则编辑对话框的状态：正在编辑/新建的规则草稿及其所属分组 */
@@ -199,6 +206,7 @@ interface GroupNameInputProps {
  * @param onCommit 提交回调
  */
 function GroupNameInput({ value, onCommit }: GroupNameInputProps) {
+  const { t } = useTranslation();
   /** 输入框内的草稿文本 */
   const [text, setText] = useState(value);
 
@@ -229,7 +237,7 @@ function GroupNameInput({ value, onCommit }: GroupNameInputProps) {
         }
       }}
       className="h-8 flex-1 border-transparent bg-transparent px-2 font-medium shadow-none hover:border-border focus-visible:border-ring"
-      placeholder="分组名称"
+      placeholder={t('app.groupNamePlaceholder')}
     />
   );
 }
@@ -249,6 +257,9 @@ interface SortableRuleRowProps {
  * 可拖拽排序的规则行（div + Grid 实现，保证 dnd-kit 排序动画顺滑）
  */
 function SortableRuleRow({ rule, onToggle, onEdit, onDelete }: SortableRuleRowProps) {
+  const { t } = useTranslation();
+  /** 各枚举展示名映射。 */
+  const labels = getLabels(t);
   /** dnd-kit 排序钩子：提供拖拽句柄监听、位移与拖拽态 */
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: rule.id,
@@ -267,7 +278,7 @@ function SortableRuleRow({ rule, onToggle, onEdit, onDelete }: SortableRuleRowPr
       <button
         type="button"
         className="flex cursor-grab touch-none items-center justify-center rounded p-1 text-muted-foreground opacity-50 transition-opacity hover:opacity-100 active:cursor-grabbing"
-        title="拖拽排序"
+        title={t('app.dragToReorder')}
         {...attributes}
         {...listeners}
       >
@@ -282,7 +293,7 @@ function SortableRuleRow({ rule, onToggle, onEdit, onDelete }: SortableRuleRowPr
         <ScopeBadge scope={rule.scope} />
       </div>
       <Badge variant="secondary" className={`justify-self-start whitespace-nowrap border-transparent ${CHANNEL_BADGE_CLASS[rule.channel]}`}>
-        {rule.channel === RuleExecutionChannel.Dnr ? 'DNR' : '页面补丁'}
+        {rule.channel === RuleExecutionChannel.Dnr ? 'DNR' : t('templateLibrary.channelPagePatch')}
       </Badge>
       <div className="flex min-w-0 flex-wrap items-center gap-1 justify-self-start">
         {rule.actions.map((action) => (
@@ -291,7 +302,7 @@ function SortableRuleRow({ rule, onToggle, onEdit, onDelete }: SortableRuleRowPr
             variant="secondary"
             className={`whitespace-nowrap border-transparent ${ACTION_BADGE_CLASS[action.type]}`}
           >
-            {RULE_ACTION_TYPE_LABELS[action.type]}
+            {labels.RULE_ACTION_TYPE_LABELS[action.type]}
           </Badge>
         ))}
       </div>
@@ -306,7 +317,7 @@ function SortableRuleRow({ rule, onToggle, onEdit, onDelete }: SortableRuleRowPr
           variant="ghost"
           size="icon"
           className="size-8"
-          title="编辑"
+          title={t('app.edit')}
           onClick={() => onEdit(rule)}
         >
           <Pencil className="size-4" />
@@ -315,7 +326,7 @@ function SortableRuleRow({ rule, onToggle, onEdit, onDelete }: SortableRuleRowPr
           variant="ghost"
           size="icon"
           className="size-8 text-muted-foreground hover:text-destructive"
-          title="删除"
+          title={t('app.delete')}
           onClick={() => onDelete(rule.id)}
         >
           <Trash2 className="size-4" />
@@ -372,6 +383,7 @@ function SortableGroupCard({
   collapsed,
   onToggleCollapse,
 }: SortableGroupCardProps) {
+  const { t } = useTranslation();
   /** dnd-kit 排序钩子：作用于整张分组卡片（仅由标题栏的拖拽句柄触发） */
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: group.id,
@@ -420,7 +432,7 @@ function SortableGroupCard({
         <button
           type="button"
           className="flex cursor-grab touch-none items-center justify-center rounded p-1 text-muted-foreground opacity-50 transition-opacity hover:opacity-100 active:cursor-grabbing"
-          title="拖拽排序分组"
+          title={t('app.dragToReorderGroup')}
           {...attributes}
           {...listeners}
         >
@@ -429,7 +441,7 @@ function SortableGroupCard({
         <button
           type="button"
           className="flex items-center justify-center rounded p-1 text-muted-foreground transition-colors hover:text-foreground"
-          title={collapsed ? '展开' : '折叠'}
+          title={collapsed ? t('app.expand') : t('app.collapse')}
           aria-expanded={!collapsed}
           onClick={() => onToggleCollapse(group.id)}
         >
@@ -440,11 +452,11 @@ function SortableGroupCard({
         <Switch
           checked={group.enabled}
           onCheckedChange={() => onToggleGroup(group.id)}
-          title={group.enabled ? '整组停用' : '整组启用'}
+          title={group.enabled ? t('app.disableGroup') : t('app.enableGroup')}
         />
         <GroupNameInput value={group.name} onCommit={(name) => onRenameGroup(group.id, name)} />
         <Badge variant="secondary" className="shrink-0 border-transparent bg-primary/10 text-primary">
-          {group.rules.length} 条规则
+          {t('app.groupRuleCount', { count: group.rules.length })}
         </Badge>
         <Badge
           variant="secondary"
@@ -452,13 +464,13 @@ function SortableGroupCard({
             group.enabled ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'
           }`}
         >
-          {group.enabled ? '启用中' : '已停用'}
+          {group.enabled ? t('app.groupEnabled') : t('app.groupDisabled')}
         </Badge>
         <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
-          最近更新 {formatRelativeTime(group.updatedAt)}
+          {t('app.lastUpdated', { time: formatRelativeTime(t, group.updatedAt) })}
         </span>
         <AddRuleMenu
-          label="添加规则"
+          label={t('app.addRule')}
           onBlank={() => onAddRule(group.id)}
           onTemplate={() => onOpenTemplates(group.id)}
         />
@@ -466,7 +478,7 @@ function SortableGroupCard({
           variant="ghost"
           size="icon"
           className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
-          title="删除分组"
+          title={t('app.deleteGroup')}
           onClick={() => onDeleteGroup(group.id)}
         >
           <Trash2 className="size-4" />
@@ -478,7 +490,7 @@ function SortableGroupCard({
       <CardContent className={`p-0 ${group.enabled ? '' : 'opacity-60'}`}>
         {group.rules.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-            该分组暂无规则，点击右上角「添加规则」创建
+            {t('app.emptyGroupHint')}
           </p>
         ) : (
           <>
@@ -521,15 +533,16 @@ function SortableGroupCard({
  * 规则列表表头（与数据行共用同一 Grid 模板保证对齐）。真实分组卡片与拖拽预览均复用。
  */
 function RuleColumnsHeader() {
+  const { t } = useTranslation();
   return (
     <div className={`${RULE_ROW_GRID} bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground`}>
       <span />
-      <span className="whitespace-nowrap">启用</span>
-      <span className="whitespace-nowrap">名称</span>
-      <span className="whitespace-nowrap">执行通道</span>
-      <span className="whitespace-nowrap">动作</span>
-      <span className="whitespace-nowrap">匹配内容</span>
-      <span className="whitespace-nowrap text-right">操作</span>
+      <span className="whitespace-nowrap">{t('app.columns.enabled')}</span>
+      <span className="whitespace-nowrap">{t('app.columns.name')}</span>
+      <span className="whitespace-nowrap">{t('app.columns.channel')}</span>
+      <span className="whitespace-nowrap">{t('app.columns.actions')}</span>
+      <span className="whitespace-nowrap">{t('app.columns.pattern')}</span>
+      <span className="whitespace-nowrap text-right">{t('app.columns.operations')}</span>
     </div>
   );
 }
@@ -540,6 +553,9 @@ function RuleColumnsHeader() {
  * @param rule 规则数据
  */
 function RuleRowStatic({ rule }: { rule: Rule }) {
+  const { t } = useTranslation();
+  /** 各枚举展示名映射。 */
+  const labels = getLabels(t);
   return (
     <div className={`${RULE_ROW_GRID} px-3 py-2`}>
       <span className="flex items-center justify-center p-1 text-muted-foreground opacity-50">
@@ -553,7 +569,7 @@ function RuleRowStatic({ rule }: { rule: Rule }) {
         <ScopeBadge scope={rule.scope} />
       </div>
       <Badge variant="secondary" className={`justify-self-start whitespace-nowrap border-transparent ${CHANNEL_BADGE_CLASS[rule.channel]}`}>
-        {rule.channel === RuleExecutionChannel.Dnr ? 'DNR' : '页面补丁'}
+        {rule.channel === RuleExecutionChannel.Dnr ? 'DNR' : t('templateLibrary.channelPagePatch')}
       </Badge>
       <div className="flex min-w-0 flex-wrap items-center gap-1 justify-self-start">
         {rule.actions.map((action) => (
@@ -562,7 +578,7 @@ function RuleRowStatic({ rule }: { rule: Rule }) {
             variant="secondary"
             className={`whitespace-nowrap border-transparent ${ACTION_BADGE_CLASS[action.type]}`}
           >
-            {RULE_ACTION_TYPE_LABELS[action.type]}
+            {labels.RULE_ACTION_TYPE_LABELS[action.type]}
           </Badge>
         ))}
       </div>
@@ -630,6 +646,7 @@ interface AddRuleMenuProps {
  * @param props 文案与两种创建方式的回调
  */
 function AddRuleMenu({ label, onBlank, onTemplate }: AddRuleMenuProps) {
+  const { t } = useTranslation();
   /** 下拉是否展开。 */
   const [open, setOpen] = useState(false);
   /** 触发按钮的包裹节点，用于测量位置与判定点击外部。 */
@@ -710,7 +727,7 @@ function AddRuleMenu({ label, onBlank, onTemplate }: AddRuleMenuProps) {
             className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-muted"
           >
             <Plus className="size-4 text-muted-foreground" />
-            空白规则
+            {t('app.addRuleMenu.blank')}
           </button>
           <button
             type="button"
@@ -719,7 +736,7 @@ function AddRuleMenu({ label, onBlank, onTemplate }: AddRuleMenuProps) {
             className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-muted"
           >
             <LayoutTemplate className="size-4 text-muted-foreground" />
-            从模板库…
+            {t('app.addRuleMenu.fromTemplate')}
           </button>
         </div>,
         document.body,
@@ -732,6 +749,7 @@ function AddRuleMenu({ label, onBlank, onTemplate }: AddRuleMenuProps) {
  * Options 主界面：规则分组的增删改、启停与组内规则拖拽排序
  */
 export default function App() {
+  const { t } = useTranslation();
   /** 规则分组列表 */
   const [groups, setGroups] = useState<RuleGroup[]>([]);
   /** 规则编辑对话框状态，null 表示关闭 */
@@ -789,7 +807,7 @@ export default function App() {
    * 新建一个空分组并追加到末尾
    */
   const handleAddGroup = (): void => {
-    void persist([...groups, createRuleGroup()]);
+    void persist([...groups, createRuleGroup(t)]);
   };
 
   // ---------- 导入 / 导出 ----------
@@ -815,9 +833,9 @@ export default function App() {
       downloadLink.download = getConfigurationExportFileName(configuration.exportedAt);
       downloadLink.click();
       window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0);
-      setTransferMessage('配置已导出。');
+      setTransferMessage(t('app.transfer.exportSuccess'));
     } catch {
-      setTransferMessage('导出失败，请重试。');
+      setTransferMessage(t('app.transfer.exportFailure'));
     }
   };
 
@@ -845,12 +863,12 @@ export default function App() {
       /** 文件中的原始 JSON 文本。 */
       const content = await file.text();
       /** 已通过结构与 schema 校验的配置。 */
-      const configuration = parseConfigurationExport(content);
+      const configuration = parseConfigurationExport(t, content);
       /** 导入配置中包含的规则总数。 */
       const ruleCount = configuration.groups.reduce((count, group) => count + group.rules.length, 0);
       if (
         !window.confirm(
-          `将导入 ${configuration.groups.length} 个分组、${ruleCount} 条规则，并替换当前全部配置。确定继续吗？`,
+          t('app.transfer.importConfirm', { groupCount: configuration.groups.length, ruleCount }),
         )
       ) {
         return;
@@ -858,11 +876,11 @@ export default function App() {
       await saveConfiguration(configuration.groups, configuration.enabled);
       setGroups(configuration.groups);
       setCollapsedGroupIds(new Set());
-      setTransferMessage(`已导入 ${configuration.groups.length} 个分组、${ruleCount} 条规则。`);
+      setTransferMessage(t('app.transfer.importSuccess', { groupCount: configuration.groups.length, ruleCount }));
     } catch (error) {
       /** 便于用户定位问题的导入错误。 */
-      const message = error instanceof Error ? error.message : '导入失败，请确认文件内容后重试。';
-      setTransferMessage(`导入失败：${message}`);
+      const message = error instanceof Error ? error.message : t('app.transfer.importParseFailure');
+      setTransferMessage(t('app.transfer.importFailure', { message }));
     }
   };
 
@@ -912,7 +930,7 @@ export default function App() {
     const target = groups.find((group) => group.id === id);
     if (target && target.rules.length > 0) {
       // 非空分组会连同规则一起删除，容易误操作，删除前确认
-      if (!window.confirm(`分组「${target.name}」下还有 ${target.rules.length} 条规则，确定要删除整组吗？`)) {
+      if (!window.confirm(t('app.deleteGroupConfirm', { name: target.name, count: target.rules.length }))) {
         return;
       }
     }
@@ -926,14 +944,14 @@ export default function App() {
    * @param groupId 目标分组 ID
    */
   const handleAddRule = (groupId: string): void => {
-    setRuleDialog({ groupId, rule: createSampleRule(), isNew: true });
+    setRuleDialog({ groupId, rule: createSampleRule(t), isNew: true });
   };
 
   /**
    * 无分组时直接新建规则：以「默认分组」占位打开编辑器，保存时才真正建组
    */
   const handleAddFirstRule = (): void => {
-    setRuleDialog({ groupId: DEFAULT_GROUP_SENTINEL, rule: createSampleRule(), isNew: true });
+    setRuleDialog({ groupId: DEFAULT_GROUP_SENTINEL, rule: createSampleRule(t), isNew: true });
   };
 
   /**
@@ -953,7 +971,7 @@ export default function App() {
     /** 规则应归属的分组：来自打开入口，缺省回退到默认分组占位。 */
     const targetGroupId = templateTargetGroupId ?? DEFAULT_GROUP_SENTINEL;
     setTemplateTargetGroupId(null);
-    setRuleDialog({ groupId: targetGroupId, rule: instantiateRuleTemplate(template), isNew: true });
+    setRuleDialog({ groupId: targetGroupId, rule: instantiateRuleTemplate(t, template), isNew: true });
   };
 
   /**
@@ -977,7 +995,7 @@ export default function App() {
   const handleSaveRule = (rule: Rule, targetGroupId: string): void => {
     // 目标是「默认分组」占位：此刻才真正创建默认分组并放入该规则（取消则不会走到这里，故不留空组）
     if (targetGroupId === DEFAULT_GROUP_SENTINEL) {
-      void persist([...groups, { ...createRuleGroup(AUTO_DEFAULT_GROUP_NAME), rules: [rule] }]);
+      void persist([...groups, { ...createRuleGroup(t, t('group.autoDefaultName')), rules: [rule] }]);
       setRuleDialog(null);
       return;
     }
@@ -1144,7 +1162,7 @@ export default function App() {
   /** 传给编辑器的分组选项：向「默认分组」新建首条规则时注入一个占位选项供下拉展示 */
   const editorGroupOptions =
     ruleDialog?.groupId === DEFAULT_GROUP_SENTINEL
-      ? [{ id: DEFAULT_GROUP_SENTINEL, name: AUTO_DEFAULT_GROUP_NAME }, ...groupOptions]
+      ? [{ id: DEFAULT_GROUP_SENTINEL, name: t('group.autoDefaultName') }, ...groupOptions]
       : groupOptions;
   /** 正在拖拽的分组，用于外层 DragOverlay 预览 */
   const activeGroup = activeGroupId
@@ -1202,27 +1220,27 @@ export default function App() {
               <FolderPlus className="size-6" />
             </span>
             <div>
-              <p className="text-sm font-medium">还没有规则</p>
+              <p className="text-sm font-medium">{t('app.emptyState.title')}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                直接新建规则即可，会自动归入「{AUTO_DEFAULT_GROUP_NAME}」；也可先建分组再收纳
+                {t('app.emptyState.hint', { defaultGroupName: t('group.autoDefaultName') })}
               </p>
             </div>
             <div className="flex gap-2">
               <AddRuleMenu
-                label="新建规则"
+                label={t('app.newRule')}
                 onBlank={handleAddFirstRule}
                 onTemplate={() => handleOpenTemplates(DEFAULT_GROUP_SENTINEL)}
               />
               <Button variant="outline" size="sm" onClick={handleAddGroup}>
                 <FolderPlus />
-                新建分组
+                {t('app.newGroup')}
               </Button>
             </div>
           </div>
         ) : visibleGroups.length === 0 ? (
           <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center">
-            <p className="text-sm font-medium">没有找到匹配的规则分组</p>
-            <p className="text-xs text-muted-foreground">调整搜索或筛选条件后再试</p>
+            <p className="text-sm font-medium">{t('app.noMatchingGroups')}</p>
+            <p className="text-xs text-muted-foreground">{t('app.noMatchingGroupsHint')}</p>
           </div>
         ) : (
           // 分组 DndContext 不用 MeasuringStrategy.Always：分组 droppable 是整张大卡片，

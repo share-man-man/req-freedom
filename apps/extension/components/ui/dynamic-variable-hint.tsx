@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Braces, Check, Copy } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { DYNAMIC_VARIABLES } from '@req-freedom/shared';
 import { cn } from '@/utils/cn';
 
@@ -18,6 +19,7 @@ interface DynamicVariableHintProps {
  * @param props 触发按钮样式类
  */
 export function DynamicVariableHint({ className }: DynamicVariableHintProps) {
+  const { t } = useTranslation();
   /** 气泡是否展开。 */
   const [open, setOpen] = useState(false);
   /** 最近一次复制成功的变量名（用于短暂展示「已复制」）。 */
@@ -84,20 +86,24 @@ export function DynamicVariableHint({ className }: DynamicVariableHintProps) {
           className,
         )}
         aria-expanded={open}
-        title="查看可用的动态变量"
+        title={t('dynamicVariableHint.title')}
       >
         <Braces className="size-3" />
-        变量
+        {t('dynamicVariableHint.trigger')}
       </button>
       {open && (
         <div className="absolute right-0 top-full z-50 mt-1.5 w-80 rounded-lg border border-border bg-popover p-2 text-popover-foreground shadow-md">
           <p className="px-1.5 pb-1.5 pt-1 text-[11px] leading-snug text-muted-foreground">
-            在取值字段里用占位符引用；点击复制。页面补丁通道逐请求求值，网络层（DNR）在规则同步时求值一次。
+            {t('dynamicVariableHint.hint')}
           </p>
           <div className="flex flex-col">
             {DYNAMIC_VARIABLES.map((variable) => {
               /** 该项是否刚被复制。 */
               const copied = copiedName === variable.name;
+              /** 变量展示名。 */
+              const label = t(`dynamicVariable.${variable.name}.label`);
+              /** 变量用途说明。 */
+              const description = t(`dynamicVariable.${variable.name}.description`);
               return (
                 <button
                   key={variable.name}
@@ -107,8 +113,8 @@ export function DynamicVariableHint({ className }: DynamicVariableHintProps) {
                 >
                   <code className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[11px] text-foreground">{variable.placeholder}</code>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-xs font-medium text-foreground">{variable.label}</span>
-                    <span className="block truncate text-[11px] text-muted-foreground" title={variable.description}>{variable.description}</span>
+                    <span className="block text-xs font-medium text-foreground">{label}</span>
+                    <span className="block truncate text-[11px] text-muted-foreground" title={description}>{description}</span>
                   </span>
                   {copied
                     ? <Check className="mt-0.5 size-3.5 shrink-0 text-success" />

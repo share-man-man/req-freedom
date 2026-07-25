@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
 import { ChevronDown, Settings2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { RuleGroup } from '@req-freedom/shared';
 import { collectActiveRules } from '@req-freedom/core';
 import { getEnabled, getGroups, saveGroups, setEnabled } from '@/utils/storage';
@@ -13,6 +14,7 @@ import { LogoMark } from '@/components/logo-mark';
  * Popup 主界面：全局开关 + 按分组快速启停
  */
 export default function App() {
+  const { t } = useTranslation();
   /** 全局开关状态 */
   const [enabled, setEnabledState] = useState(true);
   /** 规则分组列表 */
@@ -126,7 +128,7 @@ export default function App() {
           <div className="leading-tight">
             <h1 className="text-sm font-semibold">Req Freedom</h1>
             <p className="text-xs text-muted-foreground">
-              {enabled ? `${activeCount} 条规则生效中` : '已全局停用'}
+              {enabled ? t('popup.activeCount', { count: activeCount }) : t('popup.globallyDisabled')}
             </p>
           </div>
         </div>
@@ -137,8 +139,8 @@ export default function App() {
       <div className="max-h-96 overflow-y-auto p-2">
         {!hasRules ? (
           <div className="flex flex-col items-center gap-1 px-4 py-10 text-center">
-            <p className="text-sm text-muted-foreground">暂无规则</p>
-            <p className="text-xs text-muted-foreground/70">去管理页添加你的第一条规则</p>
+            <p className="text-sm text-muted-foreground">{t('popup.noRules')}</p>
+            <p className="text-xs text-muted-foreground/70">{t('popup.noRulesHint')}</p>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
@@ -150,7 +152,7 @@ export default function App() {
                     <button
                       type="button"
                       className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                      title={collapsedGroupIds.has(group.id) ? '展开分组' : '折叠分组'}
+                      title={collapsedGroupIds.has(group.id) ? t('popup.expandGroup') : t('popup.collapseGroup')}
                       aria-expanded={!collapsedGroupIds.has(group.id)}
                       onClick={() => handleToggleCollapse(group.id)}
                     >
@@ -174,7 +176,7 @@ export default function App() {
                     </span>
                   </div>
                   <Badge variant="muted" className="shrink-0">
-                    {group.rules.length} 条
+                    {t('popup.ruleCount', { count: group.rules.length })}
                   </Badge>
                 </div>
 
@@ -205,7 +207,7 @@ export default function App() {
                           </span>
                         </div>
                         <Badge variant={rule.enabled ? 'default' : 'muted'} className="shrink-0">
-                          {rule.channel === 'dnr' ? 'DNR' : '页面补丁'}
+                          {rule.channel === 'dnr' ? 'DNR' : t('templateLibrary.channelPagePatch')}
                         </Badge>
                       </li>
                     ))}
@@ -221,7 +223,7 @@ export default function App() {
       <footer className="border-t border-border p-3">
         <Button variant="outline" size="sm" className="w-full" onClick={handleOpenOptions}>
           <Settings2 />
-          管理规则
+          {t('popup.manageRules')}
         </Button>
       </footer>
     </div>

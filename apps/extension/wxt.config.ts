@@ -9,8 +9,10 @@ export default defineConfig({
     plugins: [tailwindcss()],
   }),
   manifest: {
-    name: 'Req Freedom',
-    description: '请求调试工具：拦截、重定向、参数注入、Header 改写、Mock、延迟模拟',
+    // 名称/描述走 _locales（浏览器按 UI 语言选取），default_locale 缺失时的兜底同时提供中文原文
+    default_locale: 'zh_CN',
+    name: '__MSG_extName__',
+    description: '__MSG_extDescription__',
     permissions: ['storage', 'declarativeNetRequest', 'tabGroups'],
     host_permissions: ['<all_urls>'],
   },

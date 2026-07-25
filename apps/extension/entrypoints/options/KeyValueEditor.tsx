@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -22,6 +23,7 @@ interface KeyValueEditorProps {
  * 键值对编辑器：用于查询参数、Mock 响应头等 Record 结构的编辑
  */
 export default function KeyValueEditor({ initialValue, onChange }: KeyValueEditorProps) {
+  const { t } = useTranslation();
   /** 编辑中的行列表（允许键暂时为空，提交时过滤） */
   const [rows, setRows] = useState<KeyValueRow[]>(() =>
     Object.entries(initialValue).map(([key, value]) => ({ key, value })),
@@ -59,13 +61,13 @@ export default function KeyValueEditor({ initialValue, onChange }: KeyValueEdito
         <div className="flex w-full gap-2" key={index}>
           <Input
             className="h-8"
-            placeholder="键"
+            placeholder={t('keyValueEditor.keyPlaceholder')}
             value={row.key}
             onChange={(e) => handleRowChange(index, { key: e.target.value })}
           />
           <Input
             className="h-8"
-            placeholder="值"
+            placeholder={t('keyValueEditor.valuePlaceholder')}
             value={row.value}
             onChange={(e) => handleRowChange(index, { value: e.target.value })}
           />
@@ -73,7 +75,7 @@ export default function KeyValueEditor({ initialValue, onChange }: KeyValueEdito
             variant="ghost"
             size="icon"
             className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
-            title="删除"
+            title={t('keyValueEditor.delete')}
             onClick={() => commit(rows.filter((_, i) => i !== index))}
           >
             <X className="size-4" />
@@ -86,7 +88,7 @@ export default function KeyValueEditor({ initialValue, onChange }: KeyValueEdito
         onClick={() => commit([...rows, { key: '', value: '' }])}
       >
         <Plus />
-        添加一项
+        {t('keyValueEditor.addItem')}
       </Button>
     </div>
   );
