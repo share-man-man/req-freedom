@@ -286,7 +286,8 @@
     "collapseGroup": "Collapse group",
     "ruleCount": "{{count}} rules",
     "manageRules": "Manage rules",
-    "matchedCount": "Matches on this page: {{count}}"
+    "matchedCount": "Matches on this page: {{count}}",
+    "clearMatchedCount": "Clear"
   },
   "dynamicVariableHint": {
     "title": "View available dynamic variables",
