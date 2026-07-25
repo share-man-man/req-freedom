@@ -308,7 +308,8 @@
     "ruleCount": "{{count}} правил",
     "manageRules": "Управление правилами",
     "matchedCount": "Срабатываний правил на этой странице: {{count}}",
-    "clearMatchedCount": "Очистить"
+    "clearMatchedCount": "Очистить",
+    "jumpToRule": "Перейти к правилу"
   },
   "dynamicVariableHint": {
     "title": "Показать доступные динамические переменные",

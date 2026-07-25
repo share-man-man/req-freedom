@@ -287,7 +287,8 @@
     "ruleCount": "{{count}} 条",
     "manageRules": "管理规则",
     "matchedCount": "当前页面已命中 {{count}} 次",
-    "clearMatchedCount": "清空"
+    "clearMatchedCount": "清空",
+    "jumpToRule": "跳转到规则"
   },
   "dynamicVariableHint": {
     "title": "查看可用的动态变量",

@@ -255,6 +255,14 @@ export interface RuleGroup {
   rules: Rule[];
 }
 
+/** 当前标签页的规则命中摘要，供 popup 展示命中规则与累计次数。 */
+export interface RuleMatchSummary {
+  /** DNR 与页面补丁通道合并后的累计命中次数。 */
+  count: number;
+  /** 至少命中过一次的业务规则 ID，已去重。 */
+  ruleIds: string[];
+}
+
 /**
  * 可移植的插件配置文件。
  *

@@ -30,6 +30,24 @@ export const PAGE_MESSAGE_RULE_MATCHED_SOURCE = 'req-freedom:page-rule-matched';
 /** 桥接脚本通知 background 累加当前标签页命中次数的消息类型。 */
 export const RUNTIME_MSG_RULE_MATCHED = 'req-freedom:rule-matched';
 
+/** popup 向 background 查询当前标签页命中摘要的消息类型。 */
+export const RUNTIME_MSG_GET_RULE_MATCH_SUMMARY = 'req-freedom:get-rule-match-summary';
+
+/** popup 通知 background 清空当前标签页命中记录的消息类型。 */
+export const RUNTIME_MSG_CLEAR_RULE_MATCHES = 'req-freedom:clear-rule-matches';
+
+/** storage.session 中按标签页保存页面补丁命中状态的键名。 */
+export const STORAGE_KEY_RULE_MATCH_STATE = 'req-freedom:rule-match-state';
+
+/** options 页面用于定位并高亮规则的查询参数名。 */
+export const RULE_HIGHLIGHT_QUERY_PARAM = 'highlightRuleId';
+
+/** Chrome 为动态 DNR 规则返回的内置规则集 ID。 */
+export const DNR_DYNAMIC_RULESET_ID = '_dynamic';
+
+/** Chrome 为 session DNR 规则返回的内置规则集 ID。 */
+export const DNR_SESSION_RULESET_ID = '_session';
+
 /** declarativeNetRequest 动态规则 ID 起始偏移，避免与其他来源的规则 ID 冲突 */
 export const DNR_RULE_ID_OFFSET = 1000;
 

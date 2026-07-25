@@ -23,7 +23,11 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { RuleActionType, RuleExecutionChannel } from '@req-freedom/shared';
+import {
+  RULE_HIGHLIGHT_QUERY_PARAM,
+  RuleActionType,
+  RuleExecutionChannel,
+} from '@req-freedom/shared';
 import type { Rule, RuleGroup } from '@req-freedom/shared';
 import { getEnabled, getGroups, saveConfiguration, saveGroups } from '@/utils/storage';
 import {
@@ -246,12 +250,20 @@ interface SortableRuleRowProps {
   onEdit: (rule: Rule) => void;
   /** 删除回调 */
   onDelete: (id: string) => void;
+  /** 是否为 popup 跳转后需要强调的目标规则。 */
+  highlighted: boolean;
 }
 
 /**
  * 可拖拽排序的规则行（div + Grid 实现，保证 dnd-kit 排序动画顺滑）
  */
-function SortableRuleRow({ rule, onToggle, onEdit, onDelete }: SortableRuleRowProps) {
+function SortableRuleRow({
+  rule,
+  onToggle,
+  onEdit,
+  onDelete,
+  highlighted,
+}: SortableRuleRowProps) {
   const { t } = useTranslation();
   /** 各枚举展示名映射。 */
   const labels = getLabels(t);
@@ -263,11 +275,12 @@ function SortableRuleRow({ rule, onToggle, onEdit, onDelete }: SortableRuleRowPr
   return (
     <div
       ref={setNodeRef}
+      id={`rule-${encodeURIComponent(rule.id)}`}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       // 拖拽中原行完全透明留出空位，跟随光标的是 DragOverlay 里的副本
       className={`${RULE_ROW_GRID} group border-t border-border/80 px-4 py-2.5 transition-colors hover:bg-primary/[0.03] ${
-        isDragging ? 'opacity-0' : ''
-      }`}
+        highlighted ? 'rule-target-highlight' : ''
+      } ${isDragging ? 'opacity-0' : ''}`}
     >
       {/* 拖拽句柄 */}
       <button
@@ -356,6 +369,8 @@ interface SortableGroupCardProps {
   collapsed: boolean;
   /** 切换折叠状态 */
   onToggleCollapse: (groupId: string) => void;
+  /** popup 跳转后需要强调的目标规则 ID。 */
+  highlightedRuleId: string | null;
 }
 
 /**
@@ -377,6 +392,7 @@ function SortableGroupCard({
   onReorderRules,
   collapsed,
   onToggleCollapse,
+  highlightedRuleId,
 }: SortableGroupCardProps) {
   const { t } = useTranslation();
   /** dnd-kit 排序钩子：作用于整张分组卡片（仅由标题栏的拖拽句柄触发） */
@@ -511,6 +527,7 @@ function SortableGroupCard({
                     onToggle={onToggleRule}
                     onEdit={onEditRule}
                     onDelete={onDeleteRule}
+                    highlighted={rule.id === highlightedRuleId}
                   />
                 ))}
               </SortableContext>
@@ -765,12 +782,60 @@ export default function App() {
   const [statusFilter, setStatusFilter] = useState<RuleStatusFilter>(RULE_STATUS_FILTER.All);
   /** 规则执行通道筛选。 */
   const [channelFilter, setChannelFilter] = useState<RuleExecutionChannel | 'all'>('all');
-  /** 当前激活的分组视图。 */
+  /** popup 跳转后需要滚动定位并临时高亮的规则 ID。 */
+  const [highlightedRuleId, setHighlightedRuleId] = useState<string | null>(() =>
+    new URLSearchParams(window.location.search).get(RULE_HIGHLIGHT_QUERY_PARAM),
+  );
 
   // 初始加载分组
   useEffect(() => {
     void getGroups().then(setGroups);
   }, []);
+
+  // popup 带规则 ID 跳转时，清除会隐藏目标的筛选、展开所属分组，再滚动并高亮目标行。
+  useEffect(() => {
+    if (!highlightedRuleId || groups.length === 0) {
+      return undefined;
+    }
+    /** 目标规则所属的分组。 */
+    const ownerGroup = groups.find((group) =>
+      group.rules.some((rule) => rule.id === highlightedRuleId),
+    );
+    if (!ownerGroup) {
+      setHighlightedRuleId(null);
+      return undefined;
+    }
+
+    setSearchQuery('');
+    setStatusFilter(RULE_STATUS_FILTER.All);
+    setChannelFilter('all');
+    setCollapsedGroupIds((previousGroupIds) => {
+      /** 确保目标规则所在分组处于展开状态。 */
+      const nextGroupIds = new Set(previousGroupIds);
+      nextGroupIds.delete(ownerGroup.id);
+      return nextGroupIds;
+    });
+
+    /** 清理地址栏参数，避免刷新页面后重复执行定位动画。 */
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.searchParams.delete(RULE_HIGHLIGHT_QUERY_PARAM);
+    window.history.replaceState(null, '', cleanUrl);
+
+    /** 等待筛选与折叠状态完成渲染后再滚动。 */
+    const frame = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        document
+          .getElementById(`rule-${encodeURIComponent(highlightedRuleId)}`)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    });
+    /** 高亮保留一段时间，足够用户完成视觉定位。 */
+    const timer = window.setTimeout(() => setHighlightedRuleId(null), 5000);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [groups, highlightedRuleId]);
 
   /** 分组列表拖拽用的传感器（与各分组内规则列表的传感器相互独立） */
   const groupSensors = useSortableSensors();
@@ -1249,6 +1314,7 @@ export default function App() {
                     onReorderRules={handleReorderRules}
                     collapsed={collapsedGroupIds.has(group.id)}
                     onToggleCollapse={handleToggleCollapse}
+                    highlightedRuleId={highlightedRuleId}
                   />
                 ))}
               </div>

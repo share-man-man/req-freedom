@@ -146,6 +146,24 @@ body {
 }
 
 /**
+ * popup 跳转后的目标规则强调：保留稳定底色与内描边，并用一次柔和脉冲吸引视线。
+ */
+.rule-target-highlight {
+  background: color-mix(in oklab, var(--primary) 14%, transparent);
+  box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--primary) 62%, transparent);
+  animation: rule-target-pulse 1.2s ease-out 2;
+}
+
+@keyframes rule-target-pulse {
+  50% {
+    background: color-mix(in oklab, var(--primary) 24%, transparent);
+    box-shadow:
+      inset 0 0 0 2px color-mix(in oklab, var(--primary) 78%, transparent),
+      0 0 18px color-mix(in oklab, var(--primary) 28%, transparent);
+  }
+}
+
+/**
  * 背景氛围光（side lights）：两坨大半径、重度模糊的渐变光斑固定在视口顶部两侧。
  * 复刻 turborepo 首页 leftLights/rightLights：蓝色在左、品紫在右，blur 120px + 低 opacity，
  * 只在页面顶部晕开一层冷暖对比的光，不喧宾夺主。

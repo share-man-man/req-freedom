@@ -287,7 +287,8 @@
     "ruleCount": "{{count}} 件のルール",
     "manageRules": "ルールを管理",
     "matchedCount": "このページでのルール一致: {{count}} 回",
-    "clearMatchedCount": "クリア"
+    "clearMatchedCount": "クリア",
+    "jumpToRule": "ルールへ移動"
   },
   "dynamicVariableHint": {
     "title": "利用可能な動的変数を表示",

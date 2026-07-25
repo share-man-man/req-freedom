@@ -308,7 +308,8 @@
     "ruleCount": "{{count}} règles",
     "manageRules": "Gérer les règles",
     "matchedCount": "Correspondances sur cette page : {{count}}",
-    "clearMatchedCount": "Effacer"
+    "clearMatchedCount": "Effacer",
+    "jumpToRule": "Accéder à la règle"
   },
   "dynamicVariableHint": {
     "title": "Voir les variables dynamiques disponibles",

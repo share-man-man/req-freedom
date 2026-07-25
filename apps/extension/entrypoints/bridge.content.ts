@@ -91,7 +91,13 @@ export default defineContentScript({
       if (!Number.isFinite(count) || count <= 0) {
         return;
       }
-      void browser.runtime.sendMessage({ type: RUNTIME_MSG_RULE_MATCHED, count });
+      /** 实际产生效果的业务规则 ID；仅接受有限数量的字符串。 */
+      const ruleIds = Array.isArray(event.data.ruleIds)
+        ? event.data.ruleIds
+            .filter((ruleId: unknown): ruleId is string => typeof ruleId === 'string')
+            .slice(0, 20)
+        : [];
+      void browser.runtime.sendMessage({ type: RUNTIME_MSG_RULE_MATCHED, count, ruleIds });
     });
 
     // storage 变化时重新推送（作用域上下文沿用缓存）

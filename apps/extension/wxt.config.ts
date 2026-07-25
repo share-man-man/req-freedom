@@ -15,8 +15,8 @@ export default defineConfig({
     description: '__MSG_extDescription__',
     permissions: [
       'storage',
+      'activeTab',
       'declarativeNetRequest',
-      'declarativeNetRequestFeedback',
       'tabGroups',
     ],
     host_permissions: ['<all_urls>'],

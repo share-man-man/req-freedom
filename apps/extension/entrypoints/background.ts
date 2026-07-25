@@ -1,13 +1,18 @@
 import { browser } from 'wxt/browser';
 import { defineBackground } from 'wxt/utils/define-background';
-import type { Rule, ScopeContext } from '@req-freedom/shared';
+import type { Rule, RuleMatchSummary, ScopeContext } from '@req-freedom/shared';
 import {
+  DNR_DYNAMIC_RULESET_ID,
   DNR_RULE_ID_OFFSET,
+  DNR_SESSION_RULESET_ID,
+  RUNTIME_MSG_CLEAR_RULE_MATCHES,
+  RUNTIME_MSG_GET_RULE_MATCH_SUMMARY,
   RUNTIME_MSG_GET_SCOPE_CONTEXT,
   RUNTIME_MSG_RULE_MATCHED,
   RUNTIME_MSG_SCOPE_CONTEXT_CHANGED,
   STORAGE_KEY_ENABLED,
   STORAGE_KEY_GROUPS,
+  STORAGE_KEY_RULE_MATCH_STATE,
 } from '@req-freedom/shared';
 import { collectActiveRules, isRuleScoped } from '@req-freedom/core';
 import { toDnrRules } from '@/utils/dnr';
@@ -26,6 +31,153 @@ interface DnrEntry {
   rule: Rule;
   /** 转换后的 DNR 规则 */
   dnrRule: DnrRule;
+}
+
+/** 单个标签页中由页面补丁通道维护的命中状态。 */
+interface TabRuleMatchState {
+  /** 当前页面开始统计的时间；用于排除清空或导航前的 DNR 命中记录。 */
+  since: number;
+  /** 页面补丁通道累计的命中次数。 */
+  pagePatchCount: number;
+  /** 页面补丁通道至少命中过一次的业务规则 ID。 */
+  pagePatchRuleIds: string[];
+}
+
+/** storage.session 中按 tabId 保存的命中状态。 */
+type RuleMatchStateByTab = Record<string, TabRuleMatchState>;
+
+/** 动态 / session 两套 DNR 规则集中，内部数字 ID 到业务规则 ID 的映射。 */
+const dnrRuleIdMaps = new Map<string, Map<number, string>>();
+
+/** background 冷启动时两套 DNR 映射的初始化任务。 */
+let dnrRuleMapsReady: Promise<unknown> = Promise.resolve();
+
+/** 串行化 storage.session 的读改写，避免并发请求覆盖命中次数或规则 ID。 */
+let ruleMatchStateMutation = Promise.resolve();
+
+/**
+ * 更新某套 DNR 规则集的业务规则映射。
+ * @param rulesetId Chrome 返回的内置规则集 ID
+ * @param entries 当前已经编译的 DNR entries
+ */
+function updateDnrRuleIdMap(rulesetId: string, entries: DnrEntry[]): void {
+  dnrRuleIdMaps.set(
+    rulesetId,
+    new Map(entries.map((entry) => [entry.dnrRule.id, entry.rule.id])),
+  );
+}
+
+/**
+ * 读取 storage.session 中全部标签页的命中状态。
+ */
+async function readRuleMatchStates(): Promise<RuleMatchStateByTab> {
+  const result = await browser.storage.session.get(STORAGE_KEY_RULE_MATCH_STATE);
+  const stored = result[STORAGE_KEY_RULE_MATCH_STATE];
+  return stored && typeof stored === 'object'
+    ? (stored as RuleMatchStateByTab)
+    : {};
+}
+
+/**
+ * 串行修改单个标签页的命中状态。
+ * @param tabId 标签页 ID
+ * @param update 基于旧状态生成新状态；返回 undefined 表示删除
+ */
+function updateTabRuleMatchState(
+  tabId: number,
+  update: (previous: TabRuleMatchState | undefined) => TabRuleMatchState | undefined,
+): Promise<void> {
+  const mutation = ruleMatchStateMutation.then(async () => {
+    /** 当前全部标签页的命中状态。 */
+    const states = await readRuleMatchStates();
+    /** 当前标签页变更后的状态。 */
+    const next = update(states[String(tabId)]);
+    if (next) {
+      states[String(tabId)] = next;
+    } else {
+      delete states[String(tabId)];
+    }
+    await browser.storage.session.set({ [STORAGE_KEY_RULE_MATCH_STATE]: states });
+  });
+  ruleMatchStateMutation = mutation.catch(() => undefined);
+  return mutation;
+}
+
+/**
+ * 读取单个标签页命中状态，并等待先前写入完成。
+ */
+async function getTabRuleMatchState(tabId: number): Promise<TabRuleMatchState> {
+  await ruleMatchStateMutation;
+  const states = await readRuleMatchStates();
+  return states[String(tabId)] ?? {
+    since: 0,
+    pagePatchCount: 0,
+    pagePatchRuleIds: [],
+  };
+}
+
+/**
+ * 记录页面补丁通道的一次实际命中。
+ * @param tabId 命中发生的标签页
+ * @param increment 本次累计次数
+ * @param ruleIds 实际产生效果的业务规则 ID
+ */
+async function recordPagePatchMatch(
+  tabId: number,
+  increment: number,
+  ruleIds: string[],
+): Promise<void> {
+  await updateTabRuleMatchState(tabId, (previous) => ({
+    since: previous?.since ?? 0,
+    pagePatchCount: (previous?.pagePatchCount ?? 0) + increment,
+    pagePatchRuleIds: [...new Set([...(previous?.pagePatchRuleIds ?? []), ...ruleIds])],
+  }));
+}
+
+/**
+ * 合并当前标签页的 DNR 与页面补丁命中摘要。
+ *
+ * popup 由用户点击扩展图标打开，因此 activeTab 临时授权允许正式打包版本调用 getMatchedRules；
+ * DNR 数字规则 ID 再通过同步规则时保存的映射还原为业务规则 ID。
+ */
+async function getRuleMatchSummary(tabId: number): Promise<RuleMatchSummary> {
+  // Service Worker 冷启动时，先等 DNR 同步建立数字 ID 到业务规则 ID 的映射。
+  await dnrRuleMapsReady.catch(() => undefined);
+  const state = await getTabRuleMatchState(tabId);
+  /** 当前页面统计窗口内的 DNR 命中明细；不支持时仍保留页面补丁摘要。 */
+  const dnrMatches = await browser.declarativeNetRequest
+    .getMatchedRules({
+      tabId,
+      ...(state.since > 0 ? { minTimeStamp: state.since } : {}),
+    })
+    .catch(() => ({ rulesMatchedInfo: [] }));
+  /** DNR 命中还原出的业务规则 ID。 */
+  const dnrRuleIds = dnrMatches.rulesMatchedInfo
+    .map((match) => dnrRuleIdMaps.get(match.rule.rulesetId)?.get(match.rule.ruleId))
+    .filter((ruleId): ruleId is string => typeof ruleId === 'string');
+  return {
+    count: dnrMatches.rulesMatchedInfo.length + state.pagePatchCount,
+    ruleIds: [...new Set([...dnrRuleIds, ...state.pagePatchRuleIds])],
+  };
+}
+
+/**
+ * 清空当前标签页两条通道的命中状态与扩展图标计数。
+ */
+async function clearRuleMatches(tabId: number): Promise<RuleMatchSummary> {
+  /** 清空前重新读取最新摘要，确保徽标一次扣到零。 */
+  const summary = await getRuleMatchSummary(tabId);
+  await updateTabRuleMatchState(tabId, () => ({
+    since: Date.now(),
+    pagePatchCount: 0,
+    pagePatchRuleIds: [],
+  }));
+  if (summary.count > 0) {
+    await browser.declarativeNetRequest.setExtensionActionOptions({
+      tabUpdate: { tabId, increment: -summary.count },
+    });
+  }
+  return { count: 0, ruleIds: [] };
 }
 
 /**
@@ -113,10 +265,13 @@ async function getActiveRules(): Promise<Rule[]> {
 async function syncDynamicRules(): Promise<void> {
   /** 当前生效且不限定作用域的规则。 */
   const unscopedRules = (await getActiveRules()).filter((rule) => !isRuleScoped(rule));
+  /** 当前动态规则编译结果。 */
+  const entries = compileEntries(unscopedRules);
+  updateDnrRuleIdMap(DNR_DYNAMIC_RULESET_ID, entries);
   await commitDnr(
     () => browser.declarativeNetRequest.getDynamicRules(),
     (arg) => browser.declarativeNetRequest.updateDynamicRules(arg),
-    compileEntries(unscopedRules),
+    entries,
     '动态',
   );
 }
@@ -145,10 +300,13 @@ async function syncSessionRules(): Promise<void> {
     tabIdsByRuleId.set(rule.id, tabIds);
     return true;
   });
+  /** 当前 session 规则编译结果。 */
+  const entries = compileEntries(registrableRules, tabIdsByRuleId);
+  updateDnrRuleIdMap(DNR_SESSION_RULESET_ID, entries);
   await commitDnr(
     () => browser.declarativeNetRequest.getSessionRules(),
     (arg) => browser.declarativeNetRequest.updateSessionRules(arg),
-    compileEntries(registrableRules, tabIdsByRuleId),
+    entries,
     'session',
   );
 }
@@ -198,9 +356,8 @@ export default defineBackground(() => {
   });
   void browser.action.setBadgeBackgroundColor({ color: '#7c3aed' });
 
-  // 启动时各同步一次，保证 DNR 规则与 storage 一致
-  void syncDynamicRules();
-  void syncSessionRules();
+  // 启动时各同步一次，保证 DNR 规则与 storage 一致；popup 查询需等待映射就绪。
+  dnrRuleMapsReady = Promise.all([syncDynamicRules(), syncSessionRules()]);
 
   // 规则或全局开关变化时，动态与 session 规则都要重新同步
   browser.storage.onChanged.addListener((changes, area) => {
@@ -228,9 +385,38 @@ export default defineBackground(() => {
       const increment = Number.isFinite(requestedIncrement)
         ? Math.min(100, Math.max(1, Math.floor(requestedIncrement)))
         : 1;
-      return browser.declarativeNetRequest.setExtensionActionOptions({
-        tabUpdate: { tabId, increment },
-      });
+      /** 页面补丁实际采用的业务规则 ID，去重并限制数量。 */
+      const ruleIds = Array.isArray((message as { ruleIds?: unknown }).ruleIds)
+        ? [
+            ...new Set(
+              ((message as { ruleIds: unknown[] }).ruleIds)
+                .filter((ruleId): ruleId is string => typeof ruleId === 'string')
+                .slice(0, 20),
+            ),
+          ]
+        : [];
+      if (ruleIds.length === 0) {
+        return undefined;
+      }
+      return Promise.all([
+        recordPagePatchMatch(tabId, increment, ruleIds),
+        browser.declarativeNetRequest.setExtensionActionOptions({
+          tabUpdate: { tabId, increment },
+        }),
+      ]).then(() => undefined);
+    }
+    if (
+      messageType === RUNTIME_MSG_GET_RULE_MATCH_SUMMARY ||
+      messageType === RUNTIME_MSG_CLEAR_RULE_MATCHES
+    ) {
+      /** popup 显式传入的当前标签页 ID。 */
+      const requestedTabId = Number((message as { tabId?: unknown }).tabId);
+      if (!Number.isInteger(requestedTabId) || requestedTabId < 0) {
+        return undefined;
+      }
+      return messageType === RUNTIME_MSG_GET_RULE_MATCH_SUMMARY
+        ? getRuleMatchSummary(requestedTabId)
+        : clearRuleMatches(requestedTabId);
     }
     if (messageType === RUNTIME_MSG_GET_SCOPE_CONTEXT) {
       /** 从消息发送方标签解析出的作用域上下文。 */
@@ -246,7 +432,10 @@ export default defineBackground(() => {
 
   // 标签生命周期与位置变化都会改变作用域对应的 tabId 集合，去抖重算 session 规则
   browser.tabs.onCreated.addListener(() => scheduleSessionResync());
-  browser.tabs.onRemoved.addListener(() => scheduleSessionResync());
+  browser.tabs.onRemoved.addListener((tabId) => {
+    scheduleSessionResync();
+    void updateTabRuleMatchState(tabId, () => undefined);
+  });
   browser.tabs.onMoved.addListener(() => scheduleSessionResync());
   browser.tabs.onReplaced.addListener(() => scheduleSessionResync());
   browser.tabs.onAttached.addListener((tabId) => {
@@ -256,6 +445,14 @@ export default defineBackground(() => {
   });
   browser.tabs.onDetached.addListener(() => scheduleSessionResync());
   browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
+    // 页面开始导航时开启新的统计窗口，避免 getMatchedRules 返回同一 tab 的上一文档记录。
+    if (changeInfo.status === 'loading' || changeInfo.url !== undefined) {
+      void updateTabRuleMatchState(tabId, () => ({
+        since: Date.now(),
+        pagePatchCount: 0,
+        pagePatchRuleIds: [],
+      }));
+    }
     // groupId 变化（移入 / 移出分组）既影响 session 规则，也需要下发给页面侧刷新分组作用域过滤。
     // groupId 不在 onUpdated changeInfo 的类型声明里但运行时可能出现，故经 unknown 取值。
     if ((changeInfo as unknown as { groupId?: number }).groupId !== undefined) {

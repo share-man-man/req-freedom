@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
-import { CheckCircle2, ChevronDown, Settings2 } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ExternalLink, Settings2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { RuleGroup } from '@req-freedom/shared';
+import type { RuleGroup, RuleMatchSummary } from '@req-freedom/shared';
+import {
+  RULE_HIGHLIGHT_QUERY_PARAM,
+  RUNTIME_MSG_CLEAR_RULE_MATCHES,
+  RUNTIME_MSG_GET_RULE_MATCH_SUMMARY,
+} from '@req-freedom/shared';
 import { collectActiveRules } from '@req-freedom/core';
 import { getEnabled, getGroups, saveGroups, setEnabled } from '@/utils/storage';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +28,10 @@ export default function App() {
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
   /** 当前页面累计命中次数；由扩展图标徽标统一承载两条执行通道的计数。 */
   const [matchedCount, setMatchedCount] = useState(0);
+  /** 当前页面至少命中过一次的业务规则 ID。 */
+  const [matchedRuleIds, setMatchedRuleIds] = useState<string[]>([]);
+  /** 点击 popup 时所在的标签页 ID。 */
+  const [activeTabId, setActiveTabId] = useState<number | null>(null);
 
   // 初始加载 storage 中的开关与分组
   useEffect(() => {
@@ -37,12 +46,16 @@ export default function App() {
         if (activeTab?.id === undefined) {
           return;
         }
-        /** DNR 与页面补丁共用的扩展图标徽标文本。 */
-        const badgeText = await browser.action.getBadgeText({ tabId: activeTab.id });
-        const count = Number.parseInt(badgeText, 10);
-        setMatchedCount(Number.isFinite(count) && count > 0 ? count : 0);
+        setActiveTabId(activeTab.id);
+        /** background 合并后的 DNR 与页面补丁命中摘要。 */
+        const summary = (await browser.runtime.sendMessage({
+          type: RUNTIME_MSG_GET_RULE_MATCH_SUMMARY,
+          tabId: activeTab.id,
+        })) as RuleMatchSummary | undefined;
+        setMatchedCount(summary?.count ?? 0);
+        setMatchedRuleIds(summary?.ruleIds ?? []);
       } catch {
-        // 特殊页面或浏览器不支持 action 查询时，不展示命中提示即可。
+        // 特殊页面或浏览器不支持命中明细查询时，不展示命中提示即可。
       }
     })();
   }, []);
@@ -61,25 +74,30 @@ export default function App() {
    */
   const handleClearMatchedCount = async (): Promise<void> => {
     try {
-      /** 点击清空时所在的标签页。 */
-      const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true });
-      if (activeTab?.id === undefined) {
+      if (activeTabId === null) {
         return;
       }
-      /** 重新读取最新值，避免 popup 打开后新增的命中没有被清空。 */
-      const badgeText = await browser.action.getBadgeText({ tabId: activeTab.id });
-      const count = Number.parseInt(badgeText, 10);
-      if (!Number.isFinite(count) || count <= 0) {
-        setMatchedCount(0);
-        return;
-      }
-      await browser.declarativeNetRequest.setExtensionActionOptions({
-        tabUpdate: { tabId: activeTab.id, increment: -count },
+      await browser.runtime.sendMessage({
+        type: RUNTIME_MSG_CLEAR_RULE_MATCHES,
+        tabId: activeTabId,
       });
       setMatchedCount(0);
+      setMatchedRuleIds([]);
     } catch {
       // 清空失败时保留原计数，用户可再次尝试。
     }
+  };
+
+  /**
+   * 打开规则管理页并定位指定规则。
+   * @param ruleId 要定位的业务规则 ID
+   */
+  const handleJumpToRule = (ruleId: string): void => {
+    /** 带目标规则查询参数的 options 页面地址。 */
+    const url = browser.runtime.getURL(
+      `/options.html?${RULE_HIGHLIGHT_QUERY_PARAM}=${encodeURIComponent(ruleId)}`,
+    );
+    void browser.tabs.create({ url });
   };
 
   /**
@@ -159,6 +177,8 @@ export default function App() {
   const activeCount = enabled ? collectActiveRules(groups).length : 0;
   /** 是否已存在任意规则 */
   const hasRules = groups.some((group) => group.rules.length > 0);
+  /** 便于规则列表快速判断高亮状态的命中 ID 集合。 */
+  const matchedRuleIdSet = new Set(matchedRuleIds);
 
   return (
     <div className="flex flex-col">
@@ -249,30 +269,55 @@ export default function App() {
                       group.enabled ? '' : 'opacity-50'
                     }`}
                   >
-                    {group.rules.map((rule) => (
-                      <li
-                        key={rule.id}
-                        className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/60"
-                      >
-                        <div className="flex min-w-0 items-center gap-2">
-                          <Switch
-                            checked={rule.enabled}
-                            onCheckedChange={() => handleToggleRule(rule.id)}
-                          />
-                          <span
-                            className={`truncate text-sm ${
-                              rule.enabled ? 'text-foreground' : 'text-muted-foreground'
-                            }`}
-                            title={rule.name}
-                          >
-                            {rule.name}
-                          </span>
-                        </div>
-                        <Badge variant={rule.enabled ? 'default' : 'muted'} className="shrink-0">
-                          {rule.channel === 'dnr' ? 'DNR' : t('templateLibrary.channelPagePatch')}
-                        </Badge>
-                      </li>
-                    ))}
+                    {group.rules.map((rule) => {
+                      /** 当前规则是否在本页面至少命中过一次。 */
+                      const isMatched = matchedRuleIdSet.has(rule.id);
+                      return (
+                        <li
+                          key={rule.id}
+                          className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 transition-colors ${
+                            isMatched
+                              ? 'border-primary/40 bg-primary/10 ring-1 ring-inset ring-primary/20'
+                              : 'border-transparent hover:bg-muted/60'
+                          }`}
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            <Switch
+                              checked={rule.enabled}
+                              onCheckedChange={() => handleToggleRule(rule.id)}
+                            />
+                            <span
+                              className={`truncate text-sm ${
+                                rule.enabled ? 'text-foreground' : 'text-muted-foreground'
+                              }`}
+                              title={rule.name}
+                            >
+                              {rule.name}
+                            </span>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <Badge variant={rule.enabled ? 'default' : 'muted'} className="shrink-0">
+                              {rule.channel === 'dnr'
+                                ? 'DNR'
+                                : t('templateLibrary.channelPagePatch')}
+                            </Badge>
+                            {isMatched && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="size-7 text-primary hover:bg-primary/10 hover:text-primary"
+                                title={t('popup.jumpToRule')}
+                                aria-label={t('popup.jumpToRule')}
+                                onClick={() => handleJumpToRule(rule.id)}
+                              >
+                                <ExternalLink className="size-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>
