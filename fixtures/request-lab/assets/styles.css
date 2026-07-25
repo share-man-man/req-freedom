@@ -43,6 +43,17 @@ h2 { margin-bottom: 8px; font-size: 18px; letter-spacing: -.02em; }
 /* 一张卡片承载多个测试入口时，整行按钮统一贴底，与单按钮卡片的底边对齐。 */
 .card > .button-row { display: flex; margin-top: auto; gap: 8px; flex-wrap: wrap; }
 .card > .button-row > .button { flex: 1 1 0; }
+.card-run-status { display: inline-flex; align-items: center; align-self: flex-start; gap: 7px; margin-top: auto; padding: 5px 8px; border: 1px solid #31506c; border-radius: 999px; color: #94aabe; font-size: 11px; transition: border-color .2s ease, background .2s ease, color .2s ease; }
+.card-run-status::before { width: 6px; height: 6px; border-radius: 50%; background: currentColor; content: ""; }
+.card > .card-run-status + .button, .card > .card-run-status + .button-row { margin-top: 8px; }
+.card[data-run-state="running"] { border-color: #4da7d1; box-shadow: 0 0 0 1px #4da7d133, 0 12px 26px #04101d66; }
+.card[data-run-state="running"] .card-run-status { border-color: #4da7d1; background: #123c5588; color: #82d6fb; }
+.card[data-run-state="running"] .card-run-status::before { animation: card-run-pulse .9s ease-in-out infinite alternate; }
+.card[data-run-state="completed"] { border-color: #3a876c; }
+.card[data-run-state="completed"] .card-run-status { border-color: #3a876c; background: #123b3288; color: #79dcb1; }
+.card[data-run-state="failed"] { border-color: #a34f5a; }
+.card[data-run-state="failed"] .card-run-status { border-color: #a34f5a; background: #411d2888; color: #ff9ba5; }
+@keyframes card-run-pulse { from { opacity: .45; transform: scale(.8); } to { opacity: 1; transform: scale(1.2); } }
 .tag { padding: 4px 7px; border-radius: 5px; background: #183d58; color: #7fd8ff; font-size: 10px; font-weight: 800; letter-spacing: .08em; }
 details { margin: 6px 0 auto; color: #87a3bc; font-size: 13px; }
 summary { cursor: pointer; }
