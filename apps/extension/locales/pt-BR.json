@@ -1,0 +1,455 @@
+{
+  "group": {
+    "defaultName": "Novo grupo",
+    "autoDefaultName": "Grupo padrão"
+  },
+  "rule": {
+    "defaultName": "Nova regra"
+  },
+  "template": {
+    "corsAllowAll": {
+      "name": "Desativar restrição CORS",
+      "description": "Adiciona cabeçalhos Access-Control-Allow-* às respostas correspondentes para liberar CORS durante a depuração local. Altere o padrão para o endereço da sua API."
+    },
+    "disableCache": {
+      "name": "Desativar cache",
+      "description": "Adiciona Cache-Control sem cache à requisição e à resposta para sempre obter o recurso mais recente. Altere o padrão para o endereço desejado."
+    },
+    "forceHttps": {
+      "name": "Forçar HTTPS",
+      "description": "Redireciona requisições http correspondentes para o mesmo endereço via https. Por padrão, corresponde a todas as requisições http."
+    },
+    "mobileUaIos": {
+      "name": "UA móvel · iPhone",
+      "description": "Altera o User-Agent para o Safari do iOS para que o site retorne a página móvel. Altere o padrão para o site desejado."
+    },
+    "mobileUaAndroid": {
+      "name": "UA móvel · Android",
+      "description": "Altera o User-Agent para o Chrome do Android para que o site retorne a página móvel. Altere o padrão para o site desejado."
+    }
+  },
+  "dynamicVariable": {
+    "uuid": {
+      "label": "UUID",
+      "description": "UUID v4 aleatório"
+    },
+    "timestamp": {
+      "label": "Timestamp (segundos)",
+      "description": "Timestamp Unix atual em segundos"
+    },
+    "timestampMs": {
+      "label": "Timestamp (ms)",
+      "description": "Timestamp Unix atual em milissegundos"
+    },
+    "isoTime": {
+      "label": "Data e hora ISO",
+      "description": "Data e hora atual em uma string ISO 8601"
+    },
+    "randomFloat": {
+      "label": "Decimal aleatório",
+      "description": "Decimal aleatório no intervalo [0, 1)"
+    },
+    "randomInt": {
+      "label": "Inteiro aleatório",
+      "description": "Inteiro aleatório; o argumento define o intervalo inclusivo [min, max], padrão 0-100"
+    },
+    "randomString": {
+      "label": "String aleatória",
+      "description": "String alfanumérica aleatória; o argumento define o tamanho, padrão 8"
+    }
+  },
+  "configTransfer": {
+    "invalidJson": "O arquivo não contém um JSON válido.",
+    "mustBeObject": "{{label}} deve ser um objeto.",
+    "requiredNonEmpty": "{{label}} não pode ficar vazio.",
+    "mustBeNonNegativeNumber": "{{label}} deve ser um número não negativo.",
+    "valuesMustBeStrings": "Todos os valores de {{label}} devem ser strings.",
+    "schemaVersionUnsupported": "Somente schemaVersion {{version}} é compatível.",
+    "missingExportedAt": "O arquivo não contém um horário exportedAt válido.",
+    "invalidEnabledOrGroups": "O campo enabled ou groups do arquivo está malformado.",
+    "duplicateGroupId": "ID de grupo {{id}} duplicado.",
+    "invalidGroupFormat": "O grupo \"{{id}}\" está malformado.",
+    "missingGroupUpdatedAt": "O grupo \"{{id}}\" não tem um horário de atualização válido.",
+    "duplicateRuleId": "ID de regra {{id}} duplicado.",
+    "invalidRuleBaseFields": "A regra \"{{id}}\" tem campos básicos inválidos.",
+    "invalidRuleChannel": "A regra \"{{id}}\" tem um canal de execução inválido.",
+    "invalidRuleMethods": "A regra \"{{id}}\" tem métodos de requisição inválidos.",
+    "ruleActionsRequired": "A regra \"{{id}}\" precisa de pelo menos uma ação.",
+    "invalidRuleRegex": "A regra \"{{id}}\" tem uma expressão regular inválida.",
+    "exclusiveActionsConflict": "A regra \"{{id}}\" não pode combinar Bloquear, Redirecionar e Injetar parâmetros.",
+    "getHeadCannotModifyBody": "A regra \"{{id}}\" não pode alterar o corpo em GET / HEAD.",
+    "invalidScopeType": "A regra \"{{ruleId}}\" tem um tipo de escopo inválido.",
+    "scopeTargetsRequired": "A regra \"{{ruleId}}\" precisa de pelo menos um alvo de escopo.",
+    "scopeTargetIdMustBeInteger": "O ID do alvo de escopo da regra \"{{ruleId}}\" deve ser inteiro.",
+    "bodyMatchChannelInvalid": "A correspondência de corpo da regra \"{{ruleId}}\" só está disponível no canal de patch da página.",
+    "invalidBodyMatchType": "A regra \"{{ruleId}}\" tem um tipo de correspondência de corpo inválido.",
+    "invalidBodyMatchRegex": "A regra \"{{ruleId}}\" tem uma expressão regular de corpo inválida.",
+    "invalidActionType": "A regra \"{{ruleId}}\" tem um tipo de ação inválido.",
+    "actionChannelMismatch": "A ação da regra \"{{ruleId}}\" não corresponde ao canal de execução.",
+    "invalidMockConfig": "A regra \"{{ruleId}}\" tem uma configuração de mock inválida.",
+    "dynamicMockFunctionRequired": "A função de mock dinâmico da regra \"{{ruleId}}\" não pode ficar vazia.",
+    "invalidThrottlePreset": "A regra \"{{ruleId}}\" tem um perfil de limitação inválido.",
+    "invalidInsertScriptConfig": "A regra \"{{ruleId}}\" tem uma configuração de injeção de script inválida.",
+    "invalidRequestBodyConfig": "A regra \"{{ruleId}}\" tem uma configuração de corpo inválida.",
+    "dynamicRequestBodyFunctionRequired": "A função dinâmica de corpo da regra \"{{ruleId}}\" não pode ficar vazia.",
+    "headersMustBeArray": "As alterações de cabeçalho devem ser um array.",
+    "invalidHeaderTargetOrOperation": "A alteração de cabeçalho tem alvo ou operação inválida.",
+    "label": {
+      "configRoot": "raiz da configuração",
+      "nthGroup": "grupo nº {{n}}",
+      "groupId": "ID do grupo",
+      "groupName": "nome do grupo \"{{id}}\"",
+      "nthRuleInGroup": "regra nº {{n}} no grupo \"{{groupId}}\"",
+      "ruleId": "ID da regra",
+      "rulePattern": "padrão da regra \"{{id}}\"",
+      "ruleName": "nome da regra \"{{id}}\"",
+      "ruleScope": "escopo da regra \"{{ruleId}}\"",
+      "scopeTarget": "alvo de escopo da regra \"{{ruleId}}\"",
+      "ruleBodyMatch": "correspondência de corpo da regra \"{{ruleId}}\"",
+      "ruleBodyMatchValue": "valor de correspondência de corpo da regra \"{{ruleId}}\"",
+      "nthActionInRule": "ação nº {{n}} da regra \"{{ruleId}}\"",
+      "redirectUrl": "endereço de redirecionamento",
+      "params": "parâmetros",
+      "mockDelay": "atraso do mock",
+      "mockResponseHeaders": "cabeçalhos da resposta mock",
+      "networkLatency": "latência de rede",
+      "downloadBandwidth": "banda de download",
+      "uploadBandwidth": "banda de upload",
+      "insertScriptCode": "código injetado",
+      "headerModification": "alteração de cabeçalho",
+      "headerName": "nome do cabeçalho"
+    }
+  },
+  "ruleEditor": {
+    "titleNew": "Nova regra",
+    "titleEdit": "Editar regra",
+    "group": "Grupo",
+    "name": "Nome da regra",
+    "matchType": "Tipo de correspondência",
+    "pattern": "Padrão de correspondência",
+    "methods": "Métodos",
+    "advanced": "Avançado",
+    "optional": "Opcional",
+    "bodyMatchLabel": "Correspondência do corpo",
+    "scope": "Escopo",
+    "cancel": "Cancelar",
+    "save": "Salvar",
+    "deleteAction": "Excluir {{actionLabel}}",
+    "deleteActionSr": "Excluir ação",
+    "selectActionHint": "Selecione uma ação de \"{{groupTitle}}\" para configurar",
+    "actionDescription": {
+      "block": "Bloqueia diretamente a requisição correspondente",
+      "redirect": "Encaminha a requisição para outro endereço",
+      "injectParams": "Adiciona ou substitui parâmetros da query",
+      "modifyHeaders": "Adiciona, remove ou altera cabeçalhos de requisição/resposta",
+      "mockResponse": "Intercepta a requisição e retorna uma resposta personalizada",
+      "delay": "Aplica latência e limites de banda à requisição",
+      "modifyRequestBody": "Reescreve o corpo antes do envio",
+      "insertScript": "Injeta JS / CSS pela URL da página"
+    },
+    "actionGroup": {
+      "dnr": {
+        "title": "Camada de rede",
+        "hint": "Aplica-se a todas as requisições (incluindo navegação e recursos estáticos), mas não lê o corpo",
+        "note": "Bloquear / Redirecionar / Injetar parâmetros são exclusivos; Alterar cabeçalhos pode ser combinado"
+      },
+      "pagePatch": {
+        "title": "Patch da página",
+        "hint": "Só se aplica a fetch / XHR de scripts da página; pode ler e alterar o corpo e a resposta",
+        "note": "Mock / Limitação / Alteração do corpo podem ser combinados; Injetar script deve ser usado sozinho"
+      }
+    },
+    "describeAction": {
+      "block": "Bloquear: requisição bloqueada",
+      "redirect": "Redirecionar → {{url}}",
+      "injectParams": "Injetar parâmetros: {{params}}",
+      "empty": "(vazio)",
+      "modifyHeaders": "Alterar cabeçalhos: {{count}} item(ns)",
+      "mockResponse": "Mock retorna HTTP {{statusCode}}",
+      "delay": "Limitação: {{preset}}",
+      "modifyRequestBody": "Alterar corpo ({{sourceMode}})",
+      "insertScript": "Inserir {{codeType}} ({{timing}})"
+    },
+    "describeEffect": {
+      "none": "Nenhuma ação configurada",
+      "separator": "; "
+    },
+    "validation": {
+      "actionsRequired": "Selecione pelo menos uma ação",
+      "nameRequired": "O nome da regra não pode ficar vazio",
+      "patternRequired": "O padrão não pode ficar vazio",
+      "patternRegexInvalid": "Sintaxe de expressão regular inválida",
+      "bodyMethodsRequired": "Alterar o corpo exige POST / PUT / PATCH / DELETE / OPTIONS",
+      "bodyMatchValueRequired": "O valor de correspondência do corpo não pode ficar vazio",
+      "bodyMatchRegexInvalid": "A expressão regular do corpo é inválida",
+      "scopeTargetRequired": "Selecione pelo menos um(a) {{scopeNoun}}",
+      "scopeNoun": {
+        "tab": "aba",
+        "window": "janela",
+        "tabGroup": "grupo de abas"
+      },
+      "exclusiveDnrActions": "Bloquear, Redirecionar e Injetar parâmetros são mutuamente exclusivos",
+      "redirectUrlRequired": "O destino do redirecionamento não pode ficar vazio",
+      "redirectUrlAbsolute": "O destino deve ser um endereço absoluto, por exemplo http://127.0.0.1:4317/api/redirect-target.json",
+      "insertScriptCodeRequired": "O código injetado não pode ficar vazio",
+      "mockStatusCodeRange": "O status do mock deve estar entre 100 e 599",
+      "dynamicMockFunctionRequired": "A função de mock dinâmico não pode ficar vazia",
+      "requestBodyContentRequired": "O corpo da requisição não pode ficar vazio",
+      "requestBodyFunctionRequired": "A função do corpo não pode ficar vazia"
+    },
+    "matchTester": {
+      "trigger": "Testar correspondência",
+      "placeholder": "Digite um caminho / URL de teste",
+      "test": "Testar",
+      "matched": "Correspondente",
+      "notMatched": "Sem correspondência — esta URL não será processada pela regra"
+    },
+    "methodPicker": {
+      "scriptOnlyHint": "A injeção de script corresponde pela URL; não exige configurar métodos.",
+      "all": "Todos",
+      "bodyHint": "A alteração do corpo só vale para métodos com corpo; GET / HEAD e \"Todos\" são excluídos."
+    },
+    "bodyMatchEditor": {
+      "off": "Sem restrição de corpo",
+      "hint": "Restringe pela corpo de fetch / XHR; no GraphQL use o \"nome da operação\" para diferenciar operações na mesma URL."
+    },
+    "scopeEditor": {
+      "unnamedTab": "Aba nº {{id}}",
+      "windowLabel": "Janela {{index}}",
+      "windowHint": "{{count}} abas{{current}}",
+      "currentSuffix": " · atual",
+      "unnamedTabGroup": "Grupo de abas sem nome",
+      "refresh": "Atualizar lista",
+      "loading": "Carregando…",
+      "noOptions": "Nenhuma opção disponível — abra primeiro a aba / janela / grupo correspondente",
+      "closed": "Fechado",
+      "allTabsHint": "Aplica-se a todas as abas por padrão. Limitar o escopo evita vazar cabeçalhos sensíveis, como Authorization, para outros sites.",
+      "limitedHint": "{{emptyHint}}; os IDs valem apenas na sessão e devem ser selecionados novamente após reiniciar o navegador."
+    },
+    "mockActionEditor": {
+      "bodyTypeAriaLabel": "Tipo do corpo da resposta",
+      "invalidJsonHint": "O corpo não é um JSON válido; para outro formato, altere o \"Tipo do corpo\" acima.",
+      "dynamicHint": "A função dinâmica pode ler req.url, req.method, req.headers, req.query, req.body e req.json."
+    },
+    "delayActionEditor": {
+      "preset": "Perfil de rede",
+      "latency": "Latência (ms)",
+      "download": "Download ({{unit}})",
+      "upload": "Upload ({{unit}})"
+    },
+    "requestBodyActionEditor": {
+      "hint": "Só vale para métodos fetch / XHR com corpo; o corpo original é mantido em caso de erro ou retorno undefined."
+    }
+  },
+  "app": {
+    "scopeBadge": {
+      "title": "{{scopeLabel}} · {{count}} objetos"
+    },
+    "relativeTime": {
+      "none": "Sem registro",
+      "justNow": "Atualizado agora",
+      "minutesAgo": "Atualizado há {{count}} min",
+      "hoursAgo": "Atualizado há {{count}} h",
+      "daysAgo": "Atualizado há {{count}} dias"
+    },
+    "groupNamePlaceholder": "Nome do grupo",
+    "dragToReorder": "Arraste para reordenar",
+    "dragToReorderGroup": "Arraste para reordenar o grupo",
+    "edit": "Editar",
+    "delete": "Excluir",
+    "expand": "Expandir",
+    "collapse": "Recolher",
+    "disableGroup": "Desativar grupo",
+    "enableGroup": "Ativar grupo",
+    "groupRuleCount": "{{count}} regras",
+    "groupEnabled": "Ativado",
+    "groupDisabled": "Desativado",
+    "lastUpdated": "Última atualização: {{time}}",
+    "addRule": "Adicionar regra",
+    "deleteGroup": "Excluir grupo",
+    "emptyGroupHint": "Este grupo ainda não tem regras — clique em \"Adicionar regra\" no canto superior direito",
+    "columns": {
+      "enabled": "Ativado",
+      "name": "Nome",
+      "channel": "Canal",
+      "actions": "Ações",
+      "pattern": "Padrão de correspondência",
+      "operations": "Operações"
+    },
+    "addRuleMenu": {
+      "blank": "Regra em branco",
+      "fromTemplate": "Da biblioteca de modelos…"
+    },
+    "transfer": {
+      "exportSuccess": "Configuração exportada.",
+      "exportFailure": "Falha ao exportar. Tente novamente.",
+      "importConfirm": "Serão importados {{groupCount}} grupos e {{ruleCount}} regras, substituindo toda a configuração atual. Continuar?",
+      "importSuccess": "{{groupCount}} grupos e {{ruleCount}} regras importados.",
+      "importParseFailure": "Falha ao importar. Verifique o conteúdo do arquivo e tente novamente.",
+      "importFailure": "Falha ao importar: {{message}}"
+    },
+    "deleteGroupConfirm": "O grupo \"{{name}}\" ainda tem {{count}} regras. Excluir o grupo inteiro?",
+    "newRule": "Nova regra",
+    "newGroup": "Novo grupo",
+    "emptyState": {
+      "title": "Nenhuma regra ainda",
+      "hint": "Crie uma regra e ela irá para \"{{defaultGroupName}}\" automaticamente; ou crie um grupo primeiro"
+    },
+    "noMatchingGroups": "Nenhum grupo correspondente encontrado",
+    "noMatchingGroupsHint": "Tente ajustar a busca ou os filtros"
+  },
+  "popup": {
+    "activeCount": "{{count}} regras ativas",
+    "globallyDisabled": "Desativado globalmente",
+    "noRules": "Nenhuma regra ainda",
+    "noRulesHint": "Acesse a página de gerenciamento para adicionar a primeira regra",
+    "expandGroup": "Expandir grupo",
+    "collapseGroup": "Recolher grupo",
+    "ruleCount": "{{count}} regras",
+    "manageRules": "Gerenciar regras"
+  },
+  "dynamicVariableHint": {
+    "title": "Ver variáveis dinâmicas disponíveis",
+    "trigger": "Variáveis",
+    "hint": "Use estes placeholders nos campos de valor e clique para copiar. O patch avalia por requisição; a camada DNR, uma vez ao sincronizar."
+  },
+  "dialog": {
+    "close": "Fechar"
+  },
+  "codeEditor": {
+    "ariaLabel": "Editor de {{language}}",
+    "invalidJson": "JSON inválido — não é possível formatar.",
+    "format": "Formatar"
+  },
+  "dashboard": {
+    "header": {
+      "title": "Gerenciador de regras Req Freedom",
+      "subtitle": "Bloquear · Redirecionar · Injetar parâmetros · Cabeçalhos · Mock · Limitar · Injetar script · Alterar corpo",
+      "import": "Importar regras",
+      "export": "Exportar regras"
+    },
+    "moreMenu": {
+      "trigger": "Mais",
+      "language": "Idioma"
+    },
+    "statistics": {
+      "ariaLabel": "Estatísticas de regras",
+      "groupLabel": "Grupos",
+      "groupSuffix": "grupos",
+      "ruleLabel": "Regras",
+      "ruleSuffix": "regras",
+      "enabledLabel": "Ativado"
+    },
+    "toolbar": {
+      "ariaLabel": "Filtros de regras",
+      "searchPlaceholder": "Buscar grupos ou regras por nome ou padrão…",
+      "searchAriaLabel": "Buscar grupos ou regras",
+      "statusPlaceholder": "Status",
+      "statusAll": "Status: todos",
+      "statusEnabled": "Status: ativadas",
+      "statusDisabled": "Status: desativadas",
+      "channelPlaceholder": "Tipo",
+      "channelAll": "Canal: todos",
+      "channelDnr": "Regra de rede DNR",
+      "channelPagePatch": "Patch da página"
+    }
+  },
+  "keyValueEditor": {
+    "keyPlaceholder": "Chave",
+    "valuePlaceholder": "Valor",
+    "delete": "Excluir",
+    "addItem": "Adicionar item"
+  },
+  "headersEditor": {
+    "delete": "Excluir",
+    "appendableHeaderPlaceholder": "Selecione um cabeçalho de requisição que aceite anexação",
+    "headerNamePlaceholder": "Nome do cabeçalho",
+    "valuePlaceholder": "Valor (deixe vazio para remover)",
+    "appendHint": "“Anexar” só aceita os cabeçalhos padrão multivalorados acima; para cabeçalhos personalizados use “Definir”.",
+    "ineffectiveAppendWarning": "Cabeçalhos personalizados não aceitam “Anexar”; o navegador ignora. Use “Definir”. Só alguns como Cookie, User-Agent e X-Forwarded-For aceitam anexação.",
+    "addItem": "Adicionar alteração",
+    "responseHeaderHint": "Dica: alterações nos <strong>cabeçalhos de resposta</strong> não aparecem no painel de rede. Verifique no console com <code>fetch(url).then((r) =&gt; r.headers.get('...'))</code>."
+  },
+  "templateLibrary": {
+    "title": "Biblioteca de modelos de regras",
+    "hint": "O modelo abre o editor com ações preenchidas; altere o padrão para o endereço desejado e salve.",
+    "channelPagePatch": "Patch da página",
+    "use": "Usar"
+  },
+  "label": {
+    "ruleTemplateCategory": {
+      "cors": "CORS",
+      "cache": "Controle de cache",
+      "protocol": "Protocolo e redirecionamento",
+      "userAgent": "User-Agent"
+    },
+    "ruleActionType": {
+      "block": "Bloquear requisição",
+      "redirect": "Redirecionar",
+      "injectParams": "Injetar parâmetros",
+      "modifyHeaders": "Alterar cabeçalhos",
+      "mockResponse": "Simular resposta",
+      "delay": "Limitar rede",
+      "modifyRequestBody": "Alterar corpo da requisição",
+      "insertScript": "Injetar script"
+    },
+    "requestBodyMode": {
+      "replace": "Substituir completamente",
+      "mergeJson": "Mesclar JSON profundamente"
+    },
+    "requestBodySourceMode": {
+      "static": "Reescrita estática",
+      "dynamic": "Gerar com JavaScript"
+    },
+    "mockResponseMode": {
+      "static": "Corpo de resposta estático",
+      "dynamic": "Gerar com JavaScript"
+    },
+    "mockBodyType": {
+      "text": "Texto"
+    },
+    "networkThrottlePreset": {
+      "custom": "Personalizado"
+    },
+    "insertScriptTiming": {
+      "documentStart": "Início do documento (document_start)",
+      "documentEnd": "Documento pronto (document_end)"
+    },
+    "bodyMatchType": {
+      "contains": "Contém substring",
+      "regex": "Expressão regular",
+      "graphqlOperation": "Nome da operação GraphQL"
+    },
+    "bodyMatchValuePlaceholder": {
+      "contains": "Substring que o corpo deve conter",
+      "regex": "Expressão regular para o corpo, por exemplo \"mutation\\\\s+Login\"",
+      "graphqlOperation": "operationName, por exemplo GetUser"
+    },
+    "ruleScopeType": {
+      "allTabs": "Todas as abas",
+      "tab": "Abas específicas",
+      "window": "Janelas específicas",
+      "tabGroup": "Grupos de abas específicos"
+    },
+    "ruleScopeEmptyHint": {
+      "tab": "Selecione uma ou mais abas abertas",
+      "window": "Selecione uma ou mais janelas abertas",
+      "tabGroup": "Selecione um ou mais grupos de abas atuais"
+    },
+    "matchType": {
+      "contains": "Contém",
+      "equals": "Igual",
+      "wildcard": "Curinga",
+      "regex": "Expressão regular"
+    },
+    "headerTarget": {
+      "request": "Cabeçalho da requisição",
+      "response": "Cabeçalho da resposta"
+    },
+    "headerOperation": {
+      "set": "Definir",
+      "append": "Anexar",
+      "remove": "Remover"
+    }
+  }
+}

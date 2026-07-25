@@ -21,6 +21,14 @@ import { changeLocale, SUPPORTED_LOCALES, type SupportedLocale } from '@/utils/i
 const LOCALE_DISPLAY_NAMES: Record<SupportedLocale, string> = {
   'zh-CN': '简体中文',
   en: 'English',
+  'zh-TW': '繁體中文',
+  ja: '日本語',
+  ko: '한국어',
+  es: 'Español',
+  'pt-BR': 'Português (Brasil)',
+  fr: 'Français',
+  de: 'Deutsch',
+  ru: 'Русский',
 };
 
 interface MoreMenuProps {
@@ -107,7 +115,7 @@ function MoreMenu({ onImport, onExport }: MoreMenuProps) {
           ref={menuRef}
           role="menu"
           style={{ top: position.top, right: position.right }}
-          className="fixed z-50 w-52 overflow-hidden rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md"
+          className="fixed z-50 max-h-[min(32rem,calc(100vh-1rem))] w-56 overflow-y-auto rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md"
         >
           <button
             type="button"

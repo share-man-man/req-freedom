@@ -1,0 +1,8 @@
+{
+  "extName": {
+    "message": "Req Freedom"
+  },
+  "extDescription": {
+    "message": "요청 디버깅 도구: 차단, 리디렉션, 매개변수 삽입, 헤더 수정, Mock, 지연 시뮬레이션"
+  }
+}

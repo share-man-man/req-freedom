@@ -1,0 +1,455 @@
+{
+  "group": {
+    "defaultName": "Новая группа",
+    "autoDefaultName": "Группа по умолчанию"
+  },
+  "rule": {
+    "defaultName": "Новое правило"
+  },
+  "template": {
+    "corsAllowAll": {
+      "name": "Отключить ограничение CORS",
+      "description": "Добавляет заголовки Access-Control-Allow-* к совпавшим ответам, снимая ограничение CORS при локальной отладке. Укажите адрес своего API."
+    },
+    "disableCache": {
+      "name": "Отключить кеш",
+      "description": "Добавляет Cache-Control без кеширования к запросу и ответу, чтобы всегда получать свежий ресурс. Укажите целевой адрес."
+    },
+    "forceHttps": {
+      "name": "Принудительно использовать HTTPS",
+      "description": "Перенаправляет совпавшие http-запросы на тот же адрес по https. По умолчанию совпадают все http-запросы."
+    },
+    "mobileUaIos": {
+      "name": "Мобильный UA · iPhone",
+      "description": "Меняет User-Agent на iOS Safari, чтобы сайт вернул мобильную версию. Укажите целевой сайт."
+    },
+    "mobileUaAndroid": {
+      "name": "Мобильный UA · Android",
+      "description": "Меняет User-Agent на Android Chrome, чтобы сайт вернул мобильную версию. Укажите целевой сайт."
+    }
+  },
+  "dynamicVariable": {
+    "uuid": {
+      "label": "UUID",
+      "description": "Случайный UUID v4"
+    },
+    "timestamp": {
+      "label": "Метка времени (секунды)",
+      "description": "Текущая метка Unix в секундах"
+    },
+    "timestampMs": {
+      "label": "Метка времени (мс)",
+      "description": "Текущая метка Unix в миллисекундах"
+    },
+    "isoTime": {
+      "label": "Время ISO",
+      "description": "Текущее время в формате ISO 8601"
+    },
+    "randomFloat": {
+      "label": "Случайное дробное число",
+      "description": "Случайное дробное число в диапазоне [0, 1)"
+    },
+    "randomInt": {
+      "label": "Случайное целое число",
+      "description": "Случайное целое число; аргумент задаёт диапазон [min, max], по умолчанию 0-100"
+    },
+    "randomString": {
+      "label": "Случайная строка",
+      "description": "Случайная буквенно-цифровая строка; аргумент задаёт длину, по умолчанию 8"
+    }
+  },
+  "configTransfer": {
+    "invalidJson": "Файл не содержит допустимый JSON.",
+    "mustBeObject": "{{label}} должно быть объектом.",
+    "requiredNonEmpty": "{{label}} не может быть пустым.",
+    "mustBeNonNegativeNumber": "{{label}} должно быть неотрицательным числом.",
+    "valuesMustBeStrings": "Все значения в {{label}} должны быть строками.",
+    "schemaVersionUnsupported": "Поддерживается только schemaVersion {{version}}.",
+    "missingExportedAt": "В файле нет допустимого времени exportedAt.",
+    "invalidEnabledOrGroups": "Поле enabled или groups имеет неверный формат.",
+    "duplicateGroupId": "Повторяющийся ID группы {{id}}.",
+    "invalidGroupFormat": "Группа «{{id}}» имеет неверный формат.",
+    "missingGroupUpdatedAt": "У группы «{{id}}» нет допустимого времени обновления.",
+    "duplicateRuleId": "Повторяющийся ID правила {{id}}.",
+    "invalidRuleBaseFields": "У правила «{{id}}» недопустимые базовые поля.",
+    "invalidRuleChannel": "У правила «{{id}}» недопустимый канал выполнения.",
+    "invalidRuleMethods": "У правила «{{id}}» недопустимые методы запроса.",
+    "ruleActionsRequired": "Правилу «{{id}}» требуется хотя бы одно действие.",
+    "invalidRuleRegex": "У правила «{{id}}» недопустимое регулярное выражение.",
+    "exclusiveActionsConflict": "Правило «{{id}}» не может сочетать блокировку, перенаправление и добавление параметров.",
+    "getHeadCannotModifyBody": "Правило «{{id}}» не может изменять тело GET / HEAD.",
+    "invalidScopeType": "У правила «{{ruleId}}» недопустимый тип области.",
+    "scopeTargetsRequired": "Правилу «{{ruleId}}» требуется хотя бы одна цель области.",
+    "scopeTargetIdMustBeInteger": "ID цели области правила «{{ruleId}}» должен быть целым числом.",
+    "bodyMatchChannelInvalid": "Совпадение тела правила «{{ruleId}}» доступно только в канале патча страницы.",
+    "invalidBodyMatchType": "У правила «{{ruleId}}» недопустимый тип совпадения тела.",
+    "invalidBodyMatchRegex": "У правила «{{ruleId}}» недопустимое регулярное выражение тела.",
+    "invalidActionType": "У правила «{{ruleId}}» недопустимый тип действия.",
+    "actionChannelMismatch": "Действие правила «{{ruleId}}» не соответствует каналу выполнения.",
+    "invalidMockConfig": "У правила «{{ruleId}}» недопустимая конфигурация Mock.",
+    "dynamicMockFunctionRequired": "Динамическая функция Mock правила «{{ruleId}}» не может быть пустой.",
+    "invalidThrottlePreset": "У правила «{{ruleId}}» недопустимый профиль ограничения.",
+    "invalidInsertScriptConfig": "У правила «{{ruleId}}» недопустимая конфигурация внедрения скрипта.",
+    "invalidRequestBodyConfig": "У правила «{{ruleId}}» недопустимая конфигурация тела запроса.",
+    "dynamicRequestBodyFunctionRequired": "Динамическая функция тела правила «{{ruleId}}» не может быть пустой.",
+    "headersMustBeArray": "Изменения заголовков должны быть массивом.",
+    "invalidHeaderTargetOrOperation": "У изменения заголовка недопустимая цель или операция.",
+    "label": {
+      "configRoot": "корень конфигурации",
+      "nthGroup": "группа № {{n}}",
+      "groupId": "ID группы",
+      "groupName": "имя группы «{{id}}»",
+      "nthRuleInGroup": "правило № {{n}} в группе «{{groupId}}»",
+      "ruleId": "ID правила",
+      "rulePattern": "шаблон правила «{{id}}»",
+      "ruleName": "имя правила «{{id}}»",
+      "ruleScope": "область правила «{{ruleId}}»",
+      "scopeTarget": "цель области правила «{{ruleId}}»",
+      "ruleBodyMatch": "совпадение тела правила «{{ruleId}}»",
+      "ruleBodyMatchValue": "значение совпадения тела правила «{{ruleId}}»",
+      "nthActionInRule": "действие № {{n}} правила «{{ruleId}}»",
+      "redirectUrl": "адрес перенаправления",
+      "params": "параметры",
+      "mockDelay": "задержка Mock",
+      "mockResponseHeaders": "заголовки ответа Mock",
+      "networkLatency": "сетевая задержка",
+      "downloadBandwidth": "скорость загрузки",
+      "uploadBandwidth": "скорость отправки",
+      "insertScriptCode": "внедрённый код",
+      "headerModification": "изменение заголовка",
+      "headerName": "имя заголовка"
+    }
+  },
+  "ruleEditor": {
+    "titleNew": "Новое правило",
+    "titleEdit": "Изменить правило",
+    "group": "Группа",
+    "name": "Название правила",
+    "matchType": "Тип совпадения",
+    "pattern": "Шаблон совпадения",
+    "methods": "Методы",
+    "advanced": "Дополнительно",
+    "optional": "Необязательно",
+    "bodyMatchLabel": "Совпадение тела",
+    "scope": "Область действия",
+    "cancel": "Отмена",
+    "save": "Сохранить",
+    "deleteAction": "Удалить {{actionLabel}}",
+    "deleteActionSr": "Удалить действие",
+    "selectActionHint": "Выберите действие «{{groupTitle}}», чтобы начать настройку",
+    "actionDescription": {
+      "block": "Сразу блокировать совпавший запрос",
+      "redirect": "Перенаправить запрос на другой адрес",
+      "injectParams": "Добавить или заменить параметры запроса",
+      "modifyHeaders": "Добавить, удалить или изменить заголовки запроса/ответа",
+      "mockResponse": "Перехватить запрос и вернуть пользовательский ответ",
+      "delay": "Добавить задержку и ограничение пропускной способности",
+      "modifyRequestBody": "Изменить тело запроса перед отправкой",
+      "insertScript": "Внедрить JS / CSS по URL страницы"
+    },
+    "actionGroup": {
+      "dnr": {
+        "title": "Сетевой уровень",
+        "hint": "Применяется ко всем запросам, включая навигацию и статические ресурсы, но не читает тело",
+        "note": "Блокировка / перенаправление / параметры взаимоисключающие; изменение заголовков можно сочетать"
+      },
+      "pagePatch": {
+        "title": "Патч страницы",
+        "hint": "Только для fetch / XHR скриптов страницы; может читать и изменять тело и ответ",
+        "note": "Mock / ограничение / изменение тела можно сочетать; внедрение скрипта используется отдельно"
+      }
+    },
+    "describeAction": {
+      "block": "Блокировка: запрос заблокирован",
+      "redirect": "Перенаправить → {{url}}",
+      "injectParams": "Добавить параметры: {{params}}",
+      "empty": "(пусто)",
+      "modifyHeaders": "Изменить заголовки: {{count}}",
+      "mockResponse": "Mock возвращает HTTP {{statusCode}}",
+      "delay": "Ограничение: {{preset}}",
+      "modifyRequestBody": "Изменить тело ({{sourceMode}})",
+      "insertScript": "Внедрить {{codeType}} ({{timing}})"
+    },
+    "describeEffect": {
+      "none": "Действия ещё не настроены",
+      "separator": "; "
+    },
+    "validation": {
+      "actionsRequired": "Выберите хотя бы одно действие",
+      "nameRequired": "Название правила не может быть пустым",
+      "patternRequired": "Шаблон не может быть пустым",
+      "patternRegexInvalid": "Недопустимое регулярное выражение",
+      "bodyMethodsRequired": "Для изменения тела нужен POST / PUT / PATCH / DELETE / OPTIONS",
+      "bodyMatchValueRequired": "Значение совпадения тела не может быть пустым",
+      "bodyMatchRegexInvalid": "Недопустимое регулярное выражение тела",
+      "scopeTargetRequired": "Выберите хотя бы один объект: {{scopeNoun}}",
+      "scopeNoun": {
+        "tab": "вкладку",
+        "window": "окно",
+        "tabGroup": "группу вкладок"
+      },
+      "exclusiveDnrActions": "Блокировка, перенаправление и добавление параметров взаимоисключающие",
+      "redirectUrlRequired": "Адрес перенаправления не может быть пустым",
+      "redirectUrlAbsolute": "Цель должна быть абсолютным адресом, например http://127.0.0.1:4317/api/redirect-target.json",
+      "insertScriptCodeRequired": "Внедряемый код не может быть пустым",
+      "mockStatusCodeRange": "Код состояния Mock должен быть от 100 до 599",
+      "dynamicMockFunctionRequired": "Динамическая функция Mock не может быть пустой",
+      "requestBodyContentRequired": "Тело запроса не может быть пустым",
+      "requestBodyFunctionRequired": "Функция тела запроса не может быть пустой"
+    },
+    "matchTester": {
+      "trigger": "Проверить совпадение",
+      "placeholder": "Введите тестовый путь / URL",
+      "test": "Проверить",
+      "matched": "Совпадает",
+      "notMatched": "Не совпадает — правило не обработает этот URL"
+    },
+    "methodPicker": {
+      "scriptOnlyHint": "Внедрение скрипта совпадает по URL; методы настраивать не нужно.",
+      "all": "Все",
+      "bodyHint": "Изменение тела доступно только методам с телом; GET / HEAD и «Все» исключаются."
+    },
+    "bodyMatchEditor": {
+      "off": "Без ограничения тела",
+      "hint": "Сужает совпадение по телу fetch / XHR; в GraphQL используйте «имя операции» для одинаковых URL."
+    },
+    "scopeEditor": {
+      "unnamedTab": "Вкладка № {{id}}",
+      "windowLabel": "Окно {{index}}",
+      "windowHint": "{{count}} вкладок{{current}}",
+      "currentSuffix": " · текущее",
+      "unnamedTabGroup": "Безымянная группа вкладок",
+      "refresh": "Обновить список",
+      "loading": "Загрузка…",
+      "noOptions": "Нет доступных вариантов — сначала откройте вкладку / окно / группу",
+      "closed": "Закрыто",
+      "allTabsHint": "По умолчанию действует во всех вкладках. Ограничение области предотвращает утечку чувствительных заголовков, например Authorization.",
+      "limitedHint": "{{emptyHint}}; ID действуют только в сеансе, после перезапуска браузера их нужно выбрать заново."
+    },
+    "mockActionEditor": {
+      "bodyTypeAriaLabel": "Тип тела ответа",
+      "invalidJsonHint": "Тело ответа не является допустимым JSON; для другого формата измените «Тип тела» выше.",
+      "dynamicHint": "Динамическая функция может читать req.url, req.method, req.headers, req.query, req.body и req.json."
+    },
+    "delayActionEditor": {
+      "preset": "Профиль сети",
+      "latency": "Задержка (мс)",
+      "download": "Загрузка ({{unit}})",
+      "upload": "Отправка ({{unit}})"
+    },
+    "requestBodyActionEditor": {
+      "hint": "Только для fetch / XHR с телом; при ошибке или возврате undefined исходное тело сохраняется."
+    }
+  },
+  "app": {
+    "scopeBadge": {
+      "title": "{{scopeLabel}} · {{count}} объектов"
+    },
+    "relativeTime": {
+      "none": "Нет записей",
+      "justNow": "Обновлено только что",
+      "minutesAgo": "Обновлено {{count}} мин. назад",
+      "hoursAgo": "Обновлено {{count}} ч. назад",
+      "daysAgo": "Обновлено {{count}} дн. назад"
+    },
+    "groupNamePlaceholder": "Название группы",
+    "dragToReorder": "Перетащите для сортировки",
+    "dragToReorderGroup": "Перетащите для изменения порядка группы",
+    "edit": "Изменить",
+    "delete": "Удалить",
+    "expand": "Развернуть",
+    "collapse": "Свернуть",
+    "disableGroup": "Отключить группу",
+    "enableGroup": "Включить группу",
+    "groupRuleCount": "{{count}} правил",
+    "groupEnabled": "Включено",
+    "groupDisabled": "Отключено",
+    "lastUpdated": "Последнее обновление: {{time}}",
+    "addRule": "Добавить правило",
+    "deleteGroup": "Удалить группу",
+    "emptyGroupHint": "В этой группе пока нет правил — нажмите «Добавить правило» справа вверху",
+    "columns": {
+      "enabled": "Включено",
+      "name": "Название",
+      "channel": "Канал",
+      "actions": "Действия",
+      "pattern": "Шаблон совпадения",
+      "operations": "Операции"
+    },
+    "addRuleMenu": {
+      "blank": "Пустое правило",
+      "fromTemplate": "Из библиотеки шаблонов…"
+    },
+    "transfer": {
+      "exportSuccess": "Конфигурация экспортирована.",
+      "exportFailure": "Не удалось экспортировать. Повторите попытку.",
+      "importConfirm": "Будут импортированы группы ({{groupCount}}) и правила ({{ruleCount}}) с заменой всей конфигурации. Продолжить?",
+      "importSuccess": "Импортировано групп: {{groupCount}}, правил: {{ruleCount}}.",
+      "importParseFailure": "Не удалось импортировать. Проверьте файл и повторите попытку.",
+      "importFailure": "Ошибка импорта: {{message}}"
+    },
+    "deleteGroupConfirm": "В группе «{{name}}» ещё {{count}} правил. Удалить всю группу?",
+    "newRule": "Новое правило",
+    "newGroup": "Новая группа",
+    "emptyState": {
+      "title": "Правил пока нет",
+      "hint": "Создайте правило — оно попадёт в «{{defaultGroupName}}»; либо сначала создайте группу"
+    },
+    "noMatchingGroups": "Подходящие группы не найдены",
+    "noMatchingGroupsHint": "Измените поиск или фильтры"
+  },
+  "popup": {
+    "activeCount": "Активно правил: {{count}}",
+    "globallyDisabled": "Глобально отключено",
+    "noRules": "Правил пока нет",
+    "noRulesHint": "Откройте страницу управления и добавьте первое правило",
+    "expandGroup": "Развернуть группу",
+    "collapseGroup": "Свернуть группу",
+    "ruleCount": "{{count}} правил",
+    "manageRules": "Управление правилами"
+  },
+  "dynamicVariableHint": {
+    "title": "Показать доступные динамические переменные",
+    "trigger": "Переменные",
+    "hint": "Используйте заполнители в полях значений и нажмите для копирования. Патч вычисляет их для каждого запроса, DNR — при синхронизации."
+  },
+  "dialog": {
+    "close": "Закрыть"
+  },
+  "codeEditor": {
+    "ariaLabel": "Редактор {{language}}",
+    "invalidJson": "Недопустимый JSON — форматирование невозможно.",
+    "format": "Форматировать"
+  },
+  "dashboard": {
+    "header": {
+      "title": "Менеджер правил Req Freedom",
+      "subtitle": "Блокировка · Перенаправление · Параметры · Заголовки · Mock · Ограничение · Скрипт · Тело",
+      "import": "Импортировать правила",
+      "export": "Экспортировать правила"
+    },
+    "moreMenu": {
+      "trigger": "Ещё",
+      "language": "Язык"
+    },
+    "statistics": {
+      "ariaLabel": "Статистика правил",
+      "groupLabel": "Группы",
+      "groupSuffix": "группы",
+      "ruleLabel": "Правила",
+      "ruleSuffix": "правила",
+      "enabledLabel": "Включено"
+    },
+    "toolbar": {
+      "ariaLabel": "Фильтры правил",
+      "searchPlaceholder": "Поиск групп или правил по имени или шаблону…",
+      "searchAriaLabel": "Поиск групп или правил",
+      "statusPlaceholder": "Статус",
+      "statusAll": "Статус: все",
+      "statusEnabled": "Статус: включены",
+      "statusDisabled": "Статус: отключены",
+      "channelPlaceholder": "Тип",
+      "channelAll": "Канал: все",
+      "channelDnr": "Сетевое правило DNR",
+      "channelPagePatch": "Патч страницы"
+    }
+  },
+  "keyValueEditor": {
+    "keyPlaceholder": "Ключ",
+    "valuePlaceholder": "Значение",
+    "delete": "Удалить",
+    "addItem": "Добавить элемент"
+  },
+  "headersEditor": {
+    "delete": "Удалить",
+    "appendableHeaderPlaceholder": "Выберите заголовок запроса, допускающий добавление",
+    "headerNamePlaceholder": "Имя заголовка",
+    "valuePlaceholder": "Значение (оставьте пустым для удаления)",
+    "appendHint": "«Добавить» поддерживает только стандартные многозначные заголовки выше; для своих используйте «Установить».",
+    "ineffectiveAppendWarning": "Пользовательские заголовки не поддерживают «Добавить» — браузер игнорирует операцию. Используйте «Установить». Добавлять можно лишь Cookie, User-Agent, X-Forwarded-For и т. п.",
+    "addItem": "Добавить изменение",
+    "responseHeaderHint": "Изменения <strong>заголовков ответа</strong> не видны в панели «Сеть». Проверьте в консоли: <code>fetch(url).then((r) =&gt; r.headers.get('...'))</code>."
+  },
+  "templateLibrary": {
+    "title": "Библиотека шаблонов правил",
+    "hint": "Шаблон открывает редактор с готовыми действиями — измените целевой шаблон и сохраните.",
+    "channelPagePatch": "Патч страницы",
+    "use": "Использовать"
+  },
+  "label": {
+    "ruleTemplateCategory": {
+      "cors": "CORS",
+      "cache": "Управление кешем",
+      "protocol": "Протокол и перенаправление",
+      "userAgent": "User-Agent"
+    },
+    "ruleActionType": {
+      "block": "Блокировать запрос",
+      "redirect": "Перенаправить",
+      "injectParams": "Добавить параметры",
+      "modifyHeaders": "Изменить заголовки",
+      "mockResponse": "Имитировать ответ",
+      "delay": "Ограничить сеть",
+      "modifyRequestBody": "Изменить тело запроса",
+      "insertScript": "Внедрить скрипт"
+    },
+    "requestBodyMode": {
+      "replace": "Заменить полностью",
+      "mergeJson": "Глубоко объединить JSON"
+    },
+    "requestBodySourceMode": {
+      "static": "Статическая замена",
+      "dynamic": "Создать с помощью JavaScript"
+    },
+    "mockResponseMode": {
+      "static": "Статическое тело ответа",
+      "dynamic": "Создать с помощью JavaScript"
+    },
+    "mockBodyType": {
+      "text": "Текст"
+    },
+    "networkThrottlePreset": {
+      "custom": "Пользовательский"
+    },
+    "insertScriptTiming": {
+      "documentStart": "Начало документа (document_start)",
+      "documentEnd": "Документ готов (document_end)"
+    },
+    "bodyMatchType": {
+      "contains": "Содержит подстроку",
+      "regex": "Регулярное выражение",
+      "graphqlOperation": "Имя операции GraphQL"
+    },
+    "bodyMatchValuePlaceholder": {
+      "contains": "Подстрока, которая должна быть в теле",
+      "regex": "Регулярное выражение для тела, например \"mutation\\\\s+Login\"",
+      "graphqlOperation": "operationName, например GetUser"
+    },
+    "ruleScopeType": {
+      "allTabs": "Все вкладки",
+      "tab": "Выбранные вкладки",
+      "window": "Выбранные окна",
+      "tabGroup": "Выбранные группы вкладок"
+    },
+    "ruleScopeEmptyHint": {
+      "tab": "Выберите одну или несколько открытых вкладок",
+      "window": "Выберите одно или несколько открытых окон",
+      "tabGroup": "Выберите одну или несколько групп вкладок"
+    },
+    "matchType": {
+      "contains": "Содержит",
+      "equals": "Равно",
+      "wildcard": "Шаблон",
+      "regex": "Регулярное выражение"
+    },
+    "headerTarget": {
+      "request": "Заголовок запроса",
+      "response": "Заголовок ответа"
+    },
+    "headerOperation": {
+      "set": "Установить",
+      "append": "Добавить",
+      "remove": "Удалить"
+    }
+  }
+}

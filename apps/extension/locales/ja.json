@@ -1,0 +1,434 @@
+{
+  "group": {
+    "defaultName": "新しいグループ",
+    "autoDefaultName": "デフォルトグループ"
+  },
+  "rule": {
+    "defaultName": "新しいルール"
+  },
+  "template": {
+    "corsAllowAll": {
+      "name": "CORS 制限を無効化",
+      "description": "一致するレスポンスに Access-Control-Allow-* ヘッダーを追加し、ローカルデバッグ時の CORS を解除します。マッチパターンを対象 API のアドレスに変更してください。"
+    },
+    "disableCache": {
+      "name": "キャッシュを無効化",
+      "description": "リクエストとレスポンスの両方に no-cache の Cache-Control ヘッダーを追加し、常に最新のリソースを取得します。マッチパターンを対象アドレスに変更してください。"
+    },
+    "forceHttps": {
+      "name": "HTTPS を強制",
+      "description": "一致する http リクエストを同じアドレスの https にリダイレクトします。デフォルトではすべての http リクエストに一致します。"
+    },
+    "mobileUaIos": {
+      "name": "モバイル UA · iPhone",
+      "description": "User-Agent を iOS Safari に変更し、サイトのモバイルページを取得します。マッチパターンを対象サイトに変更してください。"
+    },
+    "mobileUaAndroid": {
+      "name": "モバイル UA · Android",
+      "description": "User-Agent を Android Chrome に変更し、サイトのモバイルページを取得します。マッチパターンを対象サイトに変更してください。"
+    }
+  },
+  "dynamicVariable": {
+    "uuid": { "label": "UUID", "description": "ランダムな UUID v4" },
+    "timestamp": { "label": "タイムスタンプ（秒）", "description": "現在の Unix タイムスタンプ（秒）" },
+    "timestampMs": { "label": "タイムスタンプ（ミリ秒）", "description": "現在の Unix タイムスタンプ（ミリ秒）" },
+    "isoTime": { "label": "ISO 時刻", "description": "現在時刻の ISO 8601 文字列" },
+    "randomFloat": { "label": "ランダム小数", "description": "[0, 1) の範囲のランダムな小数" },
+    "randomInt": { "label": "ランダム整数", "description": "ランダムな整数。引数で閉区間 [min, max] を指定し、デフォルトは 0-100" },
+    "randomString": { "label": "ランダム文字列", "description": "ランダムな英数字文字列。引数で長さを指定し、デフォルトは 8" }
+  },
+  "configTransfer": {
+    "invalidJson": "ファイルは有効な JSON ではありません。",
+    "mustBeObject": "{{label}} はオブジェクトである必要があります。",
+    "requiredNonEmpty": "{{label}} は空にできません。",
+    "mustBeNonNegativeNumber": "{{label}} は 0 以上の数値である必要があります。",
+    "valuesMustBeStrings": "{{label}} のすべての値は文字列である必要があります。",
+    "schemaVersionUnsupported": "schemaVersion {{version}} のみサポートしています。",
+    "missingExportedAt": "設定ファイルに有効な exportedAt 時刻がありません。",
+    "invalidEnabledOrGroups": "設定ファイルの enabled または groups フィールドの形式が正しくありません。",
+    "duplicateGroupId": "グループ ID {{id}} が重複しています。",
+    "invalidGroupFormat": "グループ「{{id}}」の形式が正しくありません。",
+    "missingGroupUpdatedAt": "グループ「{{id}}」に有効な更新時刻がありません。",
+    "duplicateRuleId": "ルール ID {{id}} が重複しています。",
+    "invalidRuleBaseFields": "ルール「{{id}}」の基本フィールドが無効です。",
+    "invalidRuleChannel": "ルール「{{id}}」の実行チャネルが無効です。",
+    "invalidRuleMethods": "ルール「{{id}}」のリクエストメソッドが無効です。",
+    "ruleActionsRequired": "ルール「{{id}}」には 1 つ以上のアクションが必要です。",
+    "invalidRuleRegex": "ルール「{{id}}」の正規表現が無効です。",
+    "exclusiveActionsConflict": "ルール「{{id}}」でブロック、リダイレクト、パラメータ注入を同時に使用できません。",
+    "getHeadCannotModifyBody": "ルール「{{id}}」は GET / HEAD のボディを変更できません。",
+    "invalidScopeType": "ルール「{{ruleId}}」のスコープ種別が無効です。",
+    "scopeTargetsRequired": "ルール「{{ruleId}}」には 1 つ以上のスコープ対象が必要です。",
+    "scopeTargetIdMustBeInteger": "ルール「{{ruleId}}」のスコープ対象 ID は整数である必要があります。",
+    "bodyMatchChannelInvalid": "ルール「{{ruleId}}」のボディ一致はページパッチチャネルでのみ使用できます。",
+    "invalidBodyMatchType": "ルール「{{ruleId}}」のボディ一致種別が無効です。",
+    "invalidBodyMatchRegex": "ルール「{{ruleId}}」のボディ一致正規表現が無効です。",
+    "invalidActionType": "ルール「{{ruleId}}」のアクション種別が無効です。",
+    "actionChannelMismatch": "ルール「{{ruleId}}」のアクションが実行チャネルと一致しません。",
+    "invalidMockConfig": "ルール「{{ruleId}}」のモック設定が無効です。",
+    "dynamicMockFunctionRequired": "ルール「{{ruleId}}」の動的モック関数は空にできません。",
+    "invalidThrottlePreset": "ルール「{{ruleId}}」の帯域制限プリセットが無効です。",
+    "invalidInsertScriptConfig": "ルール「{{ruleId}}」のスクリプト注入設定が無効です。",
+    "invalidRequestBodyConfig": "ルール「{{ruleId}}」のリクエストボディ設定が無効です。",
+    "dynamicRequestBodyFunctionRequired": "ルール「{{ruleId}}」の動的リクエストボディ関数は空にできません。",
+    "headersMustBeArray": "ヘッダー変更は配列である必要があります。",
+    "invalidHeaderTargetOrOperation": "ヘッダー変更の対象または操作が無効です。",
+    "label": {
+      "configRoot": "設定ルート",
+      "nthGroup": "{{n}} 番目のグループ",
+      "groupId": "グループ ID",
+      "groupName": "グループ「{{id}}」の名前",
+      "nthRuleInGroup": "グループ「{{groupId}}」の {{n}} 番目のルール",
+      "ruleId": "ルール ID",
+      "rulePattern": "ルール「{{id}}」のマッチパターン",
+      "ruleName": "ルール「{{id}}」の名前",
+      "ruleScope": "ルール「{{ruleId}}」のスコープ",
+      "scopeTarget": "ルール「{{ruleId}}」のスコープ対象",
+      "ruleBodyMatch": "ルール「{{ruleId}}」のボディ一致",
+      "ruleBodyMatchValue": "ルール「{{ruleId}}」のボディ一致値",
+      "nthActionInRule": "ルール「{{ruleId}}」の {{n}} 番目のアクション",
+      "redirectUrl": "リダイレクト先",
+      "params": "パラメータ",
+      "mockDelay": "モック遅延",
+      "mockResponseHeaders": "モックレスポンスヘッダー",
+      "networkLatency": "ネットワーク遅延",
+      "downloadBandwidth": "ダウンロード帯域幅",
+      "uploadBandwidth": "アップロード帯域幅",
+      "insertScriptCode": "注入コード",
+      "headerModification": "ヘッダー変更",
+      "headerName": "ヘッダー名"
+    }
+  },
+  "ruleEditor": {
+    "titleNew": "新しいルール",
+    "titleEdit": "ルールを編集",
+    "group": "グループ",
+    "name": "ルール名",
+    "matchType": "一致方法",
+    "pattern": "マッチパターン",
+    "methods": "メソッド",
+    "advanced": "詳細設定",
+    "optional": "任意",
+    "bodyMatchLabel": "ボディ一致",
+    "scope": "スコープ",
+    "cancel": "キャンセル",
+    "save": "保存",
+    "deleteAction": "{{actionLabel}}を削除",
+    "deleteActionSr": "アクションを削除",
+    "selectActionHint": "「{{groupTitle}}」のアクションを選択して設定を開始",
+    "actionDescription": {
+      "block": "一致したリクエストを直接ブロック",
+      "redirect": "リクエストを別のアドレスへ転送",
+      "injectParams": "クエリパラメータを追加または上書き",
+      "modifyHeaders": "リクエスト／レスポンスヘッダーを追加、削除、変更",
+      "mockResponse": "リクエストをインターセプトしてカスタムレスポンスを返す",
+      "delay": "リクエストに遅延と帯域幅制限を追加",
+      "modifyRequestBody": "送信前にリクエストボディを書き換え",
+      "insertScript": "ページ URL に応じて JS / CSS を注入"
+    },
+    "actionGroup": {
+      "dnr": {
+        "title": "ネットワーク層",
+        "hint": "すべてのリクエスト（ナビゲーションや静的リソースを含む）に適用されますが、リクエストボディは読み取れません",
+        "note": "ブロック／リダイレクト／パラメータ注入は排他的です。ヘッダー変更は組み合わせ可能です"
+      },
+      "pagePatch": {
+        "title": "ページパッチ",
+        "hint": "ページスクリプトの fetch / XHR のみに適用され、リクエストボディとレスポンスを読み書きできます",
+        "note": "モックレスポンス／帯域制限／ボディ変更は組み合わせ可能です。スクリプト注入は単独で使用します"
+      }
+    },
+    "describeAction": {
+      "block": "ブロック：リクエストを直接遮断",
+      "redirect": "リダイレクト → {{url}}",
+      "injectParams": "パラメータ注入：{{params}}",
+      "empty": "（空）",
+      "modifyHeaders": "ヘッダー変更：{{count}} 件",
+      "mockResponse": "モックで HTTP {{statusCode}} を返す",
+      "delay": "帯域制限：{{preset}}",
+      "modifyRequestBody": "ボディ変更（{{sourceMode}}）",
+      "insertScript": "{{codeType}} を注入（{{timing}}）"
+    },
+    "describeEffect": {
+      "none": "アクションがまだ設定されていません",
+      "separator": "；"
+    },
+    "validation": {
+      "actionsRequired": "1 つ以上のアクションを選択してください",
+      "nameRequired": "ルール名は空にできません",
+      "patternRequired": "マッチパターンは空にできません",
+      "patternRegexInvalid": "正規表現が無効です",
+      "bodyMethodsRequired": "ボディ変更には POST / PUT / PATCH / DELETE / OPTIONS が必要です",
+      "bodyMatchValueRequired": "ボディ一致値は空にできません",
+      "bodyMatchRegexInvalid": "ボディ一致の正規表現が無効です",
+      "scopeTargetRequired": "1 つ以上の{{scopeNoun}}を選択してください",
+      "scopeNoun": {
+        "tab": "タブ",
+        "window": "ウィンドウ",
+        "tabGroup": "タブグループ"
+      },
+      "exclusiveDnrActions": "ブロック、リダイレクト、パラメータ注入は同時に選択できません",
+      "redirectUrlRequired": "リダイレクト先は空にできません",
+      "redirectUrlAbsolute": "リダイレクト先は絶対アドレスにしてください（例：http://127.0.0.1:4317/api/redirect-target.json）",
+      "insertScriptCodeRequired": "注入コードは空にできません",
+      "mockStatusCodeRange": "モックのステータスコードは 100～599 の範囲にしてください",
+      "dynamicMockFunctionRequired": "動的モック関数は空にできません",
+      "requestBodyContentRequired": "リクエストボディは空にできません",
+      "requestBodyFunctionRequired": "リクエストボディ関数は空にできません"
+    },
+    "matchTester": {
+      "trigger": "一致をテスト",
+      "placeholder": "テスト用パス / URL を入力",
+      "test": "テスト",
+      "matched": "一致",
+      "notMatched": "不一致 — この URL はルールで処理されません"
+    },
+    "methodPicker": {
+      "scriptOnlyHint": "スクリプト注入はページ URL で一致するため、メソッド設定は不要です。",
+      "all": "すべて",
+      "bodyHint": "ボディ変更はボディを持てるメソッドにのみ適用され、GET / HEAD と「すべて」は自動的に除外されます。"
+    },
+    "bodyMatchEditor": {
+      "off": "ボディ制限なし",
+      "hint": "ページスクリプトの fetch / XHR リクエストボディで一致を絞り込みます。GraphQL では「オペレーション名」で同じ URL の操作を区別できます。"
+    },
+    "scopeEditor": {
+      "unnamedTab": "タブ #{{id}}",
+      "windowLabel": "ウィンドウ {{index}}",
+      "windowHint": "{{count}} タブ{{current}}",
+      "currentSuffix": " · 現在",
+      "unnamedTabGroup": "名前のないタブグループ",
+      "refresh": "一覧を更新",
+      "loading": "読み込み中…",
+      "noOptions": "選択肢がありません — 対応するタブ／ウィンドウ／タブグループを先に開いてください",
+      "closed": "閉じています",
+      "allTabsHint": "デフォルトではすべてのタブに適用されます。スコープを限定すると、Authorization などの機密ヘッダーが他サイトへ漏れるのを防げます。",
+      "limitedHint": "{{emptyHint}}。オブジェクト ID はセッション単位のため、ブラウザ再起動後に再選択が必要です。"
+    },
+    "mockActionEditor": {
+      "bodyTypeAriaLabel": "レスポンスボディの種類",
+      "invalidJsonHint": "レスポンスボディが有効な JSON ではありません。別形式を返す場合は上の「ボディの種類」を変更してください。",
+      "dynamicHint": "動的関数では req.url、req.method、req.headers、req.query、req.body、req.json を参照できます。"
+    },
+    "delayActionEditor": {
+      "preset": "ネットワークプリセット",
+      "latency": "遅延（ms）",
+      "download": "ダウンロード（{{unit}}）",
+      "upload": "アップロード（{{unit}}）"
+    },
+    "requestBodyActionEditor": {
+      "hint": "ボディを持てる fetch / XHR メソッドにのみ適用されます。エラー時または undefined が返された場合は元のボディを保持します。"
+    }
+  },
+  "app": {
+    "scopeBadge": {
+      "title": "{{scopeLabel}} · {{count}} 件"
+    },
+    "relativeTime": {
+      "none": "記録なし",
+      "justNow": "たった今更新",
+      "minutesAgo": "{{count}} 分前に更新",
+      "hoursAgo": "{{count}} 時間前に更新",
+      "daysAgo": "{{count}} 日前に更新"
+    },
+    "groupNamePlaceholder": "グループ名",
+    "dragToReorder": "ドラッグして並べ替え",
+    "dragToReorderGroup": "ドラッグしてグループを並べ替え",
+    "edit": "編集",
+    "delete": "削除",
+    "expand": "展開",
+    "collapse": "折りたたむ",
+    "disableGroup": "グループを無効化",
+    "enableGroup": "グループを有効化",
+    "groupRuleCount": "{{count}} 件のルール",
+    "groupEnabled": "有効",
+    "groupDisabled": "無効",
+    "lastUpdated": "最終更新：{{time}}",
+    "addRule": "ルールを追加",
+    "deleteGroup": "グループを削除",
+    "emptyGroupHint": "このグループにはまだルールがありません。右上の「ルールを追加」から作成できます",
+    "columns": {
+      "enabled": "有効",
+      "name": "名前",
+      "channel": "チャネル",
+      "actions": "アクション",
+      "pattern": "マッチパターン",
+      "operations": "操作"
+    },
+    "addRuleMenu": {
+      "blank": "空のルール",
+      "fromTemplate": "テンプレートライブラリから…"
+    },
+    "transfer": {
+      "exportSuccess": "設定をエクスポートしました。",
+      "exportFailure": "エクスポートに失敗しました。もう一度お試しください。",
+      "importConfirm": "{{groupCount}} グループと {{ruleCount}} ルールをインポートし、現在の設定をすべて置き換えます。続行しますか？",
+      "importSuccess": "{{groupCount}} グループと {{ruleCount}} ルールをインポートしました。",
+      "importParseFailure": "インポートに失敗しました。ファイル内容を確認して再試行してください。",
+      "importFailure": "インポートに失敗しました：{{message}}"
+    },
+    "deleteGroupConfirm": "グループ「{{name}}」には {{count}} 件のルールがあります。グループ全体を削除しますか？",
+    "newRule": "新しいルール",
+    "newGroup": "新しいグループ",
+    "emptyState": {
+      "title": "ルールがありません",
+      "hint": "ルールを作成すると自動的に「{{defaultGroupName}}」へ追加されます。先にグループを作成することもできます"
+    },
+    "noMatchingGroups": "一致するルールグループが見つかりません",
+    "noMatchingGroupsHint": "検索条件またはフィルターを変更してください"
+  },
+  "popup": {
+    "activeCount": "{{count}} 件のルールが有効",
+    "globallyDisabled": "全体で無効",
+    "noRules": "ルールがありません",
+    "noRulesHint": "管理ページで最初のルールを追加してください",
+    "expandGroup": "グループを展開",
+    "collapseGroup": "グループを折りたたむ",
+    "ruleCount": "{{count}} 件のルール",
+    "manageRules": "ルールを管理"
+  },
+  "dynamicVariableHint": {
+    "title": "利用可能な動的変数を表示",
+    "trigger": "変数",
+    "hint": "値フィールドでこれらのプレースホルダーを参照し、クリックしてコピーできます。ページパッチはリクエストごと、ネットワーク層（DNR）はルール同期時に一度評価します。"
+  },
+  "dialog": {
+    "close": "閉じる"
+  },
+  "codeEditor": {
+    "ariaLabel": "{{language}} エディター",
+    "invalidJson": "JSON が無効なため整形できません。",
+    "format": "整形"
+  },
+  "dashboard": {
+    "header": {
+      "title": "Req Freedom ルール管理",
+      "subtitle": "ブロック · リダイレクト · パラメータ注入 · ヘッダー · モック · 帯域制限 · スクリプト注入 · ボディ変更",
+      "import": "ルールをインポート",
+      "export": "ルールをエクスポート"
+    },
+    "moreMenu": {
+      "trigger": "その他",
+      "language": "表示言語"
+    },
+    "statistics": {
+      "ariaLabel": "ルール統計",
+      "groupLabel": "グループ",
+      "groupSuffix": "グループ",
+      "ruleLabel": "ルール",
+      "ruleSuffix": "ルール",
+      "enabledLabel": "有効"
+    },
+    "toolbar": {
+      "ariaLabel": "ルールフィルター",
+      "searchPlaceholder": "グループ名、ルール名、マッチパターンを検索…",
+      "searchAriaLabel": "グループまたはルールを検索",
+      "statusPlaceholder": "状態",
+      "statusAll": "状態：すべて",
+      "statusEnabled": "状態：有効",
+      "statusDisabled": "状態：無効",
+      "channelPlaceholder": "種類",
+      "channelAll": "チャネル：すべて",
+      "channelDnr": "DNR ネットワークルール",
+      "channelPagePatch": "ページパッチ"
+    }
+  },
+  "keyValueEditor": {
+    "keyPlaceholder": "キー",
+    "valuePlaceholder": "値",
+    "delete": "削除",
+    "addItem": "項目を追加"
+  },
+  "headersEditor": {
+    "delete": "削除",
+    "appendableHeaderPlaceholder": "追加可能なリクエストヘッダーを選択",
+    "headerNamePlaceholder": "ヘッダー名",
+    "valuePlaceholder": "値（削除する場合は空欄）",
+    "appendHint": "「追加」は上記の一部の複数値標準ヘッダーのみ対応します。カスタムヘッダーには、任意の名前を指定できる「設定」を使用してください。",
+    "ineffectiveAppendWarning": "カスタムリクエストヘッダーは「追加」に対応せず、ブラウザに無視されます。「設定」を使用してください。Cookie、User-Agent、X-Forwarded-For など一部の標準ヘッダーのみ追加できます。",
+    "addItem": "変更を追加",
+    "responseHeaderHint": "ヒント：<strong>レスポンスヘッダー</strong>の変更はブラウザのネットワークパネルに表示されません。コンソールで <code>fetch(url).then((r) =&gt; r.headers.get('...'))</code> を実行して確認してください。"
+  },
+  "templateLibrary": {
+    "title": "ルールテンプレートライブラリ",
+    "hint": "テンプレートを使うとアクションが入力された状態でルールエディターが開きます。マッチパターンを対象アドレスに変更して保存してください。",
+    "channelPagePatch": "ページパッチ",
+    "use": "使用"
+  },
+  "label": {
+    "ruleTemplateCategory": {
+      "cors": "CORS",
+      "cache": "キャッシュ制御",
+      "protocol": "プロトコルとリダイレクト",
+      "userAgent": "User-Agent"
+    },
+    "ruleActionType": {
+      "block": "リクエストをブロック",
+      "redirect": "リダイレクト",
+      "injectParams": "パラメータ注入",
+      "modifyHeaders": "ヘッダー変更",
+      "mockResponse": "レスポンスをモック",
+      "delay": "帯域制限",
+      "modifyRequestBody": "リクエストボディを変更",
+      "insertScript": "スクリプト注入"
+    },
+    "requestBodyMode": {
+      "replace": "完全に置換",
+      "mergeJson": "JSON をディープマージ"
+    },
+    "requestBodySourceMode": {
+      "static": "静的書き換え",
+      "dynamic": "JavaScript で生成"
+    },
+    "mockResponseMode": {
+      "static": "静的レスポンスボディ",
+      "dynamic": "JavaScript で生成"
+    },
+    "mockBodyType": {
+      "text": "テキスト"
+    },
+    "networkThrottlePreset": {
+      "custom": "カスタム"
+    },
+    "insertScriptTiming": {
+      "documentStart": "ドキュメント開始（document_start）",
+      "documentEnd": "ドキュメント準備完了（document_end）"
+    },
+    "bodyMatchType": {
+      "contains": "部分文字列を含む",
+      "regex": "正規表現",
+      "graphqlOperation": "GraphQL オペレーション名"
+    },
+    "bodyMatchValuePlaceholder": {
+      "contains": "リクエストボディに含める部分文字列",
+      "regex": "リクエストボディに一致する正規表現（例：\"mutation\\\\s+Login\"）",
+      "graphqlOperation": "operationName（例：GetUser）"
+    },
+    "ruleScopeType": {
+      "allTabs": "すべてのタブ",
+      "tab": "指定したタブ",
+      "window": "指定したウィンドウ",
+      "tabGroup": "指定したタブグループ"
+    },
+    "ruleScopeEmptyHint": {
+      "tab": "現在開いているタブを 1 つ以上選択",
+      "window": "現在開いているウィンドウを 1 つ以上選択",
+      "tabGroup": "現在のタブグループを 1 つ以上選択"
+    },
+    "matchType": {
+      "contains": "含む",
+      "equals": "完全一致",
+      "wildcard": "ワイルドカード",
+      "regex": "正規表現"
+    },
+    "headerTarget": {
+      "request": "リクエストヘッダー",
+      "response": "レスポンスヘッダー"
+    },
+    "headerOperation": {
+      "set": "設定",
+      "append": "追加",
+      "remove": "削除"
+    }
+  }
+}

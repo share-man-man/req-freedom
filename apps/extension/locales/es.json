@@ -1,0 +1,434 @@
+{
+  "group": {
+    "defaultName": "Nuevo grupo",
+    "autoDefaultName": "Grupo predeterminado"
+  },
+  "rule": {
+    "defaultName": "Nueva regla"
+  },
+  "template": {
+    "corsAllowAll": {
+      "name": "Desactivar la restricción CORS",
+      "description": "Añade encabezados Access-Control-Allow-* a las respuestas coincidentes para desbloquear CORS durante la depuración local. Cambia el patrón de coincidencia por la dirección de tu API."
+    },
+    "disableCache": {
+      "name": "Desactivar caché",
+      "description": "Añade encabezados Cache-Control sin caché a la solicitud y a la respuesta para obtener siempre el recurso más reciente. Cambia el patrón por la dirección de destino."
+    },
+    "forceHttps": {
+      "name": "Forzar HTTPS",
+      "description": "Redirige las solicitudes http coincidentes a la misma dirección mediante https. De forma predeterminada coincide con todas las solicitudes http."
+    },
+    "mobileUaIos": {
+      "name": "UA móvil · iPhone",
+      "description": "Cambia el User-Agent a Safari de iOS para que el sitio devuelva su versión móvil. Cambia el patrón por tu sitio de destino."
+    },
+    "mobileUaAndroid": {
+      "name": "UA móvil · Android",
+      "description": "Cambia el User-Agent a Chrome de Android para que el sitio devuelva su versión móvil. Cambia el patrón por tu sitio de destino."
+    }
+  },
+  "dynamicVariable": {
+    "uuid": { "label": "UUID", "description": "UUID v4 aleatorio" },
+    "timestamp": { "label": "Marca de tiempo (segundos)", "description": "Marca de tiempo Unix actual en segundos" },
+    "timestampMs": { "label": "Marca de tiempo (ms)", "description": "Marca de tiempo Unix actual en milisegundos" },
+    "isoTime": { "label": "Hora ISO", "description": "Hora actual como cadena ISO 8601" },
+    "randomFloat": { "label": "Decimal aleatorio", "description": "Número decimal aleatorio en el intervalo [0, 1)" },
+    "randomInt": { "label": "Entero aleatorio", "description": "Entero aleatorio; el argumento define el intervalo inclusivo [min, max], 0-100 de forma predeterminada" },
+    "randomString": { "label": "Cadena aleatoria", "description": "Cadena alfanumérica aleatoria; el argumento define la longitud, 8 de forma predeterminada" }
+  },
+  "configTransfer": {
+    "invalidJson": "El archivo no contiene JSON válido.",
+    "mustBeObject": "{{label}} debe ser un objeto.",
+    "requiredNonEmpty": "{{label}} no puede estar vacío.",
+    "mustBeNonNegativeNumber": "{{label}} debe ser un número no negativo.",
+    "valuesMustBeStrings": "Todos los valores de {{label}} deben ser cadenas.",
+    "schemaVersionUnsupported": "Solo se admite schemaVersion {{version}}.",
+    "missingExportedAt": "Al archivo de configuración le falta una fecha exportedAt válida.",
+    "invalidEnabledOrGroups": "El campo enabled o groups del archivo de configuración no es válido.",
+    "duplicateGroupId": "ID de grupo {{id}} duplicado.",
+    "invalidGroupFormat": "El grupo «{{id}}» no es válido.",
+    "missingGroupUpdatedAt": "Al grupo «{{id}}» le falta una fecha de actualización válida.",
+    "duplicateRuleId": "ID de regla {{id}} duplicado.",
+    "invalidRuleBaseFields": "La regla «{{id}}» tiene campos básicos no válidos.",
+    "invalidRuleChannel": "La regla «{{id}}» tiene un canal de ejecución no válido.",
+    "invalidRuleMethods": "La regla «{{id}}» tiene métodos de solicitud no válidos.",
+    "ruleActionsRequired": "La regla «{{id}}» necesita al menos una acción.",
+    "invalidRuleRegex": "La regla «{{id}}» contiene una expresión regular no válida.",
+    "exclusiveActionsConflict": "La regla «{{id}}» no puede combinar Bloquear, Redirigir e Inyectar parámetros.",
+    "getHeadCannotModifyBody": "La regla «{{id}}» no puede modificar el cuerpo en GET / HEAD.",
+    "invalidScopeType": "La regla «{{ruleId}}» tiene un tipo de ámbito no válido.",
+    "scopeTargetsRequired": "La regla «{{ruleId}}» necesita al menos un destino de ámbito.",
+    "scopeTargetIdMustBeInteger": "El ID del destino de ámbito de la regla «{{ruleId}}» debe ser un entero.",
+    "bodyMatchChannelInvalid": "La coincidencia de cuerpo de la regla «{{ruleId}}» solo está disponible en el canal de parche de página.",
+    "invalidBodyMatchType": "La regla «{{ruleId}}» tiene un tipo de coincidencia de cuerpo no válido.",
+    "invalidBodyMatchRegex": "La regla «{{ruleId}}» contiene una expresión regular de cuerpo no válida.",
+    "invalidActionType": "La regla «{{ruleId}}» tiene un tipo de acción no válido.",
+    "actionChannelMismatch": "La acción de la regla «{{ruleId}}» no coincide con su canal de ejecución.",
+    "invalidMockConfig": "La regla «{{ruleId}}» tiene una configuración de simulación no válida.",
+    "dynamicMockFunctionRequired": "La función de simulación dinámica de la regla «{{ruleId}}» no puede estar vacía.",
+    "invalidThrottlePreset": "La regla «{{ruleId}}» tiene un ajuste de limitación no válido.",
+    "invalidInsertScriptConfig": "La regla «{{ruleId}}» tiene una configuración de inyección de scripts no válida.",
+    "invalidRequestBodyConfig": "La regla «{{ruleId}}» tiene una configuración de cuerpo no válida.",
+    "dynamicRequestBodyFunctionRequired": "La función dinámica de cuerpo de la regla «{{ruleId}}» no puede estar vacía.",
+    "headersMustBeArray": "Las modificaciones de encabezados deben ser una matriz.",
+    "invalidHeaderTargetOrOperation": "La modificación del encabezado tiene un destino o una operación no válidos.",
+    "label": {
+      "configRoot": "raíz de configuración",
+      "nthGroup": "grupo n.º {{n}}",
+      "groupId": "ID de grupo",
+      "groupName": "nombre del grupo «{{id}}»",
+      "nthRuleInGroup": "regla n.º {{n}} del grupo «{{groupId}}»",
+      "ruleId": "ID de regla",
+      "rulePattern": "patrón de la regla «{{id}}»",
+      "ruleName": "nombre de la regla «{{id}}»",
+      "ruleScope": "ámbito de la regla «{{ruleId}}»",
+      "scopeTarget": "destino de ámbito de la regla «{{ruleId}}»",
+      "ruleBodyMatch": "coincidencia de cuerpo de la regla «{{ruleId}}»",
+      "ruleBodyMatchValue": "valor de coincidencia de cuerpo de la regla «{{ruleId}}»",
+      "nthActionInRule": "acción n.º {{n}} de la regla «{{ruleId}}»",
+      "redirectUrl": "dirección de redirección",
+      "params": "parámetros",
+      "mockDelay": "retraso de simulación",
+      "mockResponseHeaders": "encabezados de respuesta simulada",
+      "networkLatency": "latencia de red",
+      "downloadBandwidth": "ancho de banda de descarga",
+      "uploadBandwidth": "ancho de banda de subida",
+      "insertScriptCode": "código inyectado",
+      "headerModification": "modificación de encabezado",
+      "headerName": "nombre del encabezado"
+    }
+  },
+  "ruleEditor": {
+    "titleNew": "Nueva regla",
+    "titleEdit": "Editar regla",
+    "group": "Grupo",
+    "name": "Nombre de la regla",
+    "matchType": "Tipo de coincidencia",
+    "pattern": "Patrón de coincidencia",
+    "methods": "Métodos",
+    "advanced": "Avanzado",
+    "optional": "Opcional",
+    "bodyMatchLabel": "Coincidencia de cuerpo",
+    "scope": "Ámbito",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "deleteAction": "Eliminar {{actionLabel}}",
+    "deleteActionSr": "Eliminar acción",
+    "selectActionHint": "Marca una acción de «{{groupTitle}}» para configurarla",
+    "actionDescription": {
+      "block": "Bloquea directamente la solicitud coincidente",
+      "redirect": "Reenvía la solicitud a otra dirección",
+      "injectParams": "Añade o sobrescribe parámetros de consulta",
+      "modifyHeaders": "Añade, elimina o modifica encabezados de solicitud/respuesta",
+      "mockResponse": "Intercepta la solicitud y devuelve una respuesta personalizada",
+      "delay": "Añade latencia y límites de ancho de banda a la solicitud",
+      "modifyRequestBody": "Reescribe el cuerpo antes de enviar la solicitud",
+      "insertScript": "Inyecta JS / CSS según la URL de la página"
+    },
+    "actionGroup": {
+      "dnr": {
+        "title": "Capa de red",
+        "hint": "Se aplica a todas las solicitudes (incluidas navegación y recursos estáticos), pero no puede leer el cuerpo",
+        "note": "Bloquear / Redirigir / Inyectar parámetros son excluyentes; Modificar encabezados puede combinarse"
+      },
+      "pagePatch": {
+        "title": "Parche de página",
+        "hint": "Solo se aplica a fetch / XHR de scripts de la página; puede leer y escribir el cuerpo y la respuesta",
+        "note": "Simular respuesta / Limitar / Modificar cuerpo pueden combinarse; Inyectar script debe usarse por separado"
+      }
+    },
+    "describeAction": {
+      "block": "Bloquear: solicitud bloqueada",
+      "redirect": "Redirigir → {{url}}",
+      "injectParams": "Inyectar parámetros: {{params}}",
+      "empty": "(vacío)",
+      "modifyHeaders": "Modificar encabezados: {{count}} elemento(s)",
+      "mockResponse": "Simulación devuelve HTTP {{statusCode}}",
+      "delay": "Limitación: {{preset}}",
+      "modifyRequestBody": "Modificar cuerpo ({{sourceMode}})",
+      "insertScript": "Inyectar {{codeType}} ({{timing}})"
+    },
+    "describeEffect": {
+      "none": "Aún no hay acciones configuradas",
+      "separator": "; "
+    },
+    "validation": {
+      "actionsRequired": "Selecciona al menos una acción",
+      "nameRequired": "El nombre de la regla no puede estar vacío",
+      "patternRequired": "El patrón no puede estar vacío",
+      "patternRegexInvalid": "La expresión regular no es válida",
+      "bodyMethodsRequired": "Modificar el cuerpo requiere POST / PUT / PATCH / DELETE / OPTIONS",
+      "bodyMatchValueRequired": "El valor de coincidencia de cuerpo no puede estar vacío",
+      "bodyMatchRegexInvalid": "La expresión regular del cuerpo no es válida",
+      "scopeTargetRequired": "Selecciona al menos un/a {{scopeNoun}}",
+      "scopeNoun": {
+        "tab": "pestaña",
+        "window": "ventana",
+        "tabGroup": "grupo de pestañas"
+      },
+      "exclusiveDnrActions": "Bloquear, Redirigir e Inyectar parámetros son excluyentes",
+      "redirectUrlRequired": "El destino de redirección no puede estar vacío",
+      "redirectUrlAbsolute": "El destino debe ser una dirección absoluta, p. ej. http://127.0.0.1:4317/api/redirect-target.json",
+      "insertScriptCodeRequired": "El código inyectado no puede estar vacío",
+      "mockStatusCodeRange": "El código de estado simulado debe estar entre 100 y 599",
+      "dynamicMockFunctionRequired": "La función de simulación dinámica no puede estar vacía",
+      "requestBodyContentRequired": "El contenido del cuerpo no puede estar vacío",
+      "requestBodyFunctionRequired": "La función de cuerpo no puede estar vacía"
+    },
+    "matchTester": {
+      "trigger": "Probar coincidencia",
+      "placeholder": "Introduce una ruta / URL de prueba",
+      "test": "Probar",
+      "matched": "Coincide",
+      "notMatched": "No coincide: esta regla no procesará la URL"
+    },
+    "methodPicker": {
+      "scriptOnlyHint": "La inyección de scripts coincide por URL de página; no requiere configurar métodos.",
+      "all": "Todos",
+      "bodyHint": "Modificar el cuerpo solo se aplica a métodos que pueden incluirlo; GET / HEAD y «Todos» se excluyen automáticamente."
+    },
+    "bodyMatchEditor": {
+      "off": "Sin restricción de cuerpo",
+      "hint": "Limita por el cuerpo de fetch / XHR de los scripts de la página; en GraphQL usa el «nombre de operación» para distinguir operaciones con la misma URL."
+    },
+    "scopeEditor": {
+      "unnamedTab": "Pestaña n.º {{id}}",
+      "windowLabel": "Ventana {{index}}",
+      "windowHint": "{{count}} pestañas{{current}}",
+      "currentSuffix": " · actual",
+      "unnamedTabGroup": "Grupo de pestañas sin nombre",
+      "refresh": "Actualizar lista",
+      "loading": "Cargando…",
+      "noOptions": "No hay opciones disponibles; abre primero la pestaña / ventana / grupo correspondiente",
+      "closed": "Cerrado",
+      "allTabsHint": "Se aplica a todas las pestañas de forma predeterminada. Limitar el ámbito evita filtrar encabezados sensibles (como Authorization) a otros sitios.",
+      "limitedHint": "{{emptyHint}}; los ID de objeto duran una sesión y deben seleccionarse de nuevo al reiniciar el navegador."
+    },
+    "mockActionEditor": {
+      "bodyTypeAriaLabel": "Tipo de cuerpo de respuesta",
+      "invalidJsonHint": "El cuerpo no contiene JSON válido; para devolver otro formato, cambia el «Tipo de cuerpo» de arriba.",
+      "dynamicHint": "La función dinámica puede leer req.url, req.method, req.headers, req.query, req.body y req.json."
+    },
+    "delayActionEditor": {
+      "preset": "Perfil de red",
+      "latency": "Latencia (ms)",
+      "download": "Descarga ({{unit}})",
+      "upload": "Subida ({{unit}})"
+    },
+    "requestBodyActionEditor": {
+      "hint": "Solo se aplica a métodos fetch / XHR con cuerpo; se conserva el cuerpo original si hay un error o se devuelve undefined."
+    }
+  },
+  "app": {
+    "scopeBadge": {
+      "title": "{{scopeLabel}} · {{count}} objetos"
+    },
+    "relativeTime": {
+      "none": "Sin registro",
+      "justNow": "Actualizado ahora",
+      "minutesAgo": "Actualizado hace {{count}} min",
+      "hoursAgo": "Actualizado hace {{count}} h",
+      "daysAgo": "Actualizado hace {{count}} d"
+    },
+    "groupNamePlaceholder": "Nombre del grupo",
+    "dragToReorder": "Arrastra para reordenar",
+    "dragToReorderGroup": "Arrastra para reordenar el grupo",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "expand": "Expandir",
+    "collapse": "Contraer",
+    "disableGroup": "Desactivar grupo",
+    "enableGroup": "Activar grupo",
+    "groupRuleCount": "{{count}} reglas",
+    "groupEnabled": "Activado",
+    "groupDisabled": "Desactivado",
+    "lastUpdated": "Última actualización: {{time}}",
+    "addRule": "Añadir regla",
+    "deleteGroup": "Eliminar grupo",
+    "emptyGroupHint": "Este grupo aún no tiene reglas; pulsa «Añadir regla» arriba a la derecha para crear una",
+    "columns": {
+      "enabled": "Activada",
+      "name": "Nombre",
+      "channel": "Canal",
+      "actions": "Acciones",
+      "pattern": "Patrón",
+      "operations": "Operaciones"
+    },
+    "addRuleMenu": {
+      "blank": "Regla vacía",
+      "fromTemplate": "Desde la biblioteca de plantillas…"
+    },
+    "transfer": {
+      "exportSuccess": "Configuración exportada.",
+      "exportFailure": "No se pudo exportar. Inténtalo de nuevo.",
+      "importConfirm": "Se importarán {{groupCount}} grupos y {{ruleCount}} reglas, reemplazando toda la configuración actual. ¿Continuar?",
+      "importSuccess": "Se importaron {{groupCount}} grupos y {{ruleCount}} reglas.",
+      "importParseFailure": "No se pudo importar. Comprueba el contenido del archivo e inténtalo de nuevo.",
+      "importFailure": "Error de importación: {{message}}"
+    },
+    "deleteGroupConfirm": "El grupo «{{name}}» aún contiene {{count}} reglas. ¿Eliminar todo el grupo?",
+    "newRule": "Nueva regla",
+    "newGroup": "Nuevo grupo",
+    "emptyState": {
+      "title": "Aún no hay reglas",
+      "hint": "Crea una regla y se añadirá automáticamente a «{{defaultGroupName}}», o crea primero un grupo"
+    },
+    "noMatchingGroups": "No se encontraron grupos de reglas",
+    "noMatchingGroupsHint": "Prueba a cambiar la búsqueda o los filtros"
+  },
+  "popup": {
+    "activeCount": "{{count}} reglas activas",
+    "globallyDisabled": "Desactivado globalmente",
+    "noRules": "Aún no hay reglas",
+    "noRulesHint": "Ve a la página de administración para añadir tu primera regla",
+    "expandGroup": "Expandir grupo",
+    "collapseGroup": "Contraer grupo",
+    "ruleCount": "{{count}} reglas",
+    "manageRules": "Administrar reglas"
+  },
+  "dynamicVariableHint": {
+    "title": "Ver variables dinámicas disponibles",
+    "trigger": "Variables",
+    "hint": "Usa estos marcadores en los campos de valor y haz clic para copiarlos. El canal de parche evalúa cada solicitud; la capa de red (DNR), una vez al sincronizar."
+  },
+  "dialog": {
+    "close": "Cerrar"
+  },
+  "codeEditor": {
+    "ariaLabel": "Editor de {{language}}",
+    "invalidJson": "JSON no válido; no se puede dar formato.",
+    "format": "Dar formato"
+  },
+  "dashboard": {
+    "header": {
+      "title": "Administrador de reglas de Req Freedom",
+      "subtitle": "Bloquear · Redirigir · Inyectar parámetros · Encabezados · Simular · Limitar · Inyectar scripts · Modificar cuerpo",
+      "import": "Importar reglas",
+      "export": "Exportar reglas"
+    },
+    "moreMenu": {
+      "trigger": "Más",
+      "language": "Idioma"
+    },
+    "statistics": {
+      "ariaLabel": "Estadísticas de reglas",
+      "groupLabel": "Grupos",
+      "groupSuffix": "grupos",
+      "ruleLabel": "Reglas",
+      "ruleSuffix": "reglas",
+      "enabledLabel": "Activadas"
+    },
+    "toolbar": {
+      "ariaLabel": "Filtros de reglas",
+      "searchPlaceholder": "Buscar grupos o reglas por nombre o patrón…",
+      "searchAriaLabel": "Buscar grupos o reglas",
+      "statusPlaceholder": "Estado",
+      "statusAll": "Estado: todos",
+      "statusEnabled": "Estado: activadas",
+      "statusDisabled": "Estado: desactivadas",
+      "channelPlaceholder": "Tipo",
+      "channelAll": "Canal: todos",
+      "channelDnr": "Regla de red DNR",
+      "channelPagePatch": "Parche de página"
+    }
+  },
+  "keyValueEditor": {
+    "keyPlaceholder": "Clave",
+    "valuePlaceholder": "Valor",
+    "delete": "Eliminar",
+    "addItem": "Añadir elemento"
+  },
+  "headersEditor": {
+    "delete": "Eliminar",
+    "appendableHeaderPlaceholder": "Selecciona un encabezado de solicitud que admita anexado",
+    "headerNamePlaceholder": "Nombre del encabezado",
+    "valuePlaceholder": "Valor (déjalo vacío para eliminar)",
+    "appendHint": "«Anexar» solo admite los pocos encabezados estándar multivalor de arriba; para encabezados personalizados usa «Establecer».",
+    "ineffectiveAppendWarning": "Los encabezados personalizados no admiten «Anexar» y el navegador lo ignora. Usa «Establecer». Solo algunos encabezados como Cookie, User-Agent y X-Forwarded-For admiten anexado.",
+    "addItem": "Añadir modificación",
+    "responseHeaderHint": "Consejo: los cambios en los <strong>encabezados de respuesta</strong> no aparecen en el panel Red del navegador. Verifícalos en la consola con <code>fetch(url).then((r) =&gt; r.headers.get('...'))</code>."
+  },
+  "templateLibrary": {
+    "title": "Biblioteca de plantillas de reglas",
+    "hint": "Al usar una plantilla se abre el editor con las acciones preparadas; cambia el patrón por tu dirección de destino y guarda.",
+    "channelPagePatch": "Parche de página",
+    "use": "Usar"
+  },
+  "label": {
+    "ruleTemplateCategory": {
+      "cors": "CORS",
+      "cache": "Control de caché",
+      "protocol": "Protocolo y redirección",
+      "userAgent": "User-Agent"
+    },
+    "ruleActionType": {
+      "block": "Bloquear solicitud",
+      "redirect": "Redirigir",
+      "injectParams": "Inyectar parámetros",
+      "modifyHeaders": "Modificar encabezados",
+      "mockResponse": "Simular respuesta",
+      "delay": "Limitar red",
+      "modifyRequestBody": "Modificar cuerpo",
+      "insertScript": "Inyectar script"
+    },
+    "requestBodyMode": {
+      "replace": "Reemplazar por completo",
+      "mergeJson": "Combinar JSON en profundidad"
+    },
+    "requestBodySourceMode": {
+      "static": "Reescritura estática",
+      "dynamic": "Generar con JavaScript"
+    },
+    "mockResponseMode": {
+      "static": "Cuerpo de respuesta estático",
+      "dynamic": "Generar con JavaScript"
+    },
+    "mockBodyType": {
+      "text": "Texto"
+    },
+    "networkThrottlePreset": {
+      "custom": "Personalizado"
+    },
+    "insertScriptTiming": {
+      "documentStart": "Inicio del documento (document_start)",
+      "documentEnd": "Documento listo (document_end)"
+    },
+    "bodyMatchType": {
+      "contains": "Contiene una subcadena",
+      "regex": "Expresión regular",
+      "graphqlOperation": "Nombre de operación GraphQL"
+    },
+    "bodyMatchValuePlaceholder": {
+      "contains": "Subcadena que debe contener el cuerpo",
+      "regex": "Expresión regular para el cuerpo, p. ej. \"mutation\\\\s+Login\"",
+      "graphqlOperation": "operationName, p. ej. GetUser"
+    },
+    "ruleScopeType": {
+      "allTabs": "Todas las pestañas",
+      "tab": "Pestañas concretas",
+      "window": "Ventanas concretas",
+      "tabGroup": "Grupos de pestañas concretos"
+    },
+    "ruleScopeEmptyHint": {
+      "tab": "Selecciona una o más pestañas abiertas",
+      "window": "Selecciona una o más ventanas abiertas",
+      "tabGroup": "Selecciona uno o más grupos actuales"
+    },
+    "matchType": {
+      "contains": "Contiene",
+      "equals": "Igual",
+      "wildcard": "Comodín",
+      "regex": "Expresión regular"
+    },
+    "headerTarget": {
+      "request": "Encabezado de solicitud",
+      "response": "Encabezado de respuesta"
+    },
+    "headerOperation": {
+      "set": "Establecer",
+      "append": "Anexar",
+      "remove": "Eliminar"
+    }
+  }
+}

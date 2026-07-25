@@ -1,0 +1,455 @@
+{
+  "group": {
+    "defaultName": "Neue Gruppe",
+    "autoDefaultName": "Standardgruppe"
+  },
+  "rule": {
+    "defaultName": "Neue Regel"
+  },
+  "template": {
+    "corsAllowAll": {
+      "name": "CORS-Beschränkung deaktivieren",
+      "description": "Fügt passenden Antworten Access-Control-Allow-*-Header hinzu, um CORS beim lokalen Debugging freizugeben. Ändern Sie das Muster auf Ihre API-Adresse."
+    },
+    "disableCache": {
+      "name": "Cache deaktivieren",
+      "description": "Fügt Request und Response Cache-Control ohne Cache hinzu, damit stets die aktuelle Ressource geladen wird. Ändern Sie das Muster auf die Zieladresse."
+    },
+    "forceHttps": {
+      "name": "HTTPS erzwingen",
+      "description": "Leitet passende http-Anfragen auf dieselbe Adresse über https um. Standardmäßig werden alle http-Anfragen erfasst."
+    },
+    "mobileUaIos": {
+      "name": "Mobile UA · iPhone",
+      "description": "Ändert den User-Agent auf iOS Safari, damit die mobile Seite geliefert wird. Ändern Sie das Muster auf die Zielseite."
+    },
+    "mobileUaAndroid": {
+      "name": "Mobile UA · Android",
+      "description": "Ändert den User-Agent auf Android Chrome, damit die mobile Seite geliefert wird. Ändern Sie das Muster auf die Zielseite."
+    }
+  },
+  "dynamicVariable": {
+    "uuid": {
+      "label": "UUID",
+      "description": "Zufällige UUID v4"
+    },
+    "timestamp": {
+      "label": "Zeitstempel (Sekunden)",
+      "description": "Aktueller Unix-Zeitstempel in Sekunden"
+    },
+    "timestampMs": {
+      "label": "Zeitstempel (ms)",
+      "description": "Aktueller Unix-Zeitstempel in Millisekunden"
+    },
+    "isoTime": {
+      "label": "ISO-Zeit",
+      "description": "Aktuelle Zeit als ISO-8601-Zeichenfolge"
+    },
+    "randomFloat": {
+      "label": "Zufällige Gleitkommazahl",
+      "description": "Zufällige Gleitkommazahl im Bereich [0, 1)"
+    },
+    "randomInt": {
+      "label": "Zufällige Ganzzahl",
+      "description": "Zufällige Ganzzahl; das Argument setzt den inklusiven Bereich [min, max], Standard 0-100"
+    },
+    "randomString": {
+      "label": "Zufällige Zeichenfolge",
+      "description": "Zufällige alphanumerische Zeichenfolge; Argument setzt die Länge, Standard 8"
+    }
+  },
+  "configTransfer": {
+    "invalidJson": "Die Datei enthält kein gültiges JSON.",
+    "mustBeObject": "{{label}} muss ein Objekt sein.",
+    "requiredNonEmpty": "{{label}} darf nicht leer sein.",
+    "mustBeNonNegativeNumber": "{{label}} muss eine nicht negative Zahl sein.",
+    "valuesMustBeStrings": "Alle Werte in {{label}} müssen Zeichenfolgen sein.",
+    "schemaVersionUnsupported": "Nur schemaVersion {{version}} wird unterstützt.",
+    "missingExportedAt": "In der Konfigurationsdatei fehlt eine gültige exportedAt-Zeit.",
+    "invalidEnabledOrGroups": "Das Feld enabled oder groups ist fehlerhaft.",
+    "duplicateGroupId": "Doppelte Gruppen-ID {{id}}.",
+    "invalidGroupFormat": "Gruppe „{{id}}“ ist fehlerhaft.",
+    "missingGroupUpdatedAt": "Gruppe „{{id}}“ hat keine gültige Aktualisierungszeit.",
+    "duplicateRuleId": "Doppelte Regel-ID {{id}}.",
+    "invalidRuleBaseFields": "Regel „{{id}}“ enthält ungültige Basisfelder.",
+    "invalidRuleChannel": "Regel „{{id}}“ hat einen ungültigen Ausführungskanal.",
+    "invalidRuleMethods": "Regel „{{id}}“ hat ungültige Request-Methoden.",
+    "ruleActionsRequired": "Regel „{{id}}“ benötigt mindestens eine Aktion.",
+    "invalidRuleRegex": "Regel „{{id}}“ enthält eine ungültige Regex.",
+    "exclusiveActionsConflict": "Regel „{{id}}“ kann Blockieren, Umleiten und Parameter einfügen nicht kombinieren.",
+    "getHeadCannotModifyBody": "Regel „{{id}}“ kann den Body bei GET / HEAD nicht ändern.",
+    "invalidScopeType": "Regel „{{ruleId}}“ hat einen ungültigen Geltungsbereich.",
+    "scopeTargetsRequired": "Regel „{{ruleId}}“ benötigt mindestens ein Bereichsziel.",
+    "scopeTargetIdMustBeInteger": "Die Ziel-ID der Regel „{{ruleId}}“ muss ganzzahlig sein.",
+    "bodyMatchChannelInvalid": "Body-Übereinstimmung für „{{ruleId}}“ ist nur im Seiten-Patch verfügbar.",
+    "invalidBodyMatchType": "Regel „{{ruleId}}“ hat einen ungültigen Body-Match-Typ.",
+    "invalidBodyMatchRegex": "Regel „{{ruleId}}“ enthält eine ungültige Body-Regex.",
+    "invalidActionType": "Regel „{{ruleId}}“ hat einen ungültigen Aktionstyp.",
+    "actionChannelMismatch": "Die Aktion von „{{ruleId}}“ passt nicht zum Ausführungskanal.",
+    "invalidMockConfig": "Regel „{{ruleId}}“ hat eine ungültige Mock-Konfiguration.",
+    "dynamicMockFunctionRequired": "Die dynamische Mock-Funktion von „{{ruleId}}“ darf nicht leer sein.",
+    "invalidThrottlePreset": "Regel „{{ruleId}}“ hat ein ungültiges Drosselungsprofil.",
+    "invalidInsertScriptConfig": "Regel „{{ruleId}}“ hat eine ungültige Skript-Konfiguration.",
+    "invalidRequestBodyConfig": "Regel „{{ruleId}}“ hat eine ungültige Request-Body-Konfiguration.",
+    "dynamicRequestBodyFunctionRequired": "Die dynamische Body-Funktion von „{{ruleId}}“ darf nicht leer sein.",
+    "headersMustBeArray": "Header-Änderungen müssen ein Array sein.",
+    "invalidHeaderTargetOrOperation": "Die Header-Änderung hat ein ungültiges Ziel oder eine ungültige Aktion.",
+    "label": {
+      "configRoot": "Konfigurationswurzel",
+      "nthGroup": "Gruppe Nr. {{n}}",
+      "groupId": "Gruppen-ID",
+      "groupName": "Name der Gruppe „{{id}}“",
+      "nthRuleInGroup": "Regel Nr. {{n}} in Gruppe „{{groupId}}“",
+      "ruleId": "Regel-ID",
+      "rulePattern": "Muster der Regel „{{id}}“",
+      "ruleName": "Name der Regel „{{id}}“",
+      "ruleScope": "Geltungsbereich der Regel „{{ruleId}}“",
+      "scopeTarget": "Bereichsziel der Regel „{{ruleId}}“",
+      "ruleBodyMatch": "Body-Übereinstimmung der Regel „{{ruleId}}“",
+      "ruleBodyMatchValue": "Body-Match-Wert der Regel „{{ruleId}}“",
+      "nthActionInRule": "Aktion Nr. {{n}} in Regel „{{ruleId}}“",
+      "redirectUrl": "Weiterleitungsadresse",
+      "params": "Parameter",
+      "mockDelay": "Mock-Verzögerung",
+      "mockResponseHeaders": "Mock-Response-Header",
+      "networkLatency": "Netzwerklatenz",
+      "downloadBandwidth": "Download-Bandbreite",
+      "uploadBandwidth": "Upload-Bandbreite",
+      "insertScriptCode": "eingefügter Code",
+      "headerModification": "Header-Änderung",
+      "headerName": "Headername"
+    }
+  },
+  "ruleEditor": {
+    "titleNew": "Neue Regel",
+    "titleEdit": "Regel bearbeiten",
+    "group": "Gruppe",
+    "name": "Regelname",
+    "matchType": "Übereinstimmungstyp",
+    "pattern": "Übereinstimmungsmuster",
+    "methods": "Methoden",
+    "advanced": "Erweitert",
+    "optional": "Optional",
+    "bodyMatchLabel": "Body-Übereinstimmung",
+    "scope": "Geltungsbereich",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "deleteAction": "{{actionLabel}} löschen",
+    "deleteActionSr": "Aktion löschen",
+    "selectActionHint": "Wählen Sie eine „{{groupTitle}}“-Aktion zur Konfiguration",
+    "actionDescription": {
+      "block": "Übereinstimmende Anfrage direkt blockieren",
+      "redirect": "Anfrage an eine andere Adresse weiterleiten",
+      "injectParams": "Query-Parameter ergänzen oder überschreiben",
+      "modifyHeaders": "Request-/Response-Header hinzufügen, entfernen oder ändern",
+      "mockResponse": "Anfrage abfangen und eigene Antwort zurückgeben",
+      "delay": "Latenz und Bandbreitenlimits anwenden",
+      "modifyRequestBody": "Request-Body vor dem Senden umschreiben",
+      "insertScript": "JS / CSS anhand der Seiten-URL einfügen"
+    },
+    "actionGroup": {
+      "dnr": {
+        "title": "Netzwerkschicht",
+        "hint": "Gilt für alle Anfragen (einschließlich Navigation und statischer Dateien), kann den Body aber nicht lesen",
+        "note": "Blockieren / Umleiten / Parameter einfügen schließen sich aus; Header ändern ist kombinierbar"
+      },
+      "pagePatch": {
+        "title": "Seiten-Patch",
+        "hint": "Gilt nur für fetch / XHR von Seitenskripten; kann Body und Response lesen und schreiben",
+        "note": "Mock / Drosselung / Body ändern sind kombinierbar; Skript einfügen nur allein"
+      }
+    },
+    "describeAction": {
+      "block": "Blockieren: Anfrage direkt blockiert",
+      "redirect": "Umleiten → {{url}}",
+      "injectParams": "Parameter einfügen: {{params}}",
+      "empty": "(leer)",
+      "modifyHeaders": "Header ändern: {{count}} Eintrag/Einträge",
+      "mockResponse": "Mock gibt HTTP {{statusCode}} zurück",
+      "delay": "Drosselung: {{preset}}",
+      "modifyRequestBody": "Body ändern ({{sourceMode}})",
+      "insertScript": "{{codeType}} einfügen ({{timing}})"
+    },
+    "describeEffect": {
+      "none": "Noch keine Aktionen konfiguriert",
+      "separator": "; "
+    },
+    "validation": {
+      "actionsRequired": "Mindestens eine Aktion auswählen",
+      "nameRequired": "Regelname darf nicht leer sein",
+      "patternRequired": "Übereinstimmungsmuster darf nicht leer sein",
+      "patternRegexInvalid": "Ungültige Regex-Syntax",
+      "bodyMethodsRequired": "Body-Änderung erfordert POST / PUT / PATCH / DELETE / OPTIONS",
+      "bodyMatchValueRequired": "Body-Match-Wert darf nicht leer sein",
+      "bodyMatchRegexInvalid": "Ungültige Body-Match-Regex",
+      "scopeTargetRequired": "Mindestens ein {{scopeNoun}} auswählen",
+      "scopeNoun": {
+        "tab": "Tab",
+        "window": "Fenster",
+        "tabGroup": "Tabgruppe"
+      },
+      "exclusiveDnrActions": "Blockieren, Umleiten und Parameter einfügen schließen sich aus",
+      "redirectUrlRequired": "Weiterleitungsziel darf nicht leer sein",
+      "redirectUrlAbsolute": "Das Ziel muss eine absolute Adresse sein, z. B. http://127.0.0.1:4317/api/redirect-target.json",
+      "insertScriptCodeRequired": "Eingefügter Code darf nicht leer sein",
+      "mockStatusCodeRange": "Mock-Statuscode muss zwischen 100 und 599 liegen",
+      "dynamicMockFunctionRequired": "Dynamische Mock-Funktion darf nicht leer sein",
+      "requestBodyContentRequired": "Request-Body darf nicht leer sein",
+      "requestBodyFunctionRequired": "Request-Body-Funktion darf nicht leer sein"
+    },
+    "matchTester": {
+      "trigger": "Übereinstimmung testen",
+      "placeholder": "Testpfad / URL eingeben",
+      "test": "Testen",
+      "matched": "Übereinstimmung",
+      "notMatched": "Keine Übereinstimmung — diese URL wird nicht verarbeitet"
+    },
+    "methodPicker": {
+      "scriptOnlyHint": "Skript-Injektion nutzt die Seiten-URL; keine Methoden erforderlich.",
+      "all": "Alle",
+      "bodyHint": "Body-Änderung gilt nur für Methoden mit Body; GET / HEAD und „Alle“ werden ausgeschlossen."
+    },
+    "bodyMatchEditor": {
+      "off": "Keine Body-Einschränkung",
+      "hint": "Schränkt nach fetch-/XHR-Body ein; bei GraphQL unterscheidet der „Operationsname“ Vorgänge mit gleicher URL."
+    },
+    "scopeEditor": {
+      "unnamedTab": "Tab Nr. {{id}}",
+      "windowLabel": "Fenster {{index}}",
+      "windowHint": "{{count}} Tabs{{current}}",
+      "currentSuffix": " · aktuell",
+      "unnamedTabGroup": "Unbenannte Tabgruppe",
+      "refresh": "Liste aktualisieren",
+      "loading": "Wird geladen…",
+      "noOptions": "Keine Optionen verfügbar — zuerst Tab / Fenster / Tabgruppe öffnen",
+      "closed": "Geschlossen",
+      "allTabsHint": "Gilt standardmäßig für alle Tabs. Eine Begrenzung verhindert, dass sensible Header wie Authorization an andere Sites gelangen.",
+      "limitedHint": "{{emptyHint}}; Objekt-IDs gelten nur für die Sitzung und müssen nach einem Neustart neu gewählt werden."
+    },
+    "mockActionEditor": {
+      "bodyTypeAriaLabel": "Response-Body-Typ",
+      "invalidJsonHint": "Der Response-Body ist kein gültiges JSON; für andere Formate oben den „Body-Typ“ ändern.",
+      "dynamicHint": "Die dynamische Funktion kann req.url, req.method, req.headers, req.query, req.body und req.json lesen."
+    },
+    "delayActionEditor": {
+      "preset": "Netzwerkprofil",
+      "latency": "Latenz (ms)",
+      "download": "Download ({{unit}})",
+      "upload": "Upload ({{unit}})"
+    },
+    "requestBodyActionEditor": {
+      "hint": "Gilt nur für fetch / XHR mit Body; bei Fehler oder undefined bleibt der ursprüngliche Body erhalten."
+    }
+  },
+  "app": {
+    "scopeBadge": {
+      "title": "{{scopeLabel}} · {{count}} Objekte"
+    },
+    "relativeTime": {
+      "none": "Kein Eintrag",
+      "justNow": "Gerade aktualisiert",
+      "minutesAgo": "Vor {{count}} Min. aktualisiert",
+      "hoursAgo": "Vor {{count}} Std. aktualisiert",
+      "daysAgo": "Vor {{count}} Tagen aktualisiert"
+    },
+    "groupNamePlaceholder": "Gruppenname",
+    "dragToReorder": "Zum Sortieren ziehen",
+    "dragToReorderGroup": "Ziehen, um die Gruppe zu sortieren",
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "expand": "Aufklappen",
+    "collapse": "Zuklappen",
+    "disableGroup": "Gruppe deaktivieren",
+    "enableGroup": "Gruppe aktivieren",
+    "groupRuleCount": "{{count}} Regeln",
+    "groupEnabled": "Aktiviert",
+    "groupDisabled": "Deaktiviert",
+    "lastUpdated": "Zuletzt aktualisiert: {{time}}",
+    "addRule": "Regel hinzufügen",
+    "deleteGroup": "Gruppe löschen",
+    "emptyGroupHint": "Diese Gruppe hat noch keine Regeln — oben rechts „Regel hinzufügen“ anklicken",
+    "columns": {
+      "enabled": "Aktiviert",
+      "name": "Name",
+      "channel": "Kanal",
+      "actions": "Aktionen",
+      "pattern": "Übereinstimmungsmuster",
+      "operations": "Vorgänge"
+    },
+    "addRuleMenu": {
+      "blank": "Leere Regel",
+      "fromTemplate": "Aus der Vorlagenbibliothek…"
+    },
+    "transfer": {
+      "exportSuccess": "Konfiguration exportiert.",
+      "exportFailure": "Export fehlgeschlagen. Bitte erneut versuchen.",
+      "importConfirm": "Importiert {{groupCount}} Gruppen und {{ruleCount}} Regeln und ersetzt die gesamte Konfiguration. Fortfahren?",
+      "importSuccess": "{{groupCount}} Gruppen und {{ruleCount}} Regeln importiert.",
+      "importParseFailure": "Import fehlgeschlagen. Dateiinhalt prüfen und erneut versuchen.",
+      "importFailure": "Import fehlgeschlagen: {{message}}"
+    },
+    "deleteGroupConfirm": "Gruppe „{{name}}“ enthält noch {{count}} Regeln. Gesamte Gruppe löschen?",
+    "newRule": "Neue Regel",
+    "newGroup": "Neue Gruppe",
+    "emptyState": {
+      "title": "Noch keine Regeln",
+      "hint": "Eine Regel erstellen; sie wird automatisch „{{defaultGroupName}}“ zugeordnet. Alternativ zuerst eine Gruppe erstellen"
+    },
+    "noMatchingGroups": "Keine passenden Regelgruppen gefunden",
+    "noMatchingGroupsHint": "Suche oder Filter anpassen"
+  },
+  "popup": {
+    "activeCount": "{{count}} Regeln aktiv",
+    "globallyDisabled": "Global deaktiviert",
+    "noRules": "Noch keine Regeln",
+    "noRulesHint": "Auf der Verwaltungsseite die erste Regel hinzufügen",
+    "expandGroup": "Gruppe aufklappen",
+    "collapseGroup": "Gruppe zuklappen",
+    "ruleCount": "{{count}} Regeln",
+    "manageRules": "Regeln verwalten"
+  },
+  "dynamicVariableHint": {
+    "title": "Verfügbare dynamische Variablen anzeigen",
+    "trigger": "Variablen",
+    "hint": "Diese Platzhalter in Wertfeldern verwenden und zum Kopieren anklicken. Seiten-Patch wertet pro Anfrage aus, DNR einmal beim Synchronisieren."
+  },
+  "dialog": {
+    "close": "Schließen"
+  },
+  "codeEditor": {
+    "ariaLabel": "{{language}}-Editor",
+    "invalidJson": "Ungültiges JSON — Formatierung nicht möglich.",
+    "format": "Formatieren"
+  },
+  "dashboard": {
+    "header": {
+      "title": "Req Freedom Regelverwaltung",
+      "subtitle": "Blockieren · Umleiten · Parameter · Header · Mock · Drosseln · Skript · Body ändern",
+      "import": "Regeln importieren",
+      "export": "Regeln exportieren"
+    },
+    "moreMenu": {
+      "trigger": "Mehr",
+      "language": "Sprache"
+    },
+    "statistics": {
+      "ariaLabel": "Regelstatistik",
+      "groupLabel": "Gruppen",
+      "groupSuffix": "Gruppen",
+      "ruleLabel": "Regeln",
+      "ruleSuffix": "Regeln",
+      "enabledLabel": "Aktiviert"
+    },
+    "toolbar": {
+      "ariaLabel": "Regelfilter",
+      "searchPlaceholder": "Gruppen oder Regeln nach Name oder Muster suchen…",
+      "searchAriaLabel": "Gruppen oder Regeln suchen",
+      "statusPlaceholder": "Status",
+      "statusAll": "Status: Alle",
+      "statusEnabled": "Status: Aktiviert",
+      "statusDisabled": "Status: Deaktiviert",
+      "channelPlaceholder": "Typ",
+      "channelAll": "Kanal: Alle",
+      "channelDnr": "DNR-Netzwerkregel",
+      "channelPagePatch": "Seiten-Patch"
+    }
+  },
+  "keyValueEditor": {
+    "keyPlaceholder": "Schlüssel",
+    "valuePlaceholder": "Wert",
+    "delete": "Löschen",
+    "addItem": "Eintrag hinzufügen"
+  },
+  "headersEditor": {
+    "delete": "Löschen",
+    "appendableHeaderPlaceholder": "Anhängigen Request-Header auswählen",
+    "headerNamePlaceholder": "Headername",
+    "valuePlaceholder": "Wert (zum Entfernen leer lassen)",
+    "appendHint": "„Anhängen“ unterstützt nur die obigen Mehrfachwert-Header; für eigene Header „Setzen“ verwenden.",
+    "ineffectiveAppendWarning": "Eigene Request-Header unterstützen „Anhängen“ nicht. „Setzen“ verwenden. Nur wenige Standard-Header wie Cookie, User-Agent und X-Forwarded-For lassen sich anhängen.",
+    "addItem": "Änderung hinzufügen",
+    "responseHeaderHint": "Hinweis: Änderungen an <strong>Response-Headern</strong> erscheinen nicht im Netzwerk-Panel. In der Konsole mit <code>fetch(url).then((r) =&gt; r.headers.get('...'))</code> prüfen."
+  },
+  "templateLibrary": {
+    "title": "Regelvorlagenbibliothek",
+    "hint": "Eine Vorlage öffnet den Editor mit vorausgefüllten Aktionen; Zielmuster ändern und speichern.",
+    "channelPagePatch": "Seiten-Patch",
+    "use": "Verwenden"
+  },
+  "label": {
+    "ruleTemplateCategory": {
+      "cors": "CORS",
+      "cache": "Cache-Steuerung",
+      "protocol": "Protokoll und Weiterleitung",
+      "userAgent": "User-Agent"
+    },
+    "ruleActionType": {
+      "block": "Anfrage blockieren",
+      "redirect": "Umleiten",
+      "injectParams": "Parameter einfügen",
+      "modifyHeaders": "Header ändern",
+      "mockResponse": "Antwort simulieren",
+      "delay": "Drosseln",
+      "modifyRequestBody": "Request-Body ändern",
+      "insertScript": "Skript einfügen"
+    },
+    "requestBodyMode": {
+      "replace": "Vollständig ersetzen",
+      "mergeJson": "JSON tief zusammenführen"
+    },
+    "requestBodySourceMode": {
+      "static": "Statische Umschreibung",
+      "dynamic": "Mit JavaScript erzeugen"
+    },
+    "mockResponseMode": {
+      "static": "Statischer Response-Body",
+      "dynamic": "Mit JavaScript erzeugen"
+    },
+    "mockBodyType": {
+      "text": "Text"
+    },
+    "networkThrottlePreset": {
+      "custom": "Benutzerdefiniert"
+    },
+    "insertScriptTiming": {
+      "documentStart": "Dokumentstart (document_start)",
+      "documentEnd": "Dokument bereit (document_end)"
+    },
+    "bodyMatchType": {
+      "contains": "Enthält Teilzeichenfolge",
+      "regex": "Regex",
+      "graphqlOperation": "GraphQL-Operationsname"
+    },
+    "bodyMatchValuePlaceholder": {
+      "contains": "Teilzeichenfolge, die im Body enthalten sein muss",
+      "regex": "Regex für den Request-Body, z. B. „mutation\\\\s+Login“",
+      "graphqlOperation": "operationName, z. B. GetUser"
+    },
+    "ruleScopeType": {
+      "allTabs": "Alle Tabs",
+      "tab": "Bestimmte Tabs",
+      "window": "Bestimmte Fenster",
+      "tabGroup": "Bestimmte Tabgruppen"
+    },
+    "ruleScopeEmptyHint": {
+      "tab": "Einen oder mehrere offene Tabs auswählen",
+      "window": "Ein oder mehrere offene Fenster auswählen",
+      "tabGroup": "Eine oder mehrere aktuelle Tabgruppen auswählen"
+    },
+    "matchType": {
+      "contains": "Enthält",
+      "equals": "Gleich",
+      "wildcard": "Platzhalter",
+      "regex": "Regex"
+    },
+    "headerTarget": {
+      "request": "Request-Header",
+      "response": "Response-Header"
+    },
+    "headerOperation": {
+      "set": "Setzen",
+      "append": "Anhängen",
+      "remove": "Entfernen"
+    }
+  }
+}

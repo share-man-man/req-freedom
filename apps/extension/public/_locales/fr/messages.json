@@ -1,0 +1,8 @@
+{
+  "extName": {
+    "message": "Req Freedom"
+  },
+  "extDescription": {
+    "message": "Outils de débogage des requêtes : blocage, redirection, injection de paramètres, modification des en-têtes, simulation des réponses et de la latence"
+  }
+}
