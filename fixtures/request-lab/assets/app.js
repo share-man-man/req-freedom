@@ -24,6 +24,29 @@ const GRAPHQL_OPERATIONS = {
   ListItems: { operationName: 'ListItems', query: 'query ListItems { items { id name } }', variables: { first: 10 } },
   GetUser: { operationName: 'GetUser', query: 'query GetUser { user { id name role } }', variables: { id: 7 } },
 };
+/** 各请求动作对应的验证卡片标识。 */
+const CARD_TEST_BY_ACTION = {
+  'asset-block': 'asset-block',
+  'basic-fetch': 'basic-fetch',
+  'xhr-request': 'xhr-request',
+  redirect: 'redirect',
+  params: 'params',
+  headers: 'headers',
+  cookies: 'cookies',
+  'cors-blocked': 'cors',
+  'cors-allowed': 'cors',
+  'methods-get': 'methods',
+  'methods-post': 'methods',
+  'methods-delete': 'methods',
+  'status-404': 'status',
+  'status-500': 'status',
+  'slow-response': 'slow-response',
+  'post-request': 'post-request',
+  'modify-body-fetch': 'modify-request-body',
+  'modify-body-xhr': 'modify-request-body',
+  'graphql-list': 'graphql',
+  'graphql-user': 'graphql',
+};
 /** 跨域验证服务的基地址，由 /api/config 在初始化时下发。 */
 let crossOriginBaseUrl = '';
 
@@ -260,24 +283,71 @@ function postWithXhr(name, path, body) {
 
 /**
  * 加载用于 block 规则验证的图片资源。
- * @returns {void}
+ * @returns {Promise<void>} 图片加载成功或失败后完成。
  */
 function loadBlockableAsset() {
-  /** 每次加载均带有时间戳，确保不会命中浏览器缓存。 */
-  const source = `${getApiUrl('./assets/tracker.svg')}?request=${Date.now()}`;
-  /** 动态创建的图片元素。 */
-  const image = new Image();
-  assetPreview.textContent = '资源加载中…';
-  image.alt = '请求拦截测试资源';
-  image.onload = () => {
-    assetPreview.replaceChildren(image);
-    appendLog({ name: '可拦截图片资源', url: source, status: 200, duration: 0, body: '图片加载成功', error: false });
-  };
-  image.onerror = () => {
-    assetPreview.textContent = '资源加载失败（若已配置 Block 规则，这是预期结果）';
-    appendLog({ name: '可拦截图片资源', url: source, duration: 0, body: '图片加载失败或被拦截', error: true });
-  };
-  image.src = source;
+  return new Promise((resolve) => {
+    /** 每次加载均带有时间戳，确保不会命中浏览器缓存。 */
+    const source = `${getApiUrl('./assets/tracker.svg')}?request=${Date.now()}`;
+    /** 动态创建的图片元素。 */
+    const image = new Image();
+    assetPreview.textContent = '资源加载中…';
+    image.alt = '请求拦截测试资源';
+    image.onload = () => {
+      assetPreview.replaceChildren(image);
+      appendLog({ name: '可拦截图片资源', url: source, status: 200, duration: 0, body: '图片加载成功', error: false });
+      resolve();
+    };
+    image.onerror = () => {
+      assetPreview.textContent = '资源加载失败（若已配置 Block 规则，这是预期结果）';
+      appendLog({ name: '可拦截图片资源', url: source, duration: 0, body: '图片加载失败或被拦截', error: true });
+      resolve();
+    };
+    image.src = source;
+  });
+}
+
+/**
+ * 更新指定验证卡片的可视化运行状态。
+ * @param {string} test 卡片的 data-test 标识。
+ * @param {'idle' | 'running' | 'completed' | 'failed'} state 要显示的运行状态。
+ * @param {string} text 状态提示文本。
+ * @returns {void}
+ */
+function setCardRunState(test, state, text) {
+  /** 当前动作对应的验证卡片。 */
+  const card = document.querySelector(`[data-test="${test}"]`);
+  if (!card) return;
+  /** 卡片底部的状态提示元素。 */
+  const status = card.querySelector('[data-card-run-status]');
+  card.dataset.runState = state;
+  if (status) {
+    status.textContent = text;
+  }
+}
+
+/**
+ * 执行一项请求测试，并同步其所属卡片的运行状态。
+ * @param {string} action 按钮上声明的测试动作。
+ * @returns {Promise<void>} 请求结束并更新卡片状态后完成。
+ */
+async function runCardAction(action) {
+  /** 当前动作对应的验证卡片标识。 */
+  const test = CARD_TEST_BY_ACTION[action];
+  if (test) {
+    setCardRunState(test, 'running', '执行中…');
+  }
+  try {
+    await runAction(action);
+    if (test) {
+      setCardRunState(test, 'completed', '已执行');
+    }
+  } catch (error) {
+    if (test) {
+      setCardRunState(test, 'failed', '执行异常');
+    }
+    throw error;
+  }
 }
 
 /**
@@ -339,8 +409,38 @@ async function runAction(action) {
     return requestWithFetch('跨域 对照端点', getCrossOriginUrl('/api/cross-origin/allowed'));
   }
   if (action === 'asset-block') {
-    loadBlockableAsset();
+    return loadBlockableAsset();
   }
+}
+
+/**
+ * 按页面中卡片与按钮的展示顺序收集全部请求动作。
+ * @returns {string[]} 可按顺序串行执行的测试动作。
+ */
+function getCardActionsInDisplayOrder() {
+  /** 依 DOM 顺序收集的请求动作。 */
+  const actions = [];
+  document.querySelectorAll('.card[data-test] [data-action]').forEach((element) => {
+    /** 当前按钮声明的测试动作。 */
+    const action = element.dataset.action;
+    if (action) {
+      actions.push(action);
+    }
+  });
+  return actions;
+}
+
+/**
+ * 统一切换所有卡片请求按钮的可用状态，避免批量执行时产生并发请求。
+ * @param {boolean} disabled 是否禁用按钮。
+ * @returns {void}
+ */
+function setCardActionButtonsDisabled(disabled) {
+  document.querySelectorAll('.card[data-test] [data-action]').forEach((element) => {
+    /** 已确认是 HTML 按钮的测试操作元素。 */
+    const button = /** @type {HTMLButtonElement} */ (element);
+    button.disabled = disabled;
+  });
 }
 
 /**
@@ -354,16 +454,43 @@ async function runButtonAction(button) {
   if (!action) return;
   button.disabled = true;
   try {
-    await runAction(action);
+    await runCardAction(action);
   } finally {
     button.disabled = false;
   }
+}
+
+/**
+ * 为每张请求验证卡片补充初始状态提示。
+ * @returns {void}
+ */
+function initializeCardRunStates() {
+  document.querySelectorAll('.card[data-test]').forEach((element) => {
+    /** 当前验证卡片。 */
+    const card = /** @type {HTMLElement} */ (element);
+    /** 卡片的测试标识。 */
+    const test = card.dataset.test;
+    if (!test) return;
+    /** 新建的底部状态提示。 */
+    const status = document.createElement('div');
+    status.className = 'card-run-status';
+    status.dataset.cardRunStatus = '';
+    status.setAttribute('aria-live', 'polite');
+    status.textContent = '尚未运行';
+    /** 卡片底部的操作控件，状态提示插入在其前面。 */
+    const controls = [...card.children].find((child) =>
+      child.matches('.button, .button-row'),
+    );
+    card.insertBefore(status, controls ?? null);
+    setCardRunState(test, 'idle', '尚未运行');
+  });
 }
 
 /** 初始化页面交互和可见的注入状态。 */
 function initializeLab() {
   locationElement.textContent = window.location.href;
   void loadLabConfig();
+  initializeCardRunStates();
   injectionValue.textContent = `window.__REQ_FREEDOM_LAB__ = ${String(window.__REQ_FREEDOM_LAB__)}`;
   document.querySelectorAll('[data-action]').forEach((element) => {
     /** 已确认是 HTML 按钮的测试操作元素。 */
@@ -377,23 +504,17 @@ function initializeLab() {
   document.querySelector('#run-all').addEventListener('click', async (event) => {
     /** 运行全部请求的全局操作按钮。 */
     const button = /** @type {HTMLButtonElement} */ (event.currentTarget);
-    /** 按顺序运行的请求型测试动作。 */
-    const actions = [
-      'basic-fetch', 'xhr-request', 'redirect', 'params', 'headers', 'slow-response', 'post-request',
-      'modify-body-fetch', 'modify-body-xhr',
-      'methods-get', 'methods-post', 'methods-delete',
-      'graphql-list', 'graphql-user',
-      'cookies', 'status-404', 'status-500',
-      'cors-blocked', 'cors-allowed',
-    ];
+    /** 按卡片展示顺序生成的串行执行队列。 */
+    const actions = getCardActionsInDisplayOrder();
     button.disabled = true;
+    setCardActionButtonsDisabled(true);
     try {
       for (const action of actions) {
-        await runAction(action);
+        await runCardAction(action);
       }
-      loadBlockableAsset();
     } finally {
       button.disabled = false;
+      setCardActionButtonsDisabled(false);
     }
   });
 }

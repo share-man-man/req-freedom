@@ -13,7 +13,13 @@ export default defineConfig({
     default_locale: 'zh_CN',
     name: '__MSG_extName__',
     description: '__MSG_extDescription__',
-    permissions: ['storage', 'declarativeNetRequest', 'tabGroups'],
+    permissions: [
+      'storage',
+      'activeTab',
+      'declarativeNetRequest',
+      'declarativeNetRequestFeedback',
+      'tabGroups',
+    ],
     host_permissions: ['<all_urls>'],
   },
 });

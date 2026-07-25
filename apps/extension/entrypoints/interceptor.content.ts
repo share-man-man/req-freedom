@@ -12,6 +12,7 @@ import {
   InsertScriptTiming,
   MOCK_BODY_TYPE_CONTENT_TYPES,
   MockResponseMode,
+  PAGE_MESSAGE_RULE_MATCHED_SOURCE,
   PAGE_MESSAGE_SOURCE,
   RequestBodyMode,
   RequestBodySourceMode,
@@ -78,6 +79,19 @@ export default defineContentScript({
     /** 已注入的 InsertScript 规则 ID，防止 storage 变更重推时重复注入 */
     const injectedRuleIds = new Set<string>();
 
+    /**
+     * 通知桥接脚本当前页面有规则实际命中。
+     * @param ruleIds 实际产生效果的业务规则 ID
+     */
+    const reportRuleMatch = (ruleIds: string[]): void => {
+      /** 同一条业务规则在一次请求中只计一次。 */
+      const uniqueRuleIds = [...new Set(ruleIds)];
+      if (uniqueRuleIds.length === 0) {
+        return;
+      }
+      window.postMessage({ source: PAGE_MESSAGE_RULE_MATCHED_SOURCE, ruleIds: uniqueRuleIds }, '*');
+    };
+
     // 监听桥接脚本推送的规则更新
     window.addEventListener('message', (event: MessageEvent) => {
       // 只接受同窗口、带指定来源标识的消息
@@ -132,17 +146,30 @@ export default defineContentScript({
         RuleExecutionChannel.PagePatch,
       );
       for (const action of filterActionsByType(matched, RuleActionType.InsertScript)) {
+        /** 当前注入动作所属的业务规则。 */
+        const ownerRule = matched.find((rule) => rule.actions.includes(action));
+        if (!ownerRule) {
+          continue;
+        }
         /** 注入动作唯一 ID，由规则 ID 与动作类型拼接而成。 */
-        const actionId = `${matched.find((rule) => rule.actions.includes(action))?.id ?? ''}:${action.type}`;
+        const actionId = `${ownerRule.id}:${action.type}`;
         if (injectedRuleIds.has(actionId)) {
           continue;
         }
         // 立即标记，避免重推时重复注入或重复挂载 DOMContentLoaded 监听
         injectedRuleIds.add(actionId);
         if (action.timing === InsertScriptTiming.DocumentEnd && document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', () => injectCode(action), { once: true });
+          document.addEventListener(
+            'DOMContentLoaded',
+            () => {
+              injectCode(action);
+              reportRuleMatch([ownerRule.id]);
+            },
+            { once: true },
+          );
         } else {
           injectCode(action);
+          reportRuleMatch([ownerRule.id]);
         }
       }
     };
@@ -176,6 +203,32 @@ export default defineContentScript({
       delayRule: pickActionByType(rules, RuleActionType.Delay),
       modifyBodyRule: pickActionByType(rules, RuleActionType.ModifyRequestBody),
     });
+
+    /**
+     * 找出本次请求真正采用的页面补丁动作所属规则。
+     *
+     * 同类动作仍遵循 pickActionByType 的「首条生效」语义，只记录实际被采用的规则；
+     * GET / HEAD 不执行请求体改写，因此也不应把对应规则标为命中。
+     * @param rules 已完成 URL、方法与请求体过滤的规则
+     * @param method 当前请求方法
+     * @returns 实际产生效果的业务规则 ID
+     */
+    const getAppliedRuleIds = (rules: Rule[], method: string): string[] => {
+      const { mockRule, delayRule, modifyBodyRule } = pickPageActions(rules);
+      /** 当前请求真正采用的动作引用。 */
+      const appliedActions = [
+        mockRule,
+        delayRule,
+        method !== 'GET' && method !== 'HEAD' ? modifyBodyRule : undefined,
+      ].filter((action) => action !== undefined);
+      return [
+        ...new Set(
+          appliedActions
+            .map((action) => rules.find((rule) => rule.actions.includes(action))?.id)
+            .filter((ruleId): ruleId is string => typeof ruleId === 'string'),
+        ),
+      ];
+    };
 
     /**
      * 把相对 URL 转成绝对 URL，便于统一匹配
@@ -529,6 +582,11 @@ export default defineContentScript({
         ? filterRulesByBody(candidateRules, await readFetchBodyText(input, init))
         : candidateRules;
       const { mockRule, delayRule, modifyBodyRule } = pickPageActions(activeRules);
+      /** 本次请求真正产生效果的规则。 */
+      const appliedRuleIds = getAppliedRuleIds(activeRules, method);
+      if (appliedRuleIds.length > 0) {
+        reportRuleMatch(appliedRuleIds);
+      }
 
       // 关键步骤：在请求实际发出前模拟网络往返延迟与上行传输时间
       if (delayRule) {
@@ -669,6 +727,11 @@ export default defineContentScript({
        */
       const proceed = (activeRules: Rule[]): void => {
         const { mockRule, delayRule, modifyBodyRule } = pickPageActions(activeRules);
+        /** 本次请求真正产生效果的规则。 */
+        const appliedRuleIds = getAppliedRuleIds(activeRules, method);
+        if (appliedRuleIds.length > 0) {
+          reportRuleMatch(appliedRuleIds);
+        }
         /** 延迟规则与 Mock 自带延迟的总时长。XHR 不暴露可替换的响应流，因此仅模拟请求前的网络延迟与上行带宽。 */
         const totalDelayMs =
           (delayRule ? getNetworkRequestDelayMs(delayRule, getRequestBodyByteLength(body)) : 0) +

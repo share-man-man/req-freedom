@@ -2,8 +2,10 @@ import { browser } from 'wxt/browser';
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import type { ScopeContext } from '@req-freedom/shared';
 import {
+  PAGE_MESSAGE_RULE_MATCHED_SOURCE,
   PAGE_MESSAGE_SOURCE,
   RUNTIME_MSG_GET_SCOPE_CONTEXT,
+  RUNTIME_MSG_RULE_MATCHED,
   RUNTIME_MSG_SCOPE_CONTEXT_CHANGED,
   STORAGE_KEY_ENABLED,
   STORAGE_KEY_GROUPS,
@@ -77,6 +79,27 @@ export default defineContentScript({
         scopeContext = scopeMessage.context;
         void pushRulesToPage();
       }
+    });
+
+    // MAIN world 命中页面补丁规则后，由桥接脚本转交 background 累加当前标签页计数。
+    window.addEventListener('message', (event: MessageEvent) => {
+      if (event.source !== window || event.data?.source !== PAGE_MESSAGE_RULE_MATCHED_SOURCE) {
+        return;
+      }
+      /** 实际产生效果的业务规则 ID；仅接受有限数量的字符串。 */
+      const ruleIds = Array.isArray(event.data.ruleIds)
+        ? [
+            ...new Set(
+              event.data.ruleIds
+                .filter((ruleId: unknown): ruleId is string => typeof ruleId === 'string')
+                .slice(0, 20),
+            ),
+          ]
+        : [];
+      if (ruleIds.length === 0) {
+        return;
+      }
+      void browser.runtime.sendMessage({ type: RUNTIME_MSG_RULE_MATCHED, ruleIds });
     });
 
     // storage 变化时重新推送（作用域上下文沿用缓存）

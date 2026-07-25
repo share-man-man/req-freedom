@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
-import { ChevronDown, Settings2 } from 'lucide-react';
+import { CheckCircle2, ChevronDown, Settings2, Target } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { RuleGroup } from '@req-freedom/shared';
+import type { RuleGroup, RuleMatchSummary } from '@req-freedom/shared';
+import {
+  RULE_HIGHLIGHT_QUERY_PARAM,
+  RUNTIME_MSG_CLEAR_RULE_MATCHES,
+  RUNTIME_MSG_GET_RULE_MATCH_SUMMARY,
+} from '@req-freedom/shared';
 import { collectActiveRules } from '@req-freedom/core';
 import { getEnabled, getGroups, saveGroups, setEnabled } from '@/utils/storage';
 import { Badge } from '@/components/ui/badge';
@@ -21,12 +26,37 @@ export default function App() {
   const [groups, setGroups] = useState<RuleGroup[]>([]);
   /** 已折叠的分组 ID 集合，仅保留在当前弹窗会话中 */
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
+  /** 当前页面累计命中次数；由扩展图标徽标统一承载两条执行通道的计数。 */
+  const [matchedCount, setMatchedCount] = useState(0);
+  /** 当前页面至少命中过一次的业务规则 ID。 */
+  const [matchedRuleIds, setMatchedRuleIds] = useState<string[]>([]);
+  /** 点击 popup 时所在的标签页 ID。 */
+  const [activeTabId, setActiveTabId] = useState<number | null>(null);
 
   // 初始加载 storage 中的开关与分组
   useEffect(() => {
     void (async () => {
-      setEnabledState(await getEnabled());
-      setGroups(await getGroups());
+      /** 并行读取配置，缩短 popup 首次渲染等待。 */
+      const [nextEnabled, nextGroups] = await Promise.all([getEnabled(), getGroups()]);
+      setEnabledState(nextEnabled);
+      setGroups(nextGroups);
+      try {
+        /** 点击扩展图标打开 popup 时所在的标签页。 */
+        const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true });
+        if (activeTab?.id === undefined) {
+          return;
+        }
+        setActiveTabId(activeTab.id);
+        /** background 合并后的 DNR 与页面补丁命中摘要。 */
+        const summary = (await browser.runtime.sendMessage({
+          type: RUNTIME_MSG_GET_RULE_MATCH_SUMMARY,
+          tabId: activeTab.id,
+        })) as RuleMatchSummary | undefined;
+        setMatchedCount(summary?.count ?? 0);
+        setMatchedRuleIds(summary?.ruleIds ?? []);
+      } catch {
+        // 特殊页面或浏览器不支持命中明细查询时，不展示命中提示即可。
+      }
     })();
   }, []);
 
@@ -37,6 +67,37 @@ export default function App() {
   const handleToggleGlobal = async (next: boolean): Promise<void> => {
     setEnabledState(next);
     await setEnabled(next);
+  };
+
+  /**
+   * 清空当前标签页累计的规则命中次数
+   */
+  const handleClearMatchedCount = async (): Promise<void> => {
+    try {
+      if (activeTabId === null) {
+        return;
+      }
+      await browser.runtime.sendMessage({
+        type: RUNTIME_MSG_CLEAR_RULE_MATCHES,
+        tabId: activeTabId,
+      });
+      setMatchedCount(0);
+      setMatchedRuleIds([]);
+    } catch {
+      // 清空失败时保留原计数，用户可再次尝试。
+    }
+  };
+
+  /**
+   * 打开规则管理页并定位指定规则。
+   * @param ruleId 要定位的业务规则 ID
+   */
+  const handleJumpToRule = (ruleId: string): void => {
+    /** 带目标规则查询参数的 options 页面地址。 */
+    const url = browser.runtime.getURL(
+      `/options.html?${RULE_HIGHLIGHT_QUERY_PARAM}=${encodeURIComponent(ruleId)}`,
+    );
+    void browser.tabs.create({ url });
   };
 
   /**
@@ -116,6 +177,8 @@ export default function App() {
   const activeCount = enabled ? collectActiveRules(groups).length : 0;
   /** 是否已存在任意规则 */
   const hasRules = groups.some((group) => group.rules.length > 0);
+  /** 便于规则列表快速判断高亮状态的命中 ID 集合。 */
+  const matchedRuleIdSet = new Set(matchedRuleIds);
 
   return (
     <div className="flex flex-col">
@@ -134,6 +197,25 @@ export default function App() {
         </div>
         <Switch checked={enabled} onCheckedChange={handleToggleGlobal} />
       </header>
+
+      {/* 当前页面命中提示：计数同时包含 DNR 与页面补丁通道。 */}
+      {matchedCount > 0 && (
+        <div className="mx-3 mt-3 flex items-center gap-2 rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-primary">
+          <CheckCircle2 className="size-4 shrink-0" />
+          <p className="min-w-0 flex-1 text-xs font-medium">
+            {t('popup.matchedCount', { count: matchedCount })}
+          </p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 shrink-0 px-2 text-xs text-primary hover:bg-primary/10 hover:text-primary"
+            onClick={() => void handleClearMatchedCount()}
+          >
+            {t('popup.clearMatchedCount')}
+          </Button>
+        </div>
+      )}
 
       {/* 分组列表 */}
       <div className="max-h-96 overflow-y-auto p-2">
@@ -187,30 +269,55 @@ export default function App() {
                       group.enabled ? '' : 'opacity-50'
                     }`}
                   >
-                    {group.rules.map((rule) => (
-                      <li
-                        key={rule.id}
-                        className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/60"
-                      >
-                        <div className="flex min-w-0 items-center gap-2">
-                          <Switch
-                            checked={rule.enabled}
-                            onCheckedChange={() => handleToggleRule(rule.id)}
-                          />
-                          <span
-                            className={`truncate text-sm ${
-                              rule.enabled ? 'text-foreground' : 'text-muted-foreground'
-                            }`}
-                            title={rule.name}
-                          >
-                            {rule.name}
-                          </span>
-                        </div>
-                        <Badge variant={rule.enabled ? 'default' : 'muted'} className="shrink-0">
-                          {rule.channel === 'dnr' ? 'DNR' : t('templateLibrary.channelPagePatch')}
-                        </Badge>
-                      </li>
-                    ))}
+                    {group.rules.map((rule) => {
+                      /** 当前规则是否在本页面至少命中过一次。 */
+                      const isMatched = matchedRuleIdSet.has(rule.id);
+                      return (
+                        <li
+                          key={rule.id}
+                          className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 transition-colors ${
+                            isMatched
+                              ? 'border-primary/40 bg-primary/10 ring-1 ring-inset ring-primary/20'
+                              : 'border-transparent hover:bg-muted/60'
+                          }`}
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            <Switch
+                              checked={rule.enabled}
+                              onCheckedChange={() => handleToggleRule(rule.id)}
+                            />
+                            <span
+                              className={`truncate text-sm ${
+                                rule.enabled ? 'text-foreground' : 'text-muted-foreground'
+                              }`}
+                              title={rule.name}
+                            >
+                              {rule.name}
+                            </span>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <Badge variant={rule.enabled ? 'default' : 'muted'} className="shrink-0">
+                              {rule.channel === 'dnr'
+                                ? 'DNR'
+                                : t('templateLibrary.channelPagePatch')}
+                            </Badge>
+                            {isMatched && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="size-7 text-primary hover:bg-primary/10 hover:text-primary"
+                                title={t('popup.jumpToRule')}
+                                aria-label={t('popup.jumpToRule')}
+                                onClick={() => handleJumpToRule(rule.id)}
+                              >
+                                <Target className="size-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>

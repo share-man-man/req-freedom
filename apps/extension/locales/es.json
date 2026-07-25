@@ -285,7 +285,10 @@
     "expandGroup": "Expandir grupo",
     "collapseGroup": "Contraer grupo",
     "ruleCount": "{{count}} reglas",
-    "manageRules": "Administrar reglas"
+    "manageRules": "Administrar reglas",
+    "matchedCount": "Coincidencias en esta página: {{count}}",
+    "clearMatchedCount": "Borrar",
+    "jumpToRule": "Ir a la regla"
   },
   "dynamicVariableHint": {
     "title": "Ver variables dinámicas disponibles",

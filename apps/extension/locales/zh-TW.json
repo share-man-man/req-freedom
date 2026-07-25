@@ -285,7 +285,10 @@
     "expandGroup": "展開分組",
     "collapseGroup": "摺疊分組",
     "ruleCount": "{{count}} 條",
-    "manageRules": "管理規則"
+    "manageRules": "管理規則",
+    "matchedCount": "目前頁面已命中 {{count}} 次",
+    "clearMatchedCount": "清空",
+    "jumpToRule": "跳至規則"
   },
   "dynamicVariableHint": {
     "title": "檢視可用的動態變數",

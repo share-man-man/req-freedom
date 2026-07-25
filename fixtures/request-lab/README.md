@@ -33,6 +33,12 @@ mise exec -- pnpm dev:lab
 - 按请求方法、按 GraphQL `operationName` 的差异化命中
 - Cookie 双向改写、任意状态码、跨域 / CORS
 
+## 示例配置
+
+导入同目录的 `req-freedom-config.json` 后，所有可交互卡片均有一条已启用的对应规则：DNR 覆盖资源拦截、重定向、参数、Header、Cookie、CORS 与 DELETE 方法；页面补丁覆盖 Fetch / XHR Mock、状态码 Mock、上下行限速、改请求体与 GraphQL；页面脚本区会在刷新后显示注入结果。
+
+示例配置默认面向 `http://127.0.0.1:4317`。若用 `PORT` 改了主站端口，导入后请把重定向目标和脚本注入规则中的端口一并改为实际端口。
+
 ## 结构
 
 ```

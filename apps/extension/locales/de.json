@@ -306,7 +306,10 @@
     "expandGroup": "Gruppe aufklappen",
     "collapseGroup": "Gruppe zuklappen",
     "ruleCount": "{{count}} Regeln",
-    "manageRules": "Regeln verwalten"
+    "manageRules": "Regeln verwalten",
+    "matchedCount": "Regelübereinstimmungen auf dieser Seite: {{count}}",
+    "clearMatchedCount": "Leeren",
+    "jumpToRule": "Zur Regel"
   },
   "dynamicVariableHint": {
     "title": "Verfügbare dynamische Variablen anzeigen",
