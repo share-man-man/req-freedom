@@ -17,6 +17,7 @@ export default defineConfig({
       'storage',
       'activeTab',
       'declarativeNetRequest',
+      'declarativeNetRequestFeedback',
       'tabGroups',
     ],
     host_permissions: ['<all_urls>'],

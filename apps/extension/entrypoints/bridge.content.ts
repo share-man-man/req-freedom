@@ -86,18 +86,20 @@ export default defineContentScript({
       if (event.source !== window || event.data?.source !== PAGE_MESSAGE_RULE_MATCHED_SOURCE) {
         return;
       }
-      /** 单次请求实际命中的次数；background 会再次校验并限制范围。 */
-      const count = Number(event.data.count);
-      if (!Number.isFinite(count) || count <= 0) {
-        return;
-      }
       /** 实际产生效果的业务规则 ID；仅接受有限数量的字符串。 */
       const ruleIds = Array.isArray(event.data.ruleIds)
-        ? event.data.ruleIds
-            .filter((ruleId: unknown): ruleId is string => typeof ruleId === 'string')
-            .slice(0, 20)
+        ? [
+            ...new Set(
+              event.data.ruleIds
+                .filter((ruleId: unknown): ruleId is string => typeof ruleId === 'string')
+                .slice(0, 20),
+            ),
+          ]
         : [];
-      void browser.runtime.sendMessage({ type: RUNTIME_MSG_RULE_MATCHED, count, ruleIds });
+      if (ruleIds.length === 0) {
+        return;
+      }
+      void browser.runtime.sendMessage({ type: RUNTIME_MSG_RULE_MATCHED, ruleIds });
     });
 
     // storage 变化时重新推送（作用域上下文沿用缓存）

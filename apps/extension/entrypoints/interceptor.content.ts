@@ -82,13 +82,14 @@ export default defineContentScript({
     /**
      * 通知桥接脚本当前页面有规则实际命中。
      * @param ruleIds 实际产生效果的业务规则 ID
-     * @param count 本次需要累加的命中次数
      */
-    const reportRuleMatch = (ruleIds: string[], count: number = 1): void => {
-      if (count <= 0 || ruleIds.length === 0) {
+    const reportRuleMatch = (ruleIds: string[]): void => {
+      /** 同一条业务规则在一次请求中只计一次。 */
+      const uniqueRuleIds = [...new Set(ruleIds)];
+      if (uniqueRuleIds.length === 0) {
         return;
       }
-      window.postMessage({ source: PAGE_MESSAGE_RULE_MATCHED_SOURCE, count, ruleIds }, '*');
+      window.postMessage({ source: PAGE_MESSAGE_RULE_MATCHED_SOURCE, ruleIds: uniqueRuleIds }, '*');
     };
 
     // 监听桥接脚本推送的规则更新
