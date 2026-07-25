@@ -29,34 +29,13 @@
     }
   },
   "dynamicVariable": {
-    "uuid": {
-      "label": "UUID",
-      "description": "UUID v4 aleatorio"
-    },
-    "timestamp": {
-      "label": "Marca de tiempo (segundos)",
-      "description": "Marca de tiempo Unix actual en segundos"
-    },
-    "timestampMs": {
-      "label": "Marca de tiempo (ms)",
-      "description": "Marca de tiempo Unix actual en milisegundos"
-    },
-    "isoTime": {
-      "label": "Hora ISO",
-      "description": "Hora actual como cadena ISO 8601"
-    },
-    "randomFloat": {
-      "label": "Decimal aleatorio",
-      "description": "Número decimal aleatorio en el intervalo [0, 1)"
-    },
-    "randomInt": {
-      "label": "Entero aleatorio",
-      "description": "Entero aleatorio; el argumento define el intervalo inclusivo [min, max], 0-100 de forma predeterminada"
-    },
-    "randomString": {
-      "label": "Cadena aleatoria",
-      "description": "Cadena alfanumérica aleatoria; el argumento define la longitud, 8 de forma predeterminada"
-    }
+    "uuid": { "label": "UUID", "description": "UUID v4 aleatorio" },
+    "timestamp": { "label": "Marca de tiempo (segundos)", "description": "Marca de tiempo Unix actual en segundos" },
+    "timestampMs": { "label": "Marca de tiempo (ms)", "description": "Marca de tiempo Unix actual en milisegundos" },
+    "isoTime": { "label": "Hora ISO", "description": "Hora actual como cadena ISO 8601" },
+    "randomFloat": { "label": "Decimal aleatorio", "description": "Número decimal aleatorio en el intervalo [0, 1)" },
+    "randomInt": { "label": "Entero aleatorio", "description": "Entero aleatorio; el argumento define el intervalo inclusivo [min, max], 0-100 de forma predeterminada" },
+    "randomString": { "label": "Cadena aleatoria", "description": "Cadena alfanumérica aleatoria; el argumento define la longitud, 8 de forma predeterminada" }
   },
   "configTransfer": {
     "invalidJson": "El archivo no contiene JSON válido.",
