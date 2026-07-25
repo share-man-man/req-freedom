@@ -306,7 +306,8 @@
     "expandGroup": "Développer le groupe",
     "collapseGroup": "Réduire le groupe",
     "ruleCount": "{{count}} règles",
-    "manageRules": "Gérer les règles"
+    "manageRules": "Gérer les règles",
+    "matchedCount": "Correspondances sur cette page : {{count}}"
   },
   "dynamicVariableHint": {
     "title": "Voir les variables dynamiques disponibles",
