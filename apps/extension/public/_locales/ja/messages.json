@@ -1,0 +1,8 @@
+{
+  "extName": {
+    "message": "Req Freedom"
+  },
+  "extDescription": {
+    "message": "リクエストデバッグツール：ブロック、リダイレクト、パラメータ注入、ヘッダー変更、モック、遅延シミュレーション"
+  }
+}

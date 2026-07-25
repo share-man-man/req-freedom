@@ -1,0 +1,434 @@
+{
+  "group": {
+    "defaultName": "新建分組",
+    "autoDefaultName": "預設分組"
+  },
+  "rule": {
+    "defaultName": "新規則"
+  },
+  "template": {
+    "corsAllowAll": {
+      "name": "解除 CORS 跨域限制",
+      "description": "為匹配的響應補上 Access-Control-Allow-* 頭，解決本地聯調時的跨域攔截。請把匹配內容改成你的介面地址。"
+    },
+    "disableCache": {
+      "name": "停用快取",
+      "description": "為請求與響應都補上不快取的 Cache-Control，確保每次都拿到最新資源。請把匹配內容改成目標地址。"
+    },
+    "forceHttps": {
+      "name": "強制 HTTPS",
+      "description": "把匹配到的 http 請求重定向到同地址的 https。預設命中全部 http 請求。"
+    },
+    "mobileUaIos": {
+      "name": "移動端 UA · iPhone",
+      "description": "把 User-Agent 改成 iOS Safari，讓站點返回移動端頁面。請把匹配內容改成目標站點。"
+    },
+    "mobileUaAndroid": {
+      "name": "移動端 UA · Android",
+      "description": "把 User-Agent 改成 Android Chrome，讓站點返回移動端頁面。請把匹配內容改成目標站點。"
+    }
+  },
+  "dynamicVariable": {
+    "uuid": { "label": "UUID", "description": "隨機 UUID v4" },
+    "timestamp": { "label": "時間戳（秒）", "description": "當前秒級 Unix 時間戳" },
+    "timestampMs": { "label": "時間戳（毫秒）", "description": "當前毫秒級 Unix 時間戳" },
+    "isoTime": { "label": "ISO 時間", "description": "當前時間的 ISO 8601 字串" },
+    "randomFloat": { "label": "隨機小數", "description": "[0, 1) 區間的隨機浮點數" },
+    "randomInt": { "label": "隨機整數", "description": "隨機整數，引數指定閉區間 [min, max]，預設 0-100" },
+    "randomString": { "label": "隨機字串", "description": "隨機字母數字串，引數指定長度，預設 8 位" }
+  },
+  "configTransfer": {
+    "invalidJson": "檔案不是有效的 JSON。",
+    "mustBeObject": "{{label}}必須是物件。",
+    "requiredNonEmpty": "{{label}}不能為空。",
+    "mustBeNonNegativeNumber": "{{label}}必須是非負數字。",
+    "valuesMustBeStrings": "{{label}}中的值必須都是字串。",
+    "schemaVersionUnsupported": "僅支援 schemaVersion {{version}}。",
+    "missingExportedAt": "配置檔案缺少有效的 exportedAt 時間。",
+    "invalidEnabledOrGroups": "配置檔案的 enabled 或 groups 格式不正確。",
+    "duplicateGroupId": "分組 ID {{id}} 重複。",
+    "invalidGroupFormat": "分組「{{id}}」格式不正確。",
+    "missingGroupUpdatedAt": "分組「{{id}}」缺少有效更新時間。",
+    "duplicateRuleId": "規則 ID {{id}} 重複。",
+    "invalidRuleBaseFields": "規則「{{id}}」的基礎欄位不合法。",
+    "invalidRuleChannel": "規則「{{id}}」的執行通道不合法。",
+    "invalidRuleMethods": "規則「{{id}}」的請求方法不合法。",
+    "ruleActionsRequired": "規則「{{id}}」至少需要一個動作。",
+    "invalidRuleRegex": "規則「{{id}}」的正規表示式語法錯誤。",
+    "exclusiveActionsConflict": "規則「{{id}}」不能同時配置攔截、重定向和引數注入。",
+    "getHeadCannotModifyBody": "規則「{{id}}」的 GET / HEAD 不能改請求體。",
+    "invalidScopeType": "規則「{{ruleId}}」的作用域型別不合法。",
+    "scopeTargetsRequired": "規則「{{ruleId}}」的作用域至少需要一個目標物件。",
+    "scopeTargetIdMustBeInteger": "規則「{{ruleId}}」的作用域目標 id 必須是整數。",
+    "bodyMatchChannelInvalid": "規則「{{ruleId}}」的請求體匹配僅頁面補丁通道可用。",
+    "invalidBodyMatchType": "規則「{{ruleId}}」的請求體匹配方式不合法。",
+    "invalidBodyMatchRegex": "規則「{{ruleId}}」的請求體匹配正則語法錯誤。",
+    "invalidActionType": "規則「{{ruleId}}」的動作型別不合法。",
+    "actionChannelMismatch": "規則「{{ruleId}}」的動作與執行通道不匹配。",
+    "invalidMockConfig": "規則「{{ruleId}}」的 Mock 配置不合法。",
+    "dynamicMockFunctionRequired": "規則「{{ruleId}}」的動態 Mock 函式不能為空。",
+    "invalidThrottlePreset": "規則「{{ruleId}}」的限速檔位不合法。",
+    "invalidInsertScriptConfig": "規則「{{ruleId}}」的注入配置不合法。",
+    "invalidRequestBodyConfig": "規則「{{ruleId}}」的請求體配置不合法。",
+    "dynamicRequestBodyFunctionRequired": "規則「{{ruleId}}」的動態請求體函式不能為空。",
+    "headersMustBeArray": "Header 修改項必須是陣列。",
+    "invalidHeaderTargetOrOperation": "Header 修改項的目標或操作不合法。",
+    "label": {
+      "configRoot": "配置根節點",
+      "nthGroup": "第 {{n}} 個分組",
+      "groupId": "分組 id",
+      "groupName": "分組「{{id}}」名稱",
+      "nthRuleInGroup": "分組「{{groupId}}」中的第 {{n}} 條規則",
+      "ruleId": "規則 id",
+      "rulePattern": "規則「{{id}}」的匹配內容",
+      "ruleName": "規則「{{id}}」的名稱",
+      "ruleScope": "規則「{{ruleId}}」的作用域",
+      "scopeTarget": "規則「{{ruleId}}」的作用域目標",
+      "ruleBodyMatch": "規則「{{ruleId}}」的請求體匹配",
+      "ruleBodyMatchValue": "規則「{{ruleId}}」的請求體匹配值",
+      "nthActionInRule": "規則「{{ruleId}}」的第 {{n}} 個動作",
+      "redirectUrl": "重定向地址",
+      "params": "引數",
+      "mockDelay": "Mock 延遲",
+      "mockResponseHeaders": "Mock 響應頭",
+      "networkLatency": "網路延遲",
+      "downloadBandwidth": "下行頻寬",
+      "uploadBandwidth": "上行頻寬",
+      "insertScriptCode": "注入程式碼",
+      "headerModification": "Header 修改項",
+      "headerName": "Header 名稱"
+    }
+  },
+  "ruleEditor": {
+    "titleNew": "新建規則",
+    "titleEdit": "編輯規則",
+    "group": "所屬分組",
+    "name": "規則名稱",
+    "matchType": "匹配方式",
+    "pattern": "匹配內容",
+    "methods": "請求方法",
+    "advanced": "高階",
+    "optional": "選填",
+    "bodyMatchLabel": "請求體匹配",
+    "scope": "作用域",
+    "cancel": "取消",
+    "save": "儲存",
+    "deleteAction": "刪除{{actionLabel}}",
+    "deleteActionSr": "刪除動作",
+    "selectActionHint": "勾選一個「{{groupTitle}}」動作開始配置",
+    "actionDescription": {
+      "block": "直接阻斷匹配到的請求",
+      "redirect": "把請求轉發到另一個地址",
+      "injectParams": "向 URL 查詢串追加或覆蓋引數",
+      "modifyHeaders": "增刪改請求頭或響應頭",
+      "mockResponse": "攔截請求並返回自定義響應",
+      "delay": "為請求注入延遲與頻寬限制",
+      "modifyRequestBody": "在請求傳送前改寫請求體",
+      "insertScript": "按頁面 URL 注入 JS / CSS"
+    },
+    "actionGroup": {
+      "dnr": {
+        "title": "網路層",
+        "hint": "作用於全部請求（含頁面導航、靜態資源），但讀不到請求體",
+        "note": "攔截 / 重定向 / 引數注入三選一，Header 改寫可疊加"
+      },
+      "pagePatch": {
+        "title": "頁面內補丁",
+        "hint": "僅作用於頁面指令碼發起的 fetch / XHR，可讀寫請求體與響應",
+        "note": "返回值 Mock / 限速 / 改請求體可疊加；指令碼注入需單獨使用"
+      }
+    },
+    "describeAction": {
+      "block": "攔截：請求被直接阻斷",
+      "redirect": "重定向 → {{url}}",
+      "injectParams": "注入引數：{{params}}",
+      "empty": "（空）",
+      "modifyHeaders": "改寫 Header：{{count}} 項",
+      "mockResponse": "Mock 返回 HTTP {{statusCode}}",
+      "delay": "限速：{{preset}}",
+      "modifyRequestBody": "改請求體（{{sourceMode}}）",
+      "insertScript": "注入 {{codeType}}（{{timing}}）"
+    },
+    "describeEffect": {
+      "none": "尚未配置任何動作",
+      "separator": "；"
+    },
+    "validation": {
+      "actionsRequired": "至少選擇一個動作",
+      "nameRequired": "規則名稱不能為空",
+      "patternRequired": "匹配內容不能為空",
+      "patternRegexInvalid": "正規表示式語法錯誤",
+      "bodyMethodsRequired": "改請求體需選擇 POST / PUT / PATCH / DELETE / OPTIONS",
+      "bodyMatchValueRequired": "請求體匹配值不能為空",
+      "bodyMatchRegexInvalid": "請求體匹配正則語法錯誤",
+      "scopeTargetRequired": "請至少選擇一個{{scopeNoun}}",
+      "scopeNoun": {
+        "tab": "標籤頁",
+        "window": "視窗",
+        "tabGroup": "標籤組"
+      },
+      "exclusiveDnrActions": "攔截、重定向和引數注入只能選擇其中一項",
+      "redirectUrlRequired": "重定向目標不能為空",
+      "redirectUrlAbsolute": "重定向目標需為絕對地址，如 http://127.0.0.1:4317/api/redirect-target.json",
+      "insertScriptCodeRequired": "注入程式碼不能為空",
+      "mockStatusCodeRange": "Mock 狀態碼需在 100 - 599 之間",
+      "dynamicMockFunctionRequired": "動態 Mock 函式不能為空",
+      "requestBodyContentRequired": "請求體內容不能為空",
+      "requestBodyFunctionRequired": "請求體函式不能為空"
+    },
+    "matchTester": {
+      "trigger": "命中測試",
+      "placeholder": "輸入測試路徑 / URL",
+      "test": "測試",
+      "matched": "命中",
+      "notMatched": "未命中，該 URL 不會被此規則處理"
+    },
+    "methodPicker": {
+      "scriptOnlyHint": "指令碼注入按頁面 URL 命中，無需配置請求方法。",
+      "all": "全部",
+      "bodyHint": "改請求體只作用於可攜帶請求體的方法，已自動排除 GET / HEAD 與「全部」。"
+    },
+    "bodyMatchEditor": {
+      "off": "不限制請求體",
+      "hint": "只按頁面指令碼 fetch / XHR 的請求體收斂；GraphQL 同 URL 的多個操作可用「操作名」精確區分。"
+    },
+    "scopeEditor": {
+      "unnamedTab": "標籤頁 #{{id}}",
+      "windowLabel": "視窗 {{index}}",
+      "windowHint": "{{count}} 個標籤頁{{current}}",
+      "currentSuffix": " · 當前",
+      "unnamedTabGroup": "未命名標籤組",
+      "refresh": "重新整理列表",
+      "loading": "載入中…",
+      "noOptions": "沒有可選物件，請先開啟對應的標籤頁 / 視窗 / 標籤組",
+      "closed": "已關閉",
+      "allTabsHint": "預設對所有標籤頁生效。限定作用域可避免把敏感 Header（如 Authorization）誤發到其他站點。",
+      "limitedHint": "{{emptyHint}}；物件 ID 為會話級，瀏覽器重啟後需重新選擇。"
+    },
+    "mockActionEditor": {
+      "bodyTypeAriaLabel": "響應體型別",
+      "invalidJsonHint": "響應體不是合法 JSON；若要返回其他格式，請切換上方「響應體型別」。",
+      "dynamicHint": "動態程式碼可讀取 req.url、req.method、req.headers、req.query、req.body、req.json。"
+    },
+    "delayActionEditor": {
+      "preset": "網路檔位",
+      "latency": "延遲(ms)",
+      "download": "下行({{unit}})",
+      "upload": "上行({{unit}})"
+    },
+    "requestBodyActionEditor": {
+      "hint": "僅作用於 fetch / XHR 的可帶請求體方法；異常或返回 undefined 時保留原請求體。"
+    }
+  },
+  "app": {
+    "scopeBadge": {
+      "title": "{{scopeLabel}} · {{count}} 個物件"
+    },
+    "relativeTime": {
+      "none": "暫無記錄",
+      "justNow": "剛剛更新",
+      "minutesAgo": "{{count}} 分鐘前更新",
+      "hoursAgo": "{{count}} 小時前更新",
+      "daysAgo": "{{count}} 天前更新"
+    },
+    "groupNamePlaceholder": "分組名稱",
+    "dragToReorder": "拖拽排序",
+    "dragToReorderGroup": "拖拽排序分組",
+    "edit": "編輯",
+    "delete": "刪除",
+    "expand": "展開",
+    "collapse": "摺疊",
+    "disableGroup": "整組停用",
+    "enableGroup": "整組啟用",
+    "groupRuleCount": "{{count}} 條規則",
+    "groupEnabled": "啟用中",
+    "groupDisabled": "已停用",
+    "lastUpdated": "最近更新 {{time}}",
+    "addRule": "新增規則",
+    "deleteGroup": "刪除分組",
+    "emptyGroupHint": "該分組暫無規則，點選右上角「新增規則」建立",
+    "columns": {
+      "enabled": "啟用",
+      "name": "名稱",
+      "channel": "執行通道",
+      "actions": "動作",
+      "pattern": "匹配內容",
+      "operations": "操作"
+    },
+    "addRuleMenu": {
+      "blank": "空白規則",
+      "fromTemplate": "從模板庫…"
+    },
+    "transfer": {
+      "exportSuccess": "配置已匯出。",
+      "exportFailure": "匯出失敗，請重試。",
+      "importConfirm": "將匯入 {{groupCount}} 個分組、{{ruleCount}} 條規則，並替換當前全部配置。確定繼續嗎？",
+      "importSuccess": "已匯入 {{groupCount}} 個分組、{{ruleCount}} 條規則。",
+      "importParseFailure": "匯入失敗，請確認檔案內容後重試。",
+      "importFailure": "匯入失敗：{{message}}"
+    },
+    "deleteGroupConfirm": "分組「{{name}}」下還有 {{count}} 條規則，確定要刪除整組嗎？",
+    "newRule": "新建規則",
+    "newGroup": "新建分組",
+    "emptyState": {
+      "title": "還沒有規則",
+      "hint": "直接新建規則即可，會自動歸入「{{defaultGroupName}}」；也可先建分組再收納"
+    },
+    "noMatchingGroups": "沒有找到匹配的規則分組",
+    "noMatchingGroupsHint": "調整搜尋或篩選條件後再試"
+  },
+  "popup": {
+    "activeCount": "{{count}} 條規則生效中",
+    "globallyDisabled": "已全域性停用",
+    "noRules": "暫無規則",
+    "noRulesHint": "去管理頁新增你的第一條規則",
+    "expandGroup": "展開分組",
+    "collapseGroup": "摺疊分組",
+    "ruleCount": "{{count}} 條",
+    "manageRules": "管理規則"
+  },
+  "dynamicVariableHint": {
+    "title": "檢視可用的動態變數",
+    "trigger": "變數",
+    "hint": "在取值欄位裡用佔位符引用；點選複製。頁面補丁通道逐請求求值，網路層（DNR）在規則同步時求值一次。"
+  },
+  "dialog": {
+    "close": "關閉"
+  },
+  "codeEditor": {
+    "ariaLabel": "{{language}} 編輯器",
+    "invalidJson": "JSON 格式無效，無法格式化。",
+    "format": "格式化"
+  },
+  "dashboard": {
+    "header": {
+      "title": "Req Freedom 規則管理",
+      "subtitle": "攔截 · 重定向 · 引數注入 · Header · Mock · 延遲 · 指令碼注入 · 改請求體",
+      "import": "匯入規則",
+      "export": "匯出規則"
+    },
+    "moreMenu": {
+      "trigger": "更多",
+      "language": "介面語言"
+    },
+    "statistics": {
+      "ariaLabel": "規則統計",
+      "groupLabel": "分組",
+      "groupSuffix": "個分組",
+      "ruleLabel": "規則",
+      "ruleSuffix": "條規則",
+      "enabledLabel": "已啟用"
+    },
+    "toolbar": {
+      "ariaLabel": "規則篩選",
+      "searchPlaceholder": "搜尋分組或規則名稱、匹配內容…",
+      "searchAriaLabel": "搜尋分組或規則",
+      "statusPlaceholder": "狀態",
+      "statusAll": "狀態：全部",
+      "statusEnabled": "狀態：已啟用",
+      "statusDisabled": "狀態：已停用",
+      "channelPlaceholder": "型別",
+      "channelAll": "通道：全部",
+      "channelDnr": "DNR 網路規則",
+      "channelPagePatch": "頁面補丁"
+    }
+  },
+  "keyValueEditor": {
+    "keyPlaceholder": "鍵",
+    "valuePlaceholder": "值",
+    "delete": "刪除",
+    "addItem": "新增一項"
+  },
+  "headersEditor": {
+    "delete": "刪除",
+    "appendableHeaderPlaceholder": "選擇可追加的請求頭",
+    "headerNamePlaceholder": "Header 名稱",
+    "valuePlaceholder": "值（移除時留空）",
+    "appendHint": "「追加」僅支援以上少數可多值的標準頭；公司自定義頭請改用「設定」，頭名可任意填寫。",
+    "ineffectiveAppendWarning": "自定義請求頭不支援「追加」，會被瀏覽器靜默忽略，請改用「設定」。僅 Cookie、User-Agent、X-Forwarded-For 等少數標準頭可追加。",
+    "addItem": "新增修改項",
+    "responseHeaderHint": "提示：<strong>響應頭</strong>的改寫不會顯示在瀏覽器「網路」面板裡，看不到不等於沒生效，可在控制台用 <code>fetch(url).then((r) =&gt; r.headers.get('...'))</code> 讀取驗證。"
+  },
+  "templateLibrary": {
+    "title": "常用規則模板庫",
+    "hint": "選用模板會開啟規則編輯器並預填好動作，你只需把匹配內容改成自己的目標地址即可儲存。",
+    "channelPagePatch": "頁面補丁",
+    "use": "使用"
+  },
+  "label": {
+    "ruleTemplateCategory": {
+      "cors": "跨域 CORS",
+      "cache": "快取控制",
+      "protocol": "協議與重定向",
+      "userAgent": "User-Agent"
+    },
+    "ruleActionType": {
+      "block": "攔截請求",
+      "redirect": "重定向",
+      "injectParams": "引數注入",
+      "modifyHeaders": "Header 改寫",
+      "mockResponse": "返回值 Mock",
+      "delay": "網路限速",
+      "modifyRequestBody": "改請求體",
+      "insertScript": "指令碼注入"
+    },
+    "requestBodyMode": {
+      "replace": "整體替換",
+      "mergeJson": "JSON 深合併"
+    },
+    "requestBodySourceMode": {
+      "static": "靜態改寫",
+      "dynamic": "JavaScript 動態生成"
+    },
+    "mockResponseMode": {
+      "static": "靜態響應體",
+      "dynamic": "JavaScript 動態生成"
+    },
+    "mockBodyType": {
+      "text": "文本"
+    },
+    "networkThrottlePreset": {
+      "custom": "自定義"
+    },
+    "insertScriptTiming": {
+      "documentStart": "文件開始 (document_start)",
+      "documentEnd": "文件就緒 (document_end)"
+    },
+    "bodyMatchType": {
+      "contains": "包含子串",
+      "regex": "正則",
+      "graphqlOperation": "GraphQL 操作名"
+    },
+    "bodyMatchValuePlaceholder": {
+      "contains": "請求體需包含的子串",
+      "regex": "匹配請求體的正則，如 \"mutation\\\\s+Login\"",
+      "graphqlOperation": "operationName，如 GetUser"
+    },
+    "ruleScopeType": {
+      "allTabs": "全部標籤頁",
+      "tab": "指定標籤頁",
+      "window": "指定視窗",
+      "tabGroup": "指定標籤組"
+    },
+    "ruleScopeEmptyHint": {
+      "tab": "勾選一個或多個當前開啟的標籤頁",
+      "window": "勾選一個或多個當前開啟的視窗",
+      "tabGroup": "勾選一個或多個當前的標籤組"
+    },
+    "matchType": {
+      "contains": "包含",
+      "equals": "完全相等",
+      "wildcard": "萬用字元",
+      "regex": "正則"
+    },
+    "headerTarget": {
+      "request": "請求頭",
+      "response": "響應頭"
+    },
+    "headerOperation": {
+      "set": "設定",
+      "append": "追加",
+      "remove": "移除"
+    }
+  }
+}

@@ -2,17 +2,36 @@ import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { browser } from 'wxt/browser';
 import { STORAGE_KEY_LOCALE } from '@req-freedom/shared';
+import de from '@/locales/de.json';
 import en from '@/locales/en.json';
+import es from '@/locales/es.json';
+import fr from '@/locales/fr.json';
+import ja from '@/locales/ja.json';
+import ko from '@/locales/ko.json';
+import ptBR from '@/locales/pt-BR.json';
+import ru from '@/locales/ru.json';
 import zhCN from '@/locales/zh-CN.json';
+import zhTW from '@/locales/zh-TW.json';
 
 /** 支持的界面语言代码。 */
-export const SUPPORTED_LOCALES = ['zh-CN', 'en'] as const;
+export const SUPPORTED_LOCALES = [
+  'zh-CN',
+  'en',
+  'zh-TW',
+  'ja',
+  'ko',
+  'es',
+  'pt-BR',
+  'fr',
+  'de',
+  'ru',
+] as const;
 
 /** 支持的界面语言代码类型。 */
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 
 /** 未持久化语言、也无法匹配浏览器语言时的兜底语言。 */
-const FALLBACK_LOCALE: SupportedLocale = 'zh-CN';
+const FALLBACK_LOCALE: SupportedLocale = 'en';
 
 /**
  * 判断给定值是否为受支持的语言代码。
@@ -29,8 +48,14 @@ function isSupportedLocale(value: unknown): value is SupportedLocale {
  */
 function detectBrowserLocale(): SupportedLocale {
   /** 浏览器上报的 UI 语言（如 zh-CN / zh-TW / en-US）。 */
-  const uiLanguage = browser.i18n.getUILanguage();
-  return uiLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+  const uiLanguage = browser.i18n.getUILanguage().replace('_', '-').toLowerCase();
+  if (uiLanguage.startsWith('zh')) {
+    return /(?:^|-)(?:tw|hk|mo|hant)(?:-|$)/.test(uiLanguage) ? 'zh-TW' : 'zh-CN';
+  }
+  if (uiLanguage.startsWith('pt')) return 'pt-BR';
+  /** 去掉地区后缀的基础语言代码。 */
+  const baseLanguage = uiLanguage.split('-')[0];
+  return isSupportedLocale(baseLanguage) ? baseLanguage : FALLBACK_LOCALE;
 }
 
 /**
@@ -56,6 +81,14 @@ export async function initI18n(): Promise<typeof i18next> {
     resources: {
       'zh-CN': { translation: zhCN },
       en: { translation: en },
+      'zh-TW': { translation: zhTW },
+      ja: { translation: ja },
+      ko: { translation: ko },
+      es: { translation: es },
+      'pt-BR': { translation: ptBR },
+      fr: { translation: fr },
+      de: { translation: de },
+      ru: { translation: ru },
     },
     lng: initialLocale,
     fallbackLng: FALLBACK_LOCALE,

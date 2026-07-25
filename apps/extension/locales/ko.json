@@ -1,0 +1,455 @@
+{
+  "group": {
+    "defaultName": "새 그룹",
+    "autoDefaultName": "기본 그룹"
+  },
+  "rule": {
+    "defaultName": "새 규칙"
+  },
+  "template": {
+    "corsAllowAll": {
+      "name": "CORS 제한 해제",
+      "description": "일치하는 응답에 Access-Control-Allow-* 헤더를 추가하여 로컬 디버깅 중 CORS를 해제합니다. 일치 패턴을 대상 API 주소로 변경하세요."
+    },
+    "disableCache": {
+      "name": "캐시 비활성화",
+      "description": "요청과 응답에 no-cache Cache-Control 헤더를 추가하여 항상 최신 리소스를 가져옵니다. 일치 패턴을 대상 주소로 변경하세요."
+    },
+    "forceHttps": {
+      "name": "HTTPS 강제 적용",
+      "description": "일치하는 http 요청을 같은 주소의 https로 리디렉션합니다. 기본적으로 모든 http 요청과 일치합니다."
+    },
+    "mobileUaIos": {
+      "name": "모바일 UA · iPhone",
+      "description": "User-Agent를 iOS Safari로 변경하여 사이트의 모바일 페이지를 가져옵니다. 일치 패턴을 대상 사이트로 변경하세요."
+    },
+    "mobileUaAndroid": {
+      "name": "모바일 UA · Android",
+      "description": "User-Agent를 Android Chrome으로 변경하여 사이트의 모바일 페이지를 가져옵니다. 일치 패턴을 대상 사이트로 변경하세요."
+    }
+  },
+  "dynamicVariable": {
+    "uuid": {
+      "label": "UUID",
+      "description": "임의 UUID v4"
+    },
+    "timestamp": {
+      "label": "타임스탬프(초)",
+      "description": "현재 Unix 타임스탬프(초)"
+    },
+    "timestampMs": {
+      "label": "타임스탬프(ms)",
+      "description": "현재 Unix 타임스탬프(밀리초)"
+    },
+    "isoTime": {
+      "label": "ISO 시간",
+      "description": "현재 시간을 ISO 8601 문자열로 표시"
+    },
+    "randomFloat": {
+      "label": "임의 실수",
+      "description": "[0, 1) 범위의 임의 실수"
+    },
+    "randomInt": {
+      "label": "임의 정수",
+      "description": "임의 정수. 인수로 [min, max] 닫힌 범위를 지정하며 기본값은 0-100입니다"
+    },
+    "randomString": {
+      "label": "임의 문자열",
+      "description": "임의 영숫자 문자열. 인수로 길이를 지정하며 기본값은 8입니다"
+    }
+  },
+  "configTransfer": {
+    "invalidJson": "파일이 올바른 JSON 형식이 아닙니다.",
+    "mustBeObject": "{{label}}은(는) 객체여야 합니다.",
+    "requiredNonEmpty": "{{label}}은(는) 비워 둘 수 없습니다.",
+    "mustBeNonNegativeNumber": "{{label}}은(는) 0 이상의 숫자여야 합니다.",
+    "valuesMustBeStrings": "{{label}}의 모든 값은 문자열이어야 합니다.",
+    "schemaVersionUnsupported": "schemaVersion {{version}}만 지원됩니다.",
+    "missingExportedAt": "구성 파일에 올바른 exportedAt 시간이 없습니다.",
+    "invalidEnabledOrGroups": "구성 파일의 enabled 또는 groups 필드 형식이 잘못되었습니다.",
+    "duplicateGroupId": "그룹 ID {{id}}이(가) 중복되었습니다.",
+    "invalidGroupFormat": "그룹 \"{{id}}\"의 형식이 잘못되었습니다.",
+    "missingGroupUpdatedAt": "그룹 \"{{id}}\"에 올바른 업데이트 시간이 없습니다.",
+    "duplicateRuleId": "규칙 ID {{id}}이(가) 중복되었습니다.",
+    "invalidRuleBaseFields": "규칙 \"{{id}}\"의 기본 필드가 잘못되었습니다.",
+    "invalidRuleChannel": "규칙 \"{{id}}\"의 실행 채널이 잘못되었습니다.",
+    "invalidRuleMethods": "규칙 \"{{id}}\"의 요청 메서드가 잘못되었습니다.",
+    "ruleActionsRequired": "규칙 \"{{id}}\"에는 작업이 하나 이상 필요합니다.",
+    "invalidRuleRegex": "규칙 \"{{id}}\"의 정규식 구문이 잘못되었습니다.",
+    "exclusiveActionsConflict": "규칙 \"{{id}}\"에서 차단, 리디렉션, 매개변수 삽입을 함께 사용할 수 없습니다.",
+    "getHeadCannotModifyBody": "규칙 \"{{id}}\"은(는) GET / HEAD 본문을 수정할 수 없습니다.",
+    "invalidScopeType": "규칙 \"{{ruleId}}\"의 범위 유형이 잘못되었습니다.",
+    "scopeTargetsRequired": "규칙 \"{{ruleId}}\"에는 범위 대상이 하나 이상 필요합니다.",
+    "scopeTargetIdMustBeInteger": "규칙 \"{{ruleId}}\"의 범위 대상 ID는 정수여야 합니다.",
+    "bodyMatchChannelInvalid": "규칙 \"{{ruleId}}\"의 본문 일치는 페이지 패치 채널에서만 사용할 수 있습니다.",
+    "invalidBodyMatchType": "규칙 \"{{ruleId}}\"의 본문 일치 유형이 잘못되었습니다.",
+    "invalidBodyMatchRegex": "규칙 \"{{ruleId}}\"의 본문 일치 정규식이 잘못되었습니다.",
+    "invalidActionType": "규칙 \"{{ruleId}}\"의 작업 유형이 잘못되었습니다.",
+    "actionChannelMismatch": "규칙 \"{{ruleId}}\"의 작업이 실행 채널과 일치하지 않습니다.",
+    "invalidMockConfig": "규칙 \"{{ruleId}}\"의 Mock 구성이 잘못되었습니다.",
+    "dynamicMockFunctionRequired": "규칙 \"{{ruleId}}\"의 동적 Mock 함수는 비워 둘 수 없습니다.",
+    "invalidThrottlePreset": "규칙 \"{{ruleId}}\"의 네트워크 제한 프리셋이 잘못되었습니다.",
+    "invalidInsertScriptConfig": "규칙 \"{{ruleId}}\"의 스크립트 삽입 구성이 잘못되었습니다.",
+    "invalidRequestBodyConfig": "규칙 \"{{ruleId}}\"의 요청 본문 구성이 잘못되었습니다.",
+    "dynamicRequestBodyFunctionRequired": "규칙 \"{{ruleId}}\"의 동적 요청 본문 함수는 비워 둘 수 없습니다.",
+    "headersMustBeArray": "헤더 수정 항목은 배열이어야 합니다.",
+    "invalidHeaderTargetOrOperation": "헤더 수정 대상 또는 작업이 잘못되었습니다.",
+    "label": {
+      "configRoot": "구성 루트",
+      "nthGroup": "{{n}}번 그룹",
+      "groupId": "그룹 ID",
+      "groupName": "그룹 \"{{id}}\" 이름",
+      "nthRuleInGroup": "그룹 \"{{groupId}}\"의 {{n}}번 규칙",
+      "ruleId": "규칙 ID",
+      "rulePattern": "규칙 \"{{id}}\" 일치 패턴",
+      "ruleName": "규칙 \"{{id}}\" 이름",
+      "ruleScope": "규칙 \"{{ruleId}}\" 범위",
+      "scopeTarget": "규칙 \"{{ruleId}}\"의 범위 대상",
+      "ruleBodyMatch": "규칙 \"{{ruleId}}\"의 본문 일치",
+      "ruleBodyMatchValue": "규칙 \"{{ruleId}}\"의 본문 일치 값",
+      "nthActionInRule": "규칙 \"{{ruleId}}\"의 {{n}}번 작업",
+      "redirectUrl": "리디렉션 주소",
+      "params": "매개변수",
+      "mockDelay": "Mock 지연",
+      "mockResponseHeaders": "Mock 응답 헤더",
+      "networkLatency": "네트워크 지연 시간",
+      "downloadBandwidth": "다운로드 대역폭",
+      "uploadBandwidth": "업로드 대역폭",
+      "insertScriptCode": "삽입 코드",
+      "headerModification": "헤더 수정",
+      "headerName": "헤더 이름"
+    }
+  },
+  "ruleEditor": {
+    "titleNew": "새 규칙",
+    "titleEdit": "규칙 편집",
+    "group": "그룹",
+    "name": "규칙 이름",
+    "matchType": "일치 방식",
+    "pattern": "일치 패턴",
+    "methods": "메서드",
+    "advanced": "고급",
+    "optional": "선택 사항",
+    "bodyMatchLabel": "본문 일치",
+    "scope": "범위",
+    "cancel": "취소",
+    "save": "저장",
+    "deleteAction": "{{actionLabel}} 삭제",
+    "deleteActionSr": "작업 삭제",
+    "selectActionHint": "\"{{groupTitle}}\" 작업을 선택하여 구성을 시작하세요",
+    "actionDescription": {
+      "block": "일치하는 요청을 즉시 차단",
+      "redirect": "요청을 다른 주소로 전달",
+      "injectParams": "쿼리 매개변수를 추가하거나 덮어쓰기",
+      "modifyHeaders": "요청/응답 헤더 추가, 삭제 또는 수정",
+      "mockResponse": "요청을 가로채 사용자 지정 응답 반환",
+      "delay": "요청에 지연 시간과 대역폭 제한 적용",
+      "modifyRequestBody": "전송 전에 요청 본문 다시 쓰기",
+      "insertScript": "페이지 URL에 따라 JS / CSS 삽입"
+    },
+    "actionGroup": {
+      "dnr": {
+        "title": "네트워크 계층",
+        "hint": "모든 요청(페이지 이동 및 정적 리소스 포함)에 적용되지만 요청 본문은 읽을 수 없습니다",
+        "note": "차단 / 리디렉션 / 매개변수 삽입은 동시에 사용할 수 없으며 헤더 수정은 함께 사용할 수 있습니다"
+      },
+      "pagePatch": {
+        "title": "페이지 패치",
+        "hint": "페이지 스크립트의 fetch / XHR에만 적용되며 요청 본문과 응답을 읽고 쓸 수 있습니다",
+        "note": "응답 Mock / 네트워크 제한 / 본문 수정은 함께 사용할 수 있으며 스크립트 삽입은 단독으로 사용해야 합니다"
+      }
+    },
+    "describeAction": {
+      "block": "차단: 요청을 즉시 차단",
+      "redirect": "리디렉션 → {{url}}",
+      "injectParams": "매개변수 삽입: {{params}}",
+      "empty": "(비어 있음)",
+      "modifyHeaders": "헤더 수정: {{count}}개",
+      "mockResponse": "Mock에서 HTTP {{statusCode}} 반환",
+      "delay": "네트워크 제한: {{preset}}",
+      "modifyRequestBody": "본문 수정({{sourceMode}})",
+      "insertScript": "{{codeType}} 삽입({{timing}})"
+    },
+    "describeEffect": {
+      "none": "아직 구성된 작업이 없습니다",
+      "separator": "; "
+    },
+    "validation": {
+      "actionsRequired": "작업을 하나 이상 선택하세요",
+      "nameRequired": "규칙 이름은 비워 둘 수 없습니다",
+      "patternRequired": "일치 패턴은 비워 둘 수 없습니다",
+      "patternRegexInvalid": "잘못된 정규식 구문",
+      "bodyMethodsRequired": "본문 수정에는 POST / PUT / PATCH / DELETE / OPTIONS가 필요합니다",
+      "bodyMatchValueRequired": "본문 일치 값은 비워 둘 수 없습니다",
+      "bodyMatchRegexInvalid": "본문 일치 정규식이 잘못되었습니다",
+      "scopeTargetRequired": "{{scopeNoun}}을(를) 하나 이상 선택하세요",
+      "scopeNoun": {
+        "tab": "탭",
+        "window": "창",
+        "tabGroup": "탭 그룹"
+      },
+      "exclusiveDnrActions": "차단, 리디렉션, 매개변수 삽입은 동시에 선택할 수 없습니다",
+      "redirectUrlRequired": "리디렉션 대상은 비워 둘 수 없습니다",
+      "redirectUrlAbsolute": "리디렉션 대상은 절대 주소여야 합니다. 예: http://127.0.0.1:4317/api/redirect-target.json",
+      "insertScriptCodeRequired": "삽입 코드는 비워 둘 수 없습니다",
+      "mockStatusCodeRange": "Mock 상태 코드는 100~599 사이여야 합니다",
+      "dynamicMockFunctionRequired": "동적 Mock 함수는 비워 둘 수 없습니다",
+      "requestBodyContentRequired": "요청 본문은 비워 둘 수 없습니다",
+      "requestBodyFunctionRequired": "요청 본문 함수는 비워 둘 수 없습니다"
+    },
+    "matchTester": {
+      "trigger": "일치 테스트",
+      "placeholder": "테스트 경로 / URL 입력",
+      "test": "테스트",
+      "matched": "일치함",
+      "notMatched": "일치하지 않음 — 이 규칙에서 URL을 처리하지 않습니다"
+    },
+    "methodPicker": {
+      "scriptOnlyHint": "스크립트 삽입은 페이지 URL로 일치하므로 메서드 구성이 필요하지 않습니다.",
+      "all": "모두",
+      "bodyHint": "본문 수정은 본문을 포함할 수 있는 메서드에만 적용되며 GET / HEAD와 \"모두\"는 자동으로 제외됩니다."
+    },
+    "bodyMatchEditor": {
+      "off": "본문 제한 없음",
+      "hint": "페이지 스크립트의 fetch / XHR 본문으로 일치를 좁힙니다. GraphQL에서는 \"작업 이름\"으로 같은 URL의 작업을 구분하세요."
+    },
+    "scopeEditor": {
+      "unnamedTab": "탭 #{{id}}",
+      "windowLabel": "창 {{index}}",
+      "windowHint": "탭 {{count}}개{{current}}",
+      "currentSuffix": " · 현재",
+      "unnamedTabGroup": "이름 없는 탭 그룹",
+      "refresh": "목록 새로고침",
+      "loading": "불러오는 중…",
+      "noOptions": "선택할 수 있는 항목이 없습니다. 먼저 해당 탭 / 창 / 탭 그룹을 여세요",
+      "closed": "닫힘",
+      "allTabsHint": "기본적으로 모든 탭에 적용됩니다. 범위를 제한하면 Authorization 같은 민감한 헤더가 다른 사이트로 유출되는 것을 방지할 수 있습니다.",
+      "limitedHint": "{{emptyHint}}. 객체 ID는 세션 동안만 유효하므로 브라우저를 다시 시작하면 다시 선택해야 합니다."
+    },
+    "mockActionEditor": {
+      "bodyTypeAriaLabel": "응답 본문 유형",
+      "invalidJsonHint": "응답 본문이 올바른 JSON이 아닙니다. 다른 형식을 반환하려면 위의 \"본문 유형\"을 변경하세요.",
+      "dynamicHint": "동적 함수에서 req.url, req.method, req.headers, req.query, req.body, req.json을 읽을 수 있습니다."
+    },
+    "delayActionEditor": {
+      "preset": "네트워크 프리셋",
+      "latency": "지연 시간(ms)",
+      "download": "다운로드({{unit}})",
+      "upload": "업로드({{unit}})"
+    },
+    "requestBodyActionEditor": {
+      "hint": "본문을 포함할 수 있는 fetch / XHR 메서드에만 적용됩니다. 오류가 발생하거나 undefined가 반환되면 원래 본문을 유지합니다."
+    }
+  },
+  "app": {
+    "scopeBadge": {
+      "title": "{{scopeLabel}} · {{count}}개 대상"
+    },
+    "relativeTime": {
+      "none": "기록 없음",
+      "justNow": "방금 업데이트됨",
+      "minutesAgo": "{{count}}분 전에 업데이트됨",
+      "hoursAgo": "{{count}}시간 전에 업데이트됨",
+      "daysAgo": "{{count}}일 전에 업데이트됨"
+    },
+    "groupNamePlaceholder": "그룹 이름",
+    "dragToReorder": "드래그하여 순서 변경",
+    "dragToReorderGroup": "드래그하여 그룹 순서 변경",
+    "edit": "편집",
+    "delete": "삭제",
+    "expand": "펼치기",
+    "collapse": "접기",
+    "disableGroup": "그룹 비활성화",
+    "enableGroup": "그룹 활성화",
+    "groupRuleCount": "규칙 {{count}}개",
+    "groupEnabled": "활성화됨",
+    "groupDisabled": "비활성화됨",
+    "lastUpdated": "마지막 업데이트: {{time}}",
+    "addRule": "규칙 추가",
+    "deleteGroup": "그룹 삭제",
+    "emptyGroupHint": "이 그룹에는 아직 규칙이 없습니다. 오른쪽 위의 \"규칙 추가\"를 클릭하여 만드세요",
+    "columns": {
+      "enabled": "활성화됨",
+      "name": "이름",
+      "channel": "채널",
+      "actions": "작업",
+      "pattern": "일치 패턴",
+      "operations": "작업"
+    },
+    "addRuleMenu": {
+      "blank": "빈 규칙",
+      "fromTemplate": "템플릿 라이브러리에서…"
+    },
+    "transfer": {
+      "exportSuccess": "구성을 내보냈습니다.",
+      "exportFailure": "내보내기에 실패했습니다. 다시 시도하세요.",
+      "importConfirm": "{{groupCount}}개 그룹과 {{ruleCount}}개 규칙을 가져와 현재 구성을 모두 바꿉니다. 계속할까요?",
+      "importSuccess": "{{groupCount}}개 그룹과 {{ruleCount}}개 규칙을 가져왔습니다.",
+      "importParseFailure": "가져오기에 실패했습니다. 파일 내용을 확인하고 다시 시도하세요.",
+      "importFailure": "가져오기 실패: {{message}}"
+    },
+    "deleteGroupConfirm": "그룹 \"{{name}}\"에 규칙이 {{count}}개 있습니다. 그룹 전체를 삭제할까요?",
+    "newRule": "새 규칙",
+    "newGroup": "새 그룹",
+    "emptyState": {
+      "title": "아직 규칙이 없습니다",
+      "hint": "규칙을 만들면 자동으로 \"{{defaultGroupName}}\"에 추가됩니다. 먼저 그룹을 만들어도 됩니다"
+    },
+    "noMatchingGroups": "일치하는 규칙 그룹이 없습니다",
+    "noMatchingGroupsHint": "검색어나 필터를 조정해 보세요"
+  },
+  "popup": {
+    "activeCount": "규칙 {{count}}개 활성화",
+    "globallyDisabled": "전체 비활성화됨",
+    "noRules": "아직 규칙이 없습니다",
+    "noRulesHint": "관리 페이지에서 첫 번째 규칙을 추가하세요",
+    "expandGroup": "그룹 펼치기",
+    "collapseGroup": "그룹 접기",
+    "ruleCount": "규칙 {{count}}개",
+    "manageRules": "규칙 관리"
+  },
+  "dynamicVariableHint": {
+    "title": "사용 가능한 동적 변수 보기",
+    "trigger": "변수",
+    "hint": "값 필드에서 이 자리 표시자를 사용하고 클릭하여 복사하세요. 페이지 패치는 요청마다, 네트워크 계층(DNR)은 규칙 동기화 시 한 번 평가합니다."
+  },
+  "dialog": {
+    "close": "닫기"
+  },
+  "codeEditor": {
+    "ariaLabel": "{{language}} 편집기",
+    "invalidJson": "잘못된 JSON — 서식을 지정할 수 없습니다.",
+    "format": "서식 지정"
+  },
+  "dashboard": {
+    "header": {
+      "title": "Req Freedom 규칙 관리자",
+      "subtitle": "차단 · 리디렉션 · 매개변수 삽입 · 헤더 · Mock · 네트워크 제한 · 스크립트 삽입 · 본문 수정",
+      "import": "규칙 가져오기",
+      "export": "규칙 내보내기"
+    },
+    "moreMenu": {
+      "trigger": "더 보기",
+      "language": "언어"
+    },
+    "statistics": {
+      "ariaLabel": "규칙 통계",
+      "groupLabel": "그룹",
+      "groupSuffix": "그룹",
+      "ruleLabel": "규칙",
+      "ruleSuffix": "규칙",
+      "enabledLabel": "활성화됨"
+    },
+    "toolbar": {
+      "ariaLabel": "규칙 필터",
+      "searchPlaceholder": "그룹 또는 규칙 이름과 일치 패턴 검색…",
+      "searchAriaLabel": "그룹 또는 규칙 검색",
+      "statusPlaceholder": "상태",
+      "statusAll": "상태: 모두",
+      "statusEnabled": "상태: 활성화",
+      "statusDisabled": "상태: 비활성화",
+      "channelPlaceholder": "유형",
+      "channelAll": "채널: 모두",
+      "channelDnr": "DNR 네트워크 규칙",
+      "channelPagePatch": "페이지 패치"
+    }
+  },
+  "keyValueEditor": {
+    "keyPlaceholder": "키",
+    "valuePlaceholder": "값",
+    "delete": "삭제",
+    "addItem": "항목 추가"
+  },
+  "headersEditor": {
+    "delete": "삭제",
+    "appendableHeaderPlaceholder": "추가 가능한 요청 헤더 선택",
+    "headerNamePlaceholder": "헤더 이름",
+    "valuePlaceholder": "값(삭제하려면 비워 두세요)",
+    "appendHint": "\"추가\"는 위의 일부 다중 값 표준 헤더만 지원합니다. 사용자 지정 헤더에는 임의 이름을 지정할 수 있는 \"설정\"을 사용하세요.",
+    "ineffectiveAppendWarning": "사용자 지정 요청 헤더는 \"추가\"를 지원하지 않아 브라우저에서 무시됩니다. \"설정\"을 사용하세요. Cookie, User-Agent, X-Forwarded-For 같은 일부 표준 헤더만 추가할 수 있습니다.",
+    "addItem": "수정 항목 추가",
+    "responseHeaderHint": "팁: <strong>응답 헤더</strong> 변경은 브라우저 네트워크 패널에 표시되지 않습니다. 콘솔에서 <code>fetch(url).then((r) =&gt; r.headers.get('...'))</code>로 확인하세요."
+  },
+  "templateLibrary": {
+    "title": "규칙 템플릿 라이브러리",
+    "hint": "템플릿을 사용하면 작업이 미리 채워진 규칙 편집기가 열립니다. 일치 패턴을 대상 주소로 변경하고 저장하세요.",
+    "channelPagePatch": "페이지 패치",
+    "use": "사용"
+  },
+  "label": {
+    "ruleTemplateCategory": {
+      "cors": "CORS",
+      "cache": "캐시 제어",
+      "protocol": "프로토콜 및 리디렉션",
+      "userAgent": "User-Agent"
+    },
+    "ruleActionType": {
+      "block": "요청 차단",
+      "redirect": "리디렉션",
+      "injectParams": "매개변수 삽입",
+      "modifyHeaders": "헤더 수정",
+      "mockResponse": "응답 Mock",
+      "delay": "네트워크 제한",
+      "modifyRequestBody": "요청 본문 수정",
+      "insertScript": "스크립트 삽입"
+    },
+    "requestBodyMode": {
+      "replace": "전체 교체",
+      "mergeJson": "JSON 깊은 병합"
+    },
+    "requestBodySourceMode": {
+      "static": "정적 다시 쓰기",
+      "dynamic": "JavaScript로 생성"
+    },
+    "mockResponseMode": {
+      "static": "정적 응답 본문",
+      "dynamic": "JavaScript로 생성"
+    },
+    "mockBodyType": {
+      "text": "텍스트"
+    },
+    "networkThrottlePreset": {
+      "custom": "사용자 지정"
+    },
+    "insertScriptTiming": {
+      "documentStart": "문서 시작(document_start)",
+      "documentEnd": "문서 준비 완료(document_end)"
+    },
+    "bodyMatchType": {
+      "contains": "부분 문자열 포함",
+      "regex": "정규식",
+      "graphqlOperation": "GraphQL 작업 이름"
+    },
+    "bodyMatchValuePlaceholder": {
+      "contains": "요청 본문에 포함되어야 하는 부분 문자열",
+      "regex": "요청 본문과 일치할 정규식. 예: \"mutation\\\\s+Login\"",
+      "graphqlOperation": "operationName. 예: GetUser"
+    },
+    "ruleScopeType": {
+      "allTabs": "모든 탭",
+      "tab": "특정 탭",
+      "window": "특정 창",
+      "tabGroup": "특정 탭 그룹"
+    },
+    "ruleScopeEmptyHint": {
+      "tab": "현재 열린 탭을 하나 이상 선택하세요",
+      "window": "현재 열린 창을 하나 이상 선택하세요",
+      "tabGroup": "현재 탭 그룹을 하나 이상 선택하세요"
+    },
+    "matchType": {
+      "contains": "포함",
+      "equals": "같음",
+      "wildcard": "와일드카드",
+      "regex": "정규식"
+    },
+    "headerTarget": {
+      "request": "요청 헤더",
+      "response": "응답 헤더"
+    },
+    "headerOperation": {
+      "set": "설정",
+      "append": "추가",
+      "remove": "제거"
+    }
+  }
+}

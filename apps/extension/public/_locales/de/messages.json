@@ -1,0 +1,8 @@
+{
+  "extName": {
+    "message": "Req Freedom"
+  },
+  "extDescription": {
+    "message": "Werkzeuge zur Request-Diagnose: blockieren, umleiten, Parameter einfügen, Header ändern, Antworten und Latenz simulieren"
+  }
+}

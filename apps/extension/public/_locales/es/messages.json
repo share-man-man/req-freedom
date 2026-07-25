@@ -1,0 +1,8 @@
+{
+  "extName": {
+    "message": "Req Freedom"
+  },
+  "extDescription": {
+    "message": "Herramientas para depurar solicitudes: bloquear, redirigir, inyectar parámetros, modificar encabezados, simular respuestas y latencia"
+  }
+}

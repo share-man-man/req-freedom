@@ -1,0 +1,8 @@
+{
+  "extName": {
+    "message": "Req Freedom"
+  },
+  "extDescription": {
+    "message": "請求偵錯工具：封鎖、重新導向、參數注入、Header 改寫、Mock、延遲模擬"
+  }
+}
