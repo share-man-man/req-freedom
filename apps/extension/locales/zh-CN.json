@@ -286,7 +286,8 @@
     "collapseGroup": "折叠分组",
     "ruleCount": "{{count}} 条",
     "manageRules": "管理规则",
-    "matchedCount": "当前页面已命中 {{count}} 次"
+    "matchedCount": "当前页面已命中 {{count}} 次",
+    "clearMatchedCount": "清空"
   },
   "dynamicVariableHint": {
     "title": "查看可用的动态变量",
