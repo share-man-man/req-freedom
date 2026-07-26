@@ -61,6 +61,20 @@ interface XhrRequestMetadata {
   headers: Record<string, string>;
 }
 
+/** XHR Mock 完成后供只读属性与响应头 API 查询的响应快照。 */
+interface XhrMockResponseState {
+  /** Mock 请求对应的最终 URL。 */
+  url: string;
+  /** HTTP 状态码。 */
+  status: number;
+  /** HTTP 状态说明。 */
+  statusText: string;
+  /** 已解析动态变量并补齐 Content-Type 的响应头。 */
+  headers: Record<string, string>;
+  /** Mock 响应体文本。 */
+  body: string;
+}
+
 /**
  * 拦截内容脚本（MAIN world）
  *
@@ -444,6 +458,37 @@ export default defineContentScript({
         : resolveDynamicVariables(rule.body);
 
     /**
+     * 构造 Fetch 与 XHR 共用的 Mock 响应头。
+     * @param rule 命中的 Mock 动作
+     * @returns 补齐默认 Content-Type 并解析动态变量后的响应头
+     */
+    const buildMockResponseHeaders = (rule: MockResponseAction): Record<string, string> => {
+      /** 静态模式按响应体类型推导 Content-Type，动态模式回落到默认 JSON。 */
+      const contentType =
+        rule.mode === MockResponseMode.Static
+          ? MOCK_BODY_TYPE_CONTENT_TYPES[rule.bodyType ?? DEFAULT_MOCK_BODY_TYPE]
+          : DEFAULT_MOCK_CONTENT_TYPE;
+      /** 解析动态变量后的显式响应头。 */
+      const resolvedHeaders = rule.responseHeaders
+        ? resolveDynamicVariablesInRecord(rule.responseHeaders)
+        : {};
+      /** 显式配置的 Content-Type，忽略 Header 名大小写。 */
+      const explicitContentType = Object.entries(resolvedHeaders).find(
+        ([name]) => name.toLowerCase() === 'content-type',
+      )?.[1];
+      /** 移除不同大小写的 Content-Type，最终只保留一个规范键。 */
+      const remainingHeaders = Object.fromEntries(
+        Object.entries(resolvedHeaders).filter(
+          ([name]) => name.toLowerCase() !== 'content-type',
+        ),
+      );
+      return {
+        ...remainingHeaders,
+        'Content-Type': explicitContentType ?? contentType,
+      };
+    };
+
+    /**
      * 执行动态改请求体函数并将返回值转换为最终请求体文本。
      *
      * 函数异常、未返回值或无法序列化时均保留原请求体，避免调试规则意外发送空请求。
@@ -614,18 +659,11 @@ export default defineContentScript({
                 ),
               )
             : resolveDynamicVariables(mockRule.body);
-        /** 静态模式按响应体类型推导 Content-Type，动态模式回落到默认 JSON；显式 responseHeaders 仍可覆盖。 */
-        const mockContentType =
-          mockRule.mode === MockResponseMode.Static
-            ? MOCK_BODY_TYPE_CONTENT_TYPES[mockRule.bodyType ?? DEFAULT_MOCK_BODY_TYPE]
-            : DEFAULT_MOCK_CONTENT_TYPE;
         /** 按网络限速规则交付 Mock 响应，确保 Mock 与真实请求具有一致的弱网表现。 */
         const response = new Response(mockBody, {
           status: mockRule.statusCode,
-          headers: {
-            'Content-Type': mockContentType,
-            ...(mockRule.responseHeaders ? resolveDynamicVariablesInRecord(mockRule.responseHeaders) : {}),
-          },
+          statusText: mockRule.statusText,
+          headers: buildMockResponseHeaders(mockRule),
         });
         return throttleResponse(response, delayRule);
       }
@@ -672,6 +710,53 @@ export default defineContentScript({
     const originalSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
     /** 原始 send 方法 */
     const originalSend = XMLHttpRequest.prototype.send;
+    /** 原始单个响应头读取方法。 */
+    const originalGetResponseHeader = XMLHttpRequest.prototype.getResponseHeader;
+    /** 原始全部响应头读取方法。 */
+    const originalGetAllResponseHeaders = XMLHttpRequest.prototype.getAllResponseHeaders;
+    /** 每个被 Mock 的 XHR 响应状态。 */
+    const xhrMockResponseMap = new WeakMap<XMLHttpRequest, XhrMockResponseState>();
+
+    XMLHttpRequest.prototype.getResponseHeader = function getResponseHeader(
+      this: XMLHttpRequest,
+      name: string,
+    ): string | null {
+      /** 当前实例的 Mock 响应。 */
+      const mockResponse = xhrMockResponseMap.get(this);
+      if (!mockResponse) {
+        return originalGetResponseHeader.call(this, name);
+      }
+      if (this.readyState < XMLHttpRequest.HEADERS_RECEIVED) {
+        return null;
+      }
+      /** 规范化后的查询 Header 名。 */
+      const normalizedName = name.toLowerCase();
+      if (normalizedName === 'set-cookie' || normalizedName === 'set-cookie2') {
+        return null;
+      }
+      /** 忽略大小写命中的响应头。 */
+      const entry = Object.entries(mockResponse.headers).find(
+        ([headerName]) => headerName.toLowerCase() === normalizedName,
+      );
+      return entry?.[1] ?? null;
+    };
+
+    XMLHttpRequest.prototype.getAllResponseHeaders = function getAllResponseHeaders(
+      this: XMLHttpRequest,
+    ): string {
+      /** 当前实例的 Mock 响应。 */
+      const mockResponse = xhrMockResponseMap.get(this);
+      if (!mockResponse) {
+        return originalGetAllResponseHeaders.call(this);
+      }
+      if (this.readyState < XMLHttpRequest.HEADERS_RECEIVED) {
+        return '';
+      }
+      return Object.entries(mockResponse.headers)
+        .filter(([name]) => !['set-cookie', 'set-cookie2'].includes(name.toLowerCase()))
+        .map(([name, value]) => `${name.toLowerCase()}: ${value}\r\n`)
+        .join('');
+    };
 
     XMLHttpRequest.prototype.open = function open(
       this: XMLHttpRequest,
@@ -742,10 +827,69 @@ export default defineContentScript({
           /** 让伪造的 XHR 完成，并保持与静态 Mock 相同的事件顺序。 */
           const dispatchMockResponse = (mockBody: string): void => {
             setTimeout(() => {
+              /** 当前 Mock 的完整响应状态。 */
+              const mockResponse: XhrMockResponseState = {
+                url,
+                status: mockRule.statusCode,
+                statusText: mockRule.statusText ?? '',
+                headers: buildMockResponseHeaders(mockRule),
+                body: mockBody,
+              };
+              xhrMockResponseMap.set(this, mockResponse);
+              Object.defineProperty(this, 'readyState', {
+                configurable: true,
+                value: XMLHttpRequest.HEADERS_RECEIVED,
+              });
+              Object.defineProperty(this, 'status', {
+                configurable: true,
+                value: mockResponse.status,
+              });
+              Object.defineProperty(this, 'statusText', {
+                configurable: true,
+                value: mockResponse.statusText,
+              });
+              Object.defineProperty(this, 'responseURL', {
+                configurable: true,
+                value: mockResponse.url,
+              });
+              this.dispatchEvent(new Event('readystatechange'));
+              Object.defineProperty(this, 'readyState', {
+                configurable: true,
+                value: XMLHttpRequest.LOADING,
+              });
+              this.dispatchEvent(new Event('readystatechange'));
+              /** 按 responseType 转换后的响应值。 */
+              let response: unknown = mockBody;
+              if (this.responseType === 'json') {
+                try {
+                  response = JSON.parse(mockBody) as unknown;
+                } catch {
+                  response = null;
+                }
+              } else if (this.responseType === 'blob') {
+                response = new Blob([mockBody], {
+                  type: mockResponse.headers['Content-Type'] ?? '',
+                });
+              } else if (this.responseType === 'arraybuffer') {
+                response = new TextEncoder().encode(mockBody).buffer;
+              } else if (this.responseType === 'document') {
+                response = null;
+              }
               Object.defineProperty(this, 'readyState', { value: XMLHttpRequest.DONE });
-              Object.defineProperty(this, 'status', { value: mockRule.statusCode });
-              Object.defineProperty(this, 'responseText', { value: mockBody });
-              Object.defineProperty(this, 'response', { value: mockBody });
+              if (this.responseType === '' || this.responseType === 'text') {
+                Object.defineProperty(this, 'responseText', {
+                  configurable: true,
+                  value: mockBody,
+                });
+              }
+              Object.defineProperty(this, 'response', {
+                configurable: true,
+                value: response,
+              });
+              Object.defineProperty(this, 'responseXML', {
+                configurable: true,
+                value: null,
+              });
               this.dispatchEvent(new Event('readystatechange'));
               this.dispatchEvent(new Event('load'));
               this.dispatchEvent(new Event('loadend'));
