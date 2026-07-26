@@ -277,6 +277,68 @@
     "noMatchingGroups": "没有找到匹配的规则分组",
     "noMatchingGroupsHint": "调整搜索或筛选条件后再试"
   },
+  "ruleImport": {
+    "menu": {
+      "config": "导入 Req Freedom 配置",
+      "curl": "从 cURL 创建规则",
+      "har": "从 HAR 批量创建 Mock"
+    },
+    "curl": {
+      "title": "从 cURL 创建规则",
+      "hint": "将提取请求 URL 和方法，随后进入原有规则编辑器补齐 Mock 响应或重定向地址。",
+      "action": "创建为",
+      "mock": "返回值 Mock",
+      "redirect": "重定向",
+      "command": "cURL 命令",
+      "continue": "继续编辑"
+    },
+    "har": {
+      "title": "从 HAR 批量创建 Mock",
+      "chooseHint": "选择 HAR 文件后预览其中可导入的文本响应。",
+      "chooseFile": "选择 HAR",
+      "summary": "已选 {{selected}} / {{total}} 条 · 约 {{size}} KB",
+      "group": "所属分组",
+      "newGroup": "新建导入分组",
+      "groupName": "新分组名称",
+      "defaultGroupName": "HAR 导入",
+      "enableImmediately": "导入后立即启用",
+      "disabledHint": "默认安全导入：新分组保持停用；导入已有分组时新增规则保持停用。",
+      "selectAll": "全选",
+      "selectNone": "全不选",
+      "toggleSelection": "是否导入这条规则",
+      "selectionRequired": "请至少选择一条规则，并填写分组名称。",
+      "fixErrors": "请先修正标红的规则。",
+      "noCandidates": "该 HAR 中没有找到可导入的文本响应。",
+      "saveFailure": "保存导入规则失败：{{message}}",
+      "targetGroupMissing": "所选目标分组已不存在，请重新选择后再试。",
+      "saving": "正在导入…",
+      "importSelected": "导入选中规则",
+      "success": "已从 HAR 导入 {{count}} 条规则。"
+    },
+    "warnings": {
+      "sensitive-query": "URL 可能包含 token 或签名，保存前请确认。",
+      "request-headers-ignored": "请求头不会转换成规则动作。",
+      "binary-body-skipped": "已跳过二进制响应体。",
+      "body-too-large": "响应体过大，无法导入。",
+      "duplicate-request": "存在相同 URL 和方法的条目，本条默认不选中。",
+      "unsupported-entry": "暂不支持该 HAR 条目。"
+    },
+    "errors": {
+      "curl-empty": "请先粘贴 cURL 命令。",
+      "curl-shell-syntax-unsupported": "不支持 shell 操作符和变量展开。",
+      "curl-quote-unclosed": "cURL 命令中存在未闭合的引号或转义。",
+      "curl-command-required": "输入内容必须以 curl 开头。",
+      "curl-option-value-required": "某个 cURL 选项缺少取值。",
+      "curl-file-input-unsupported": "不支持从本地文件读取请求数据。",
+      "curl-config-unsupported": "不支持 cURL 配置文件。",
+      "curl-url-required": "没有找到请求 URL。",
+      "curl-url-invalid": "请求 URL 必须是绝对 HTTP 或 HTTPS 地址。",
+      "http-method-unsupported": "规则模型暂不支持该 HTTP 方法。",
+      "har-json-invalid": "HAR 文件不是合法 JSON。",
+      "har-structure-invalid": "文件中没有合法的 HAR 日志结构。",
+      "unknown": "无法解析导入内容。"
+    }
+  },
   "popup": {
     "activeCount": "{{count}} 条规则生效中",
     "globallyDisabled": "已全局停用",

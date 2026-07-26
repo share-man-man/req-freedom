@@ -55,6 +55,16 @@ interface RuleEditorProps {
   groupId: string;
   onSave: (rule: Rule, groupId: string) => void;
   onCancel: () => void;
+  /** 嵌入批量手风琴时隐藏对话框标题、滚动容器与底部按钮。 */
+  embedded?: boolean;
+  /** 是否展示所属分组字段，单条编辑默认展示。 */
+  showGroup?: boolean;
+  /** 是否展示规则名称字段，单条编辑默认展示。 */
+  showName?: boolean;
+  /** 嵌入模式下把草稿变化同步给父级。 */
+  onDraftChange?: (rule: Rule) => void;
+  /** 批量容器统一校验后传入的错误。 */
+  externalError?: ValidationError | null;
 }
 
 /** DNR 通道可用的动作。 */
@@ -270,7 +280,7 @@ function isValidJson(value: string): boolean {
 }
 
 /** 校验错误：定位到具体表单项的锚点 key 与提示文案。 */
-interface ValidationError {
+export interface ValidationError {
   /** 出错字段的锚点 key，用于标红与滚动定位。'actions' / 'name' / 'pattern' / 'methods' 或 `action:<类型>`。 */
   field: string;
   /** 展示给用户的错误说明。 */
@@ -292,7 +302,7 @@ function actionFieldKey(type: RuleActionType): string {
  * @param rule 待保存的规则
  * @returns 首个校验错误（含定位字段），合法时为 null
  */
-function validateRule(t: TFunction, rule: Rule): ValidationError | null {
+export function validateRule(t: TFunction, rule: Rule): ValidationError | null {
   if (rule.actions.length === 0) return { field: 'actions', message: t('ruleEditor.validation.actionsRequired') };
   if (!rule.name.trim()) return { field: 'name', message: t('ruleEditor.validation.nameRequired') };
   if (!rule.pattern.trim()) return { field: 'pattern', message: t('ruleEditor.validation.patternRequired') };
@@ -337,11 +347,44 @@ function validateRule(t: TFunction, rule: Rule): ValidationError | null {
 }
 
 /**
+ * 保存前剥离不适用于当前动作组合的隐藏条件。
+ * @param rule 待归一化规则
+ * @returns 可安全校验和落库的规则副本
+ */
+export function normalizeRuleDraft(rule: Rule): Rule {
+  /** 待归一化的规则副本。 */
+  const normalized = { ...rule };
+  /** 当前动作组合是否支持请求体匹配。 */
+  const supportsBodyMatch =
+    rule.channel === RuleExecutionChannel.PagePatch &&
+    !rule.actions.some((action) => action.type === RuleActionType.InsertScript);
+  if (!supportsBodyMatch) {
+    delete normalized.bodyMatch;
+  }
+  if (normalized.scope?.type === RuleScopeType.AllTabs) {
+    delete normalized.scope;
+  }
+  return normalized;
+}
+
+/**
  * 规则编辑器：先选「执行动作」明确要做什么，再配「命中条件」明确对谁生效。
  * 执行通道由动作类型自动推导，方法可选集随动作收敛，用户无需感知底层通道。
  * @param props 编辑器参数
  */
-export default function RuleEditor({ rule, isNew, groups, groupId, onSave, onCancel }: RuleEditorProps) {
+export default function RuleEditor({
+  rule,
+  isNew,
+  groups,
+  groupId,
+  onSave,
+  onCancel,
+  embedded = false,
+  showGroup = true,
+  showName = true,
+  onDraftChange,
+  externalError,
+}: RuleEditorProps) {
   const { t } = useTranslation();
   /** 各枚举展示名映射。 */
   const labels = getLabels(t);
@@ -359,6 +402,29 @@ export default function RuleEditor({ rule, isNew, groups, groupId, onSave, onCan
   const [advancedOpen, setAdvancedOpen] = useState(() => draft.bodyMatch !== undefined || draft.scope !== undefined);
   // 草稿或目标分组一经改动即清除上次校验错误，避免用户修好后仍残留旧提示
   useEffect(() => { setError(null); }, [draft, targetGroupId]);
+  // 批量编辑父级持有完整草稿，折叠卸载后再次展开仍能恢复用户修改。
+  useEffect(() => {
+    onDraftChange?.(draft);
+  }, [draft]);
+  // 批量提交校验失败后，把父级错误同步到当前展开项。
+  useEffect(() => {
+    if (externalError) {
+      setError(externalError);
+      if (externalError.field === 'bodyMatch' || externalError.field === 'scope') {
+        setAdvancedOpen(true);
+      }
+      if (externalError.field.startsWith('action:')) {
+        /** 出错动作类型。 */
+        const erroredType = externalError.field.slice('action:'.length) as RuleActionType;
+        setFocusedActionType(erroredType);
+        setChannelTab(
+          DNR_ACTIONS.includes(erroredType as (typeof DNR_ACTIONS)[number])
+            ? RuleExecutionChannel.Dnr
+            : RuleExecutionChannel.PagePatch,
+        );
+      }
+    }
+  }, [externalError]);
   /** 各校验字段的滚动锚点：key 与 validateRule 返回的 field 对齐。 */
   const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
   /**
@@ -443,12 +509,8 @@ export default function RuleEditor({ rule, isNew, groups, groupId, onSave, onCan
    * 执行保存。
    */
   const handleSave = (): void => {
-    // 通道 / 动作变化后可能残留不再适用的请求体条件，保存前统一剥离，避免带着隐藏条件落库
-    /** 剥离不适用请求体条件后的规则草稿。 */
-    const normalized = { ...draft };
-    if (!supportsBodyMatch) delete normalized.bodyMatch;
-    // 作用域为「全部标签页」等价于不限制，归一化为无作用域，避免落库空目标条件
-    if (normalized.scope && normalized.scope.type === RuleScopeType.AllTabs) delete normalized.scope;
+    /** 剥离不适用隐藏条件后的规则草稿。 */
+    const normalized = normalizeRuleDraft(draft);
     /** 校验结果。 */
     const validation = validateRule(t, normalized);
     if (validation) {
@@ -477,15 +539,17 @@ export default function RuleEditor({ rule, isNew, groups, groupId, onSave, onCan
     ...(draft.scope ? [labels.RULE_SCOPE_TYPE_LABELS[draft.scope.type]] : []),
   ].join(' · ');
 
-  return <div className="flex max-h-[82vh] min-h-0 flex-1 flex-col overflow-hidden">
-    <DialogHeader><DialogTitle>{isNew ? t('ruleEditor.titleNew') : t('ruleEditor.titleEdit')}</DialogTitle></DialogHeader>
-    <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-5">
+  return <div className={embedded ? 'min-w-0' : 'flex max-h-[82vh] min-h-0 flex-1 flex-col overflow-hidden'}>
+    {!embedded && <DialogHeader><DialogTitle>{isNew ? t('ruleEditor.titleNew') : t('ruleEditor.titleEdit')}</DialogTitle></DialogHeader>}
+    <div className={embedded ? 'space-y-6 px-4 py-4' : 'min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-5'}>
 
       {/* 基本信息：所属分组与规则名称同行排列 */}
-      <div className="grid grid-cols-2 gap-4">
-        <Field label={t('ruleEditor.group')}><Select value={targetGroupId} onValueChange={setTargetGroupId}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{groups.map((group) => <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>)}</SelectContent></Select></Field>
-        <Field label={t('ruleEditor.name')} error={error?.field === 'name' ? error.message : undefined} innerRef={registerField('name')}><Input aria-invalid={error?.field === 'name'} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></Field>
-      </div>
+      {(showGroup || showName) && (
+        <div className={`grid gap-4 ${showGroup && showName ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          {showGroup && <Field label={t('ruleEditor.group')}><Select value={targetGroupId} onValueChange={setTargetGroupId}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{groups.map((group) => <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>)}</SelectContent></Select></Field>}
+          {showName && <Field label={t('ruleEditor.name')} error={error?.field === 'name' ? error.message : undefined} innerRef={registerField('name')}><Input aria-invalid={error?.field === 'name'} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></Field>}
+        </div>
+      )}
 
       {/* 第一步：这条规则要做什么（动作工作台自带通道标签页，无需额外标题） */}
       <section className="space-y-4">
@@ -543,7 +607,7 @@ export default function RuleEditor({ rule, isNew, groups, groupId, onSave, onCan
         </div>
       </section>
     </div>
-    <DialogFooter><Button variant="outline" onClick={onCancel}>{t('ruleEditor.cancel')}</Button><Button onClick={handleSave}>{t('ruleEditor.save')}</Button></DialogFooter>
+    {!embedded && <DialogFooter><Button variant="outline" onClick={onCancel}>{t('ruleEditor.cancel')}</Button><Button onClick={handleSave}>{t('ruleEditor.save')}</Button></DialogFooter>}
   </div>;
 }
 

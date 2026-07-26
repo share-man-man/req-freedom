@@ -277,6 +277,68 @@
     "noMatchingGroups": "沒有找到匹配的規則分組",
     "noMatchingGroupsHint": "調整搜尋或篩選條件後再試"
   },
+  "ruleImport": {
+    "menu": {
+      "config": "匯入 Req Freedom 設定",
+      "curl": "從 cURL 建立規則",
+      "har": "從 HAR 批次建立 Mock"
+    },
+    "curl": {
+      "title": "從 cURL 建立規則",
+      "hint": "將擷取請求 URL 和方法，接著進入原有規則編輯器補齊 Mock 回應或重新導向位址。",
+      "action": "建立為",
+      "mock": "回應 Mock",
+      "redirect": "重新導向",
+      "command": "cURL 命令",
+      "continue": "繼續編輯"
+    },
+    "har": {
+      "title": "從 HAR 批次建立 Mock",
+      "chooseHint": "選擇 HAR 檔案後預覽其中可匯入的文字回應。",
+      "chooseFile": "選擇 HAR",
+      "summary": "已選 {{selected}} / {{total}} 筆 · 約 {{size}} KB",
+      "group": "所屬分組",
+      "newGroup": "建立匯入分組",
+      "groupName": "新分組名稱",
+      "defaultGroupName": "HAR 匯入",
+      "enableImmediately": "匯入後立即啟用",
+      "disabledHint": "預設安全匯入：新分組保持停用；匯入現有分組時新增規則保持停用。",
+      "selectAll": "全選",
+      "selectNone": "全部取消",
+      "toggleSelection": "是否匯入這條規則",
+      "selectionRequired": "請至少選擇一條規則並填寫分組名稱。",
+      "fixErrors": "請先修正標紅的規則。",
+      "noCandidates": "此 HAR 中沒有找到可匯入的文字回應。",
+      "saveFailure": "儲存匯入規則失敗：{{message}}",
+      "targetGroupMissing": "所選目標分組已不存在，請重新選擇後再試。",
+      "saving": "正在匯入…",
+      "importSelected": "匯入選中規則",
+      "success": "已從 HAR 匯入 {{count}} 條規則。"
+    },
+    "warnings": {
+      "sensitive-query": "URL 可能包含 token 或簽名，儲存前請確認。",
+      "request-headers-ignored": "請求標頭不會轉換成規則動作。",
+      "binary-body-skipped": "已略過二進位回應內容。",
+      "body-too-large": "回應內容過大，無法匯入。",
+      "duplicate-request": "存在相同 URL 和方法的項目，本項預設不選取。",
+      "unsupported-entry": "暫不支援此 HAR 項目。"
+    },
+    "errors": {
+      "curl-empty": "請先貼上 cURL 命令。",
+      "curl-shell-syntax-unsupported": "不支援 shell 操作符和變數展開。",
+      "curl-quote-unclosed": "cURL 命令中有未閉合的引號或跳脫。",
+      "curl-command-required": "輸入內容必須以 curl 開頭。",
+      "curl-option-value-required": "某個 cURL 選項缺少值。",
+      "curl-file-input-unsupported": "不支援從本機檔案讀取請求資料。",
+      "curl-config-unsupported": "不支援 cURL 設定檔。",
+      "curl-url-required": "找不到請求 URL。",
+      "curl-url-invalid": "請求 URL 必須是絕對 HTTP 或 HTTPS 位址。",
+      "http-method-unsupported": "規則模型暫不支援此 HTTP 方法。",
+      "har-json-invalid": "HAR 檔案不是合法 JSON。",
+      "har-structure-invalid": "檔案中沒有合法的 HAR 日誌結構。",
+      "unknown": "無法解析匯入內容。"
+    }
+  },
   "popup": {
     "activeCount": "{{count}} 條規則生效中",
     "globallyDisabled": "已全域性停用",

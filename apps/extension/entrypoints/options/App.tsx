@@ -45,6 +45,12 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import RuleEditor from './RuleEditor';
+import {
+  CurlImportDialog,
+  HAR_IMPORT_NEW_GROUP,
+  HarImportDialog,
+  type HarImportCommit,
+} from './RuleImportDialog';
 import TemplateLibrary from './TemplateLibrary';
 import {
   RULE_STATUS_FILTER,
@@ -768,6 +774,8 @@ export default function App() {
   const [ruleDialog, setRuleDialog] = useState<RuleDialogState | null>(null);
   /** 模板库对话框的目标分组 ID：非 null 即打开，选用模板后规则落到该分组（可为默认分组占位）。 */
   const [templateTargetGroupId, setTemplateTargetGroupId] = useState<string | null>(null);
+  /** cURL 单条导入或 HAR 批量导入对话框。 */
+  const [ruleImportDialog, setRuleImportDialog] = useState<'curl' | 'har' | null>(null);
   /** 当前正在拖拽的分组 ID，用于渲染外层分组 DragOverlay 预览 */
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   /** 已折叠的分组 ID 集合（纯视图状态，不写入 storage，避免无谓触发规则重同步） */
@@ -901,6 +909,68 @@ export default function App() {
    */
   const handleImportClick = (): void => {
     importInputRef.current?.click();
+  };
+
+  /**
+   * cURL 解析完成后复用原有单条新建规则编辑器。
+   * @param rule 解析生成的规则草稿
+   */
+  const handleContinueCurlImport = (rule: Rule): void => {
+    /** 优先使用首个现有分组；无分组时使用保存阶段才创建的默认分组占位。 */
+    const groupId = groups[0]?.id ?? DEFAULT_GROUP_SENTINEL;
+    setRuleImportDialog(null);
+    setRuleDialog({ groupId, rule, isNew: true });
+  };
+
+  /**
+   * 把 HAR 批量规则一次追加到新分组或现有分组。
+   * @param commit 批量保存参数
+   */
+  const handleCommitHarImport = async (commit: HarImportCommit): Promise<void> => {
+    /** 提交前重新读取的最新分组，避免覆盖 popup 同期修改。 */
+    const latestGroups = await getGroups();
+    /** 本次提交时间。 */
+    const updatedAt = new Date().toISOString();
+    /** 为最终落库重新生成 ID 的规则。 */
+    const importedRules = commit.rules.map((rule) => ({
+      ...structuredClone(rule),
+      id: crypto.randomUUID(),
+      enabled:
+        commit.targetGroupId === HAR_IMPORT_NEW_GROUP
+          ? true
+          : commit.enableImmediately,
+    }));
+    /** 追加导入内容后的分组。 */
+    let nextGroups: RuleGroup[];
+    if (commit.targetGroupId === HAR_IMPORT_NEW_GROUP) {
+      /** 新建的 HAR 导入分组。 */
+      const importedGroup = {
+        ...createRuleGroup(t, commit.newGroupName),
+        enabled: commit.enableImmediately,
+        rules: importedRules,
+      };
+      nextGroups = [...latestGroups, importedGroup];
+    } else {
+      if (!latestGroups.some((group) => group.id === commit.targetGroupId)) {
+        throw new Error(t('ruleImport.har.targetGroupMissing'));
+      }
+      /** 追加到目标现有分组后的列表。 */
+      nextGroups = latestGroups.map((group) =>
+        group.id === commit.targetGroupId
+          ? {
+              ...group,
+              updatedAt,
+              rules: [...group.rules, ...importedRules],
+            }
+          : group,
+      );
+    }
+    await saveGroups(nextGroups);
+    setGroups(nextGroups);
+    setRuleImportDialog(null);
+    setTransferMessage(
+      t('ruleImport.har.success', { count: importedRules.length }),
+    );
   };
 
   /**
@@ -1225,7 +1295,9 @@ export default function App() {
         onChange={(event) => void handleImport(event)}
       />
       <OptionsPageHeader
-        onImport={handleImportClick}
+        onImportConfig={handleImportClick}
+        onImportCurl={() => setRuleImportDialog('curl')}
+        onImportHar={() => setRuleImportDialog('har')}
         onExport={() => void handleExport()}
       />
 
@@ -1357,6 +1429,31 @@ export default function App() {
               groupId={ruleDialog.groupId}
               onSave={handleSaveRule}
               onCancel={() => setRuleDialog(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* cURL 单条创建 / HAR 批量创建规则。 */}
+      <Dialog
+        open={ruleImportDialog !== null}
+        onOpenChange={(open) => !open && setRuleImportDialog(null)}
+      >
+        <DialogContent
+          className={ruleImportDialog === 'har' ? 'max-w-5xl' : 'max-w-2xl'}
+          onPointerDownOutside={(event) => event.preventDefault()}
+        >
+          {ruleImportDialog === 'curl' && (
+            <CurlImportDialog
+              onCancel={() => setRuleImportDialog(null)}
+              onContinue={handleContinueCurlImport}
+            />
+          )}
+          {ruleImportDialog === 'har' && (
+            <HarImportDialog
+              groups={groupOptions}
+              onCancel={() => setRuleImportDialog(null)}
+              onCommit={handleCommitHarImport}
             />
           )}
         </DialogContent>

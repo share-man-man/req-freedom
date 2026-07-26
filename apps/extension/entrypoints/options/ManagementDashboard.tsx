@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronLeft, Download, FolderPlus, Languages, ListChecks, MoreHorizontal, Search, ToggleRight, Upload } from 'lucide-react';
+import { Check, ChevronLeft, Download, FileJson, FolderPlus, Languages, ListChecks, MoreHorizontal, Search, Terminal, ToggleRight, Upload } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RuleExecutionChannel } from '@req-freedom/shared';
@@ -32,8 +32,12 @@ const LOCALE_DISPLAY_NAMES: Record<SupportedLocale, string> = {
 };
 
 interface MoreMenuProps {
-  /** 点击导入规则后的回调。 */
-  onImport: () => void;
+  /** 点击导入 Req Freedom 配置后的回调。 */
+  onImportConfig: () => void;
+  /** 点击从 cURL 创建规则后的回调。 */
+  onImportCurl: () => void;
+  /** 点击从 HAR 批量创建后的回调。 */
+  onImportHar: () => void;
   /** 点击导出规则后的回调。 */
   onExport: () => void;
 }
@@ -45,10 +49,12 @@ interface MoreMenuProps {
  * 并以 fixed 定位，避免被顶栏自身的裁剪或层叠上下文影响。
  * @param props 导入 / 导出回调
  */
-function MoreMenu({ onImport, onExport }: MoreMenuProps) {
+function MoreMenu({ onImportConfig, onImportCurl, onImportHar, onExport }: MoreMenuProps) {
   const { t, i18n } = useTranslation();
   /** 菜单是否展开。 */
   const [open, setOpen] = useState(false);
+  /** 导入方式二级菜单是否展开。 */
+  const [importOpen, setImportOpen] = useState(false);
   /** 语言二级菜单是否展开。 */
   const [languageOpen, setLanguageOpen] = useState(false);
   /** 触发按钮的包裹节点，用于测量位置与判定点击外部。 */
@@ -62,6 +68,7 @@ function MoreMenu({ onImport, onExport }: MoreMenuProps) {
   useEffect(() => {
     if (!open) {
       setPosition(null);
+      setImportOpen(false);
       setLanguageOpen(false);
       return;
     }
@@ -120,15 +127,58 @@ function MoreMenu({ onImport, onExport }: MoreMenuProps) {
           style={{ top: position.top, right: position.right }}
           className="fixed z-50 w-56 overflow-visible rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md"
         >
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => choose(onImport)}
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-muted"
-          >
-            <Upload className="size-4 text-muted-foreground" />
-            {t('dashboard.header.import')}
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              role="menuitem"
+              aria-haspopup="menu"
+              aria-expanded={importOpen}
+              onClick={() => {
+                setImportOpen((value) => !value);
+                setLanguageOpen(false);
+              }}
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+            >
+              <Upload className="size-4 text-muted-foreground" />
+              <span className="flex-1">{t('dashboard.header.import')}</span>
+              <ChevronLeft className="size-3.5 text-muted-foreground" />
+            </button>
+            {importOpen && (
+              <div
+                role="menu"
+                aria-label={t('dashboard.header.import')}
+                className="absolute right-[calc(100%+0.5rem)] top-0 z-10 w-56 overflow-hidden rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => choose(onImportConfig)}
+                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+                >
+                  <Upload className="size-4 text-muted-foreground" />
+                  {t('ruleImport.menu.config')}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => choose(onImportCurl)}
+                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+                >
+                  <Terminal className="size-4 text-muted-foreground" />
+                  {t('ruleImport.menu.curl')}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => choose(onImportHar)}
+                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+                >
+                  <FileJson className="size-4 text-muted-foreground" />
+                  {t('ruleImport.menu.har')}
+                </button>
+              </div>
+            )}
+          </div>
           <button
             type="button"
             role="menuitem"
@@ -145,7 +195,10 @@ function MoreMenu({ onImport, onExport }: MoreMenuProps) {
               role="menuitem"
               aria-haspopup="menu"
               aria-expanded={languageOpen}
-              onClick={() => setLanguageOpen((value) => !value)}
+              onClick={() => {
+                setLanguageOpen((value) => !value);
+                setImportOpen(false);
+              }}
               className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-muted"
             >
               <Languages className="size-4 text-muted-foreground" />
@@ -193,8 +246,12 @@ export const RULE_STATUS_FILTER = {
 export type RuleStatusFilter = (typeof RULE_STATUS_FILTER)[keyof typeof RULE_STATUS_FILTER];
 
 interface OptionsPageHeaderProps {
-  /** 点击导入规则后的回调。 */
-  onImport: () => void;
+  /** 点击导入配置后的回调。 */
+  onImportConfig: () => void;
+  /** 点击 cURL 导入后的回调。 */
+  onImportCurl: () => void;
+  /** 点击 HAR 导入后的回调。 */
+  onImportHar: () => void;
   /** 点击导出规则后的回调。 */
   onExport: () => void;
 }
@@ -204,7 +261,9 @@ interface OptionsPageHeaderProps {
  * @param props 顶栏交互回调
  */
 export function OptionsPageHeader({
-  onImport,
+  onImportConfig,
+  onImportCurl,
+  onImportHar,
   onExport,
 }: OptionsPageHeaderProps) {
   const { t } = useTranslation();
@@ -221,7 +280,12 @@ export function OptionsPageHeader({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <MoreMenu onImport={onImport} onExport={onExport} />
+          <MoreMenu
+            onImportConfig={onImportConfig}
+            onImportCurl={onImportCurl}
+            onImportHar={onImportHar}
+            onExport={onExport}
+          />
         </div>
       </div>
     </header>

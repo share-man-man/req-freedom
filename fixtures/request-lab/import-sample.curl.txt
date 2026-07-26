@@ -1,0 +1,6 @@
+curl 'http://127.0.0.1:4317/api/graphql' \
+  -X POST \
+  -H 'Accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -H 'X-Lab-Client: curl-import-fixture' \
+  --data-raw '{"operationName":"GetUser","query":"query GetUser($id: ID!) { user(id: $id) { id name role } }","variables":{"id":7}}'

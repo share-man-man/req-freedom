@@ -39,6 +39,11 @@ mise exec -- pnpm dev:lab
 
 示例配置默认面向 `http://127.0.0.1:4317`。若用 `PORT` 改了主站端口，导入后请把重定向目标和脚本注入规则中的端口一并改为实际端口。
 
+用于验证 cURL / HAR 创建规则的夹具：
+
+- `import-sample.curl.txt`：复制文件内容，选择「从 cURL 创建规则」，可验证 POST、JSON 请求体与 GraphQL `operationName` 提取。
+- `import-sample.har`：选择「从 HAR 批量创建 Mock」导入，可验证 XHR 响应头、两个 GraphQL 操作，以及相同 URL + 方法的重复请求默认不选中。
+
 ## 结构
 
 ```
