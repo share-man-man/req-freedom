@@ -88,6 +88,8 @@ export interface MockResponseAction {
   mode: MockResponseMode;
   /** 响应状态码 */
   statusCode: number;
+  /** 可选的 HTTP 状态说明；HAR 导入时保留原始 statusText，缺省为空字符串 */
+  statusText?: string;
   /** 附加响应头 */
   responseHeaders?: Record<string, string>;
   /** 静态模式下响应体的内容类型；决定编辑器高亮与默认 Content-Type（缺省 JSON，向后兼容旧数据） */
