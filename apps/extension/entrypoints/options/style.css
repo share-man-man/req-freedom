@@ -15,7 +15,7 @@
  * 与明暗相关的令牌（背景/卡片/边框/聚焦环、氛围光强度）在下方 @media 暗色块里改写。
  */
 :root {
-  /* 原生控件（滚动条 / 表单）跟随系统明暗 */
+  /* 原生表单控件跟随系统明暗（滚动条已由 theme.css 自定义接管） */
   color-scheme: light dark;
   /* 圆角贴近 Vercel/Linear 观感 */
   --radius: 0.75rem;

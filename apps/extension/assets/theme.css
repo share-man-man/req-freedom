@@ -130,4 +130,18 @@
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
+
+  /**
+   * 全局滚动条：采用 W3C 标准属性 scrollbar-width / scrollbar-color
+   * （CSS Scrollbars Styling Module Level 1），不使用 ::-webkit-scrollbar —— 后者是
+   * 从未进入规范的 WebKit 私有伪元素，且在 Chromium 中与标准属性互斥。
+   *
+   * 按规范，这两个属性是继承属性、且根元素的值会传播到视口，因此只需挂在 :root 上，
+   * 即可覆盖 popup、options 及内部所有滚动容器（对话框、CodeMirror 编辑器等）。
+   * 轨道设 transparent 让滚动条浮在内容背景上；滑块颜色由 --foreground 派生，明暗两套自动跟随。
+   */
+  :root {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--foreground) 26%, transparent) transparent;
+  }
 }
