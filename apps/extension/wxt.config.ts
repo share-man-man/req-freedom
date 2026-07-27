@@ -8,7 +8,7 @@ export default defineConfig({
   vite: () => ({
     plugins: [tailwindcss()],
   }),
-  manifest: {
+  manifest: ({ mode }) => ({
     // 名称/描述走 _locales（浏览器按 UI 语言选取），default_locale 缺失时的兜底同时提供中文原文
     default_locale: 'zh_CN',
     name: '__MSG_extName__',
@@ -17,9 +17,12 @@ export default defineConfig({
       'storage',
       'activeTab',
       'declarativeNetRequest',
-      'declarativeNetRequestFeedback',
+      // declarativeNetRequestFeedback 是调试权限：onRuleMatchedDebug 仅对未打包扩展生效，
+      // 正式包改用 activeTab 调 getMatchedRules。保留在商店包里不生效却会触发上架校验告警，
+      // 故只在开发构建注入。
+      ...(mode === 'development' ? ['declarativeNetRequestFeedback'] : []),
       'tabGroups',
     ],
     host_permissions: ['<all_urls>'],
-  },
+  }),
 });
