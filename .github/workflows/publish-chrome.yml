@@ -132,10 +132,14 @@ jobs:
         run: |
           item="publishers/${CHROME_PUBLISHER_ID}/items/${CHROME_EXTENSION_ID}"
           # 关键步骤：V2 发布（默认 DEFAULT_PUBLISH，审核通过后即上线）。
-          # curl -f 已保证非 2xx 失败；发布后 state 常为待审，打印即可，不据此判失败。
-          publish="$(curl -sf -X POST \
+          # --fail-with-body 在非 2xx 时仍保留响应体，便于定位 blockOnWarnings 命中的
+          # 校验详情（放在 error.details）；发布后 state 常为待审，打印即可，不据此判失败。
+          if ! publish="$(curl -sS --fail-with-body -X POST \
             -H "Authorization: Bearer ${CWS_ACCESS_TOKEN}" \
             -H 'Content-Type: application/json' \
             -d '{"publishType":"DEFAULT_PUBLISH","blockOnWarnings":true}' \
-            "https://chromewebstore.googleapis.com/v2/${item}:publish")"
+            "https://chromewebstore.googleapis.com/v2/${item}:publish")"; then
+            echo "发布失败: ${publish}" >&2
+            exit 1
+          fi
           echo "发布结果: ${publish}"
