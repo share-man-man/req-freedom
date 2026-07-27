@@ -22,6 +22,7 @@ flowchart LR
 
 - **DNR 通道**能拦全部流量，但只能做声明式的 URL / Header 改写，**拿不到也改不了 body**，更不能跑 JS。
 - **页面补丁通道**能力不受限，但**只拦得到页面 JS 发起的请求**，`document`、`img`、`iframe` 等浏览器原生发起的流量一律拦不到。
+- **同步 XHR（`open(..., false)`）也拦不到**：该通道的处理全是异步的，而同步 XHR 要求 `send` 返回时响应已就绪，因此一律原样放行——fail-open，宁可规则不生效也不破坏页面。
 - 因此「改请求体」「JS 写响应」「Mock」「延迟」只能走页面补丁通道，这个边界要在文档站显式写清楚，否则用户会当成 bug 提。
 
 ## 一、核心能力（执行通道与动作）
@@ -49,8 +50,11 @@ flowchart LR
 
 - [x] ~~**P1 · 用 JS 动态生成响应**~~ — `MockResponseMode` 支持静态响应体与 JavaScript 动态生成；动态函数可用 `req` 的 URL、方法、请求头、查询参数与请求体（含可选 JSON 解析），支持 `return` / `await`，fetch 与 XHR 均由 MAIN world 拦截执行，文档明确仅应运行可信代码的安全边界。
 
+- [x] ~~**P1 · 基于真实响应改写（Mock 包装模式）**~~ — `MockResponseAction` 新增可选 `passthrough`（仅 `MockResponseMode.Dynamic` 可开）。关闭时保持既有短路语义（不发真实请求）；开启时切换为包装语义：先发出真实请求（同规则的改请求体先生效），把真实响应以 `res` 快照（`status` / `statusText` / `ok` / `headers` / `body` / `json`）连同 `req` 一起交给动态函数，用返回值替换响应体，状态码与响应头一律沿用真实响应；函数不返回值或抛异常时保留真实响应体。XHR 侧页面持有的实例全程不 `send`，真实请求由影子实例（`originalOpen` / `originalSend`）承载，避免原生同步事件抢在异步函数之前交付响应；不透明响应（`no-cors`）原样放行。文档见 [基于真实响应改写](apps/docs/docs/guide/features/mock.md#基于真实响应改写)。
+
 - [ ] **P2 · `ReplaceString` 字符串替换**
   - 对 URL / 查询串做动态替换，不改源码。XSwitch 的常用姿势。
+  - URL / 查询串部分已被 `Redirect` 的正则替换与 `InjectParams` 覆盖，实际增量只是语法糖；响应体侧的局部替换已由上面的「基于真实响应改写」承接。
 
 - [ ] **P2 · `ModifyUserAgent` UA 切换**
   - 本质是 `ModifyHeaders` 的预设特化，成本低，可作为语法糖实现。
@@ -83,11 +87,6 @@ flowchart LR
 - [x] ~~**P1 · cURL / HAR 导入生成规则**~~ — cURL 以安全解析方式提取 URL、方法与 GraphQL 操作，选择 Redirect / Mock 后进入原有单条编辑器补齐配置；HAR 读取 Fetch / XHR 文本响应，批量生成静态 Mock，支持统一选择分组、逐条选择、手风琴编辑、重复请求提示与安全停用策略。两者复用统一 `Rule` 模型和校验，但以追加方式保存，不会触发现有配置导入的整体替换语义。XHR Mock 同步补齐响应头 API、状态说明、响应 URL 与常见 `responseType`。文档见 [从 cURL / HAR 创建规则](apps/docs/docs/guide/features/curl-har-import.md)。
 
 - [x] ~~**P1 · 内嵌代码编辑器（CodeMirror 6）**~~ — 封装 `components/ui/code-editor`，支持 JSON / JavaScript / CSS 的语法高亮、行号、括号匹配、缩进与格式化，按语言 tree-shake（`@codemirror/lang-*`）以适配 MV3 CSP；`MockResponse.body` 已切换为 JSON 编辑器，后续规则类型复用。若将来需 Monaco 级补全再单独评估。
-
-- [ ] **P2 · JSONC 配置模式**
-  - XSwitch 的核心产品决策：不做表单化 UI，而是一大段可注释、可 diff、可粘贴分享的配置文本。
-  - 对开发者向工具很受欢迎。建议作为现有表单编辑器之外的**「高级模式」并存**，而非替换。
-  - 复用上面的内嵌代码编辑器（`language="json"`，配 JSONC 解析）。
 
 - [ ] **P2 · 随机 Mock 数据生成器**
   - tweak 的付费点。配合动态变量一起做，边际成本低。
@@ -158,6 +157,14 @@ WXT 本身支持多浏览器打包（`wxt build -b firefox / edge / safari`）�
 Resource Override 因未升级 MV3 已经停止维护，用户正在外流寻找替代品。我们用 WXT + MV3 起步，正好接得住这波需求——**优先补齐 `InsertScript` 性价比最高**。Resource Override 的另一核心 `MapLocal` 在 MV3 下已无法完整实现（见[附录](#附录已否决的能力)），改用「Redirect 到本地服务」承接。
 
 ## 附录：已否决的能力
+
+- **JSONC 配置模式 — 不做**
+  - 原设想：对标 XSwitch，提供一大段可注释、可 diff、可粘贴分享的配置文本，作为表单编辑器之外的「高级模式」并存。
+  - 否决理由：
+    - **核心诉求已被现有能力覆盖**。「整份配置可粘贴、可 diff、可分享」由[导入 / 导出配置](apps/docs/docs/guide/import-export.md)承担，导出的就是完整 JSON；真正的增量只剩「能写注释」，不值得为此再开一条编辑通道。
+    - **双份数据源的持续成本**。注释在「文本 → 对象 → 再序列化」的往返中必然丢失，要保真就得把 JSONC 原文与结构化 `groups` 一起持久化，并长期维护两者的同步与冲突提示；后续每加一个规则字段都要同时照顾表单和文本两侧。
+    - **表单改动后注释仍会丢**。除非把每次表单编辑都映射成 JSON path 增量改写，否则「改了表单、注释没了」会是常态——这正是该模式最主要的卖点失效的地方。
+  - 替代方案：需要注释与版本管理的用户，导出 JSON 后在自己的仓库里维护，再导入回来。
 
 - **`MapLocal` 映射本地文件 — 不做**（技术验证：[docs/spike-maplocal.md](docs/spike-maplocal.md)）
   - 验证后否决。拆开看，能做的部分已被现有能力覆盖，不能做的部分正是 MV3 的硬约束：
