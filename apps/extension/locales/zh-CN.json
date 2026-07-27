@@ -66,6 +66,8 @@
     "invalidActionType": "规则「{{ruleId}}」的动作类型不合法。",
     "actionChannelMismatch": "规则「{{ruleId}}」的动作与执行通道不匹配。",
     "invalidMockConfig": "规则「{{ruleId}}」的 Mock 配置不合法。",
+    "invalidMockPassthrough": "规则「{{ruleId}}」的「基于真实响应」开关必须是布尔值。",
+    "mockPassthroughRequiresDynamic": "规则「{{ruleId}}」的「基于真实响应」仅在动态 Mock 模式下可用。",
     "dynamicMockFunctionRequired": "规则「{{ruleId}}」的动态 Mock 函数不能为空。",
     "invalidThrottlePreset": "规则「{{ruleId}}」的限速档位不合法。",
     "invalidInsertScriptConfig": "规则「{{ruleId}}」的注入配置不合法。",
@@ -145,6 +147,7 @@
       "empty": "（空）",
       "modifyHeaders": "改写 Header：{{count}} 项",
       "mockResponse": "Mock 返回 HTTP {{statusCode}}",
+      "mockResponsePassthrough": "Mock 改写真实响应",
       "delay": "限速：{{preset}}",
       "modifyRequestBody": "改请求体（{{sourceMode}}）",
       "insertScript": "注入 {{codeType}}（{{timing}}）"
@@ -208,7 +211,10 @@
     "mockActionEditor": {
       "bodyTypeAriaLabel": "响应体类型",
       "invalidJsonHint": "响应体不是合法 JSON；若要返回其他格式，请切换上方「响应体类型」。",
-      "dynamicHint": "动态代码可读取 req.url、req.method、req.headers、req.query、req.body、req.json。"
+      "dynamicHint": "动态代码可读取 req.url、req.method、req.headers、req.query、req.body、req.json。",
+      "passthroughLabel": "基于真实响应",
+      "passthroughHint": "先发出真实请求，再由函数改写响应体；状态码与响应头沿用真实响应。",
+      "passthroughFunctionHint": "动态代码可读取 req.*，以及 res.status、res.ok、res.headers、res.body、res.json；不返回值表示保留真实响应。"
     },
     "delayActionEditor": {
       "preset": "网络档位",
@@ -356,6 +362,9 @@
     "title": "查看可用的动态变量",
     "trigger": "变量",
     "hint": "在取值字段里用占位符引用；点击复制。页面补丁通道逐请求求值，网络层（DNR）在规则同步时求值一次。"
+  },
+  "infoHint": {
+    "trigger": "说明"
   },
   "dialog": {
     "close": "关闭"

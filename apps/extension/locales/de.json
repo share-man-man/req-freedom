@@ -87,6 +87,8 @@
     "invalidActionType": "Regel „{{ruleId}}“ hat einen ungültigen Aktionstyp.",
     "actionChannelMismatch": "Die Aktion von „{{ruleId}}“ passt nicht zum Ausführungskanal.",
     "invalidMockConfig": "Regel „{{ruleId}}“ hat eine ungültige Mock-Konfiguration.",
+    "invalidMockPassthrough": "Der Schalter „Echte Antwort verwenden“ der Regel „{{ruleId}}“ muss ein boolescher Wert sein.",
+    "mockPassthroughRequiresDynamic": "Der Schalter „Echte Antwort verwenden“ der Regel „{{ruleId}}“ ist nur im dynamischen Mock-Modus verfügbar.",
     "dynamicMockFunctionRequired": "Die dynamische Mock-Funktion von „{{ruleId}}“ darf nicht leer sein.",
     "invalidThrottlePreset": "Regel „{{ruleId}}“ hat ein ungültiges Drosselungsprofil.",
     "invalidInsertScriptConfig": "Regel „{{ruleId}}“ hat eine ungültige Skript-Konfiguration.",
@@ -166,6 +168,7 @@
       "empty": "(leer)",
       "modifyHeaders": "Header ändern: {{count}} Eintrag/Einträge",
       "mockResponse": "Mock gibt HTTP {{statusCode}} zurück",
+      "mockResponsePassthrough": "Mock schreibt die echte Antwort um",
       "delay": "Drosselung: {{preset}}",
       "modifyRequestBody": "Body ändern ({{sourceMode}})",
       "insertScript": "{{codeType}} einfügen ({{timing}})"
@@ -229,7 +232,10 @@
     "mockActionEditor": {
       "bodyTypeAriaLabel": "Response-Body-Typ",
       "invalidJsonHint": "Der Response-Body ist kein gültiges JSON; für andere Formate oben den „Body-Typ“ ändern.",
-      "dynamicHint": "Die dynamische Funktion kann req.url, req.method, req.headers, req.query, req.body und req.json lesen."
+      "dynamicHint": "Die dynamische Funktion kann req.url, req.method, req.headers, req.query, req.body und req.json lesen.",
+      "passthroughLabel": "Echte Antwort verwenden",
+      "passthroughHint": "Sendet zuerst die echte Anfrage und schreibt deren Body in der Funktion um. Statuscode und Header stammen aus der echten Antwort.",
+      "passthroughFunctionHint": "Die Funktion erhält req.* sowie res.status, res.ok, res.headers, res.body und res.json. Kein Rückgabewert behält die echte Antwort bei."
     },
     "delayActionEditor": {
       "preset": "Netzwerkprofil",
@@ -377,6 +383,9 @@
     "title": "Verfügbare dynamische Variablen anzeigen",
     "trigger": "Variablen",
     "hint": "Diese Platzhalter in Wertfeldern verwenden und zum Kopieren anklicken. Seiten-Patch wertet pro Anfrage aus, DNR einmal beim Synchronisieren."
+  },
+  "infoHint": {
+    "trigger": "Weitere Informationen"
   },
   "dialog": {
     "close": "Schließen"

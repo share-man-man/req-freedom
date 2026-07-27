@@ -98,6 +98,15 @@ export interface MockResponseAction {
   body: string;
   /** 动态模式下的 JavaScript 函数体；可使用 req 入参并返回任意响应值 */
   functionCode?: string;
+  /**
+   * 是否先发出真实请求，再把真实响应交给动态函数改写（「基于真实响应」模式）。
+   *
+   * 缺省或 false 时 Mock 是短路的：不产生任何真实网络请求，响应完全由规则构造。
+   * 置为 true 时改为包装语义，动态函数额外获得 `res` 快照，状态码与响应头一律沿用真实响应，
+   * 规则自身的 `statusCode` / `statusText` / `responseHeaders` 不再参与。
+   * 仅 `MockResponseMode.Dynamic` 有效——静态模式下发真实请求再整体丢弃没有意义。
+   */
+  passthrough?: boolean;
   /** 返回前的额外延迟（毫秒） */
   delayMs?: number;
 }

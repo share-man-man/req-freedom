@@ -66,6 +66,8 @@
     "invalidActionType": "ルール「{{ruleId}}」のアクション種別が無効です。",
     "actionChannelMismatch": "ルール「{{ruleId}}」のアクションが実行チャネルと一致しません。",
     "invalidMockConfig": "ルール「{{ruleId}}」のモック設定が無効です。",
+    "invalidMockPassthrough": "ルール「{{ruleId}}」の「実際のレスポンスを利用」は真偽値である必要があります。",
+    "mockPassthroughRequiresDynamic": "ルール「{{ruleId}}」の「実際のレスポンスを利用」は動的 Mock モードでのみ使用できます。",
     "dynamicMockFunctionRequired": "ルール「{{ruleId}}」の動的モック関数は空にできません。",
     "invalidThrottlePreset": "ルール「{{ruleId}}」の帯域制限プリセットが無効です。",
     "invalidInsertScriptConfig": "ルール「{{ruleId}}」のスクリプト注入設定が無効です。",
@@ -145,6 +147,7 @@
       "empty": "（空）",
       "modifyHeaders": "ヘッダー変更：{{count}} 件",
       "mockResponse": "モックで HTTP {{statusCode}} を返す",
+      "mockResponsePassthrough": "Mock が実際のレスポンスを書き換え",
       "delay": "帯域制限：{{preset}}",
       "modifyRequestBody": "ボディ変更（{{sourceMode}}）",
       "insertScript": "{{codeType}} を注入（{{timing}}）"
@@ -208,7 +211,10 @@
     "mockActionEditor": {
       "bodyTypeAriaLabel": "レスポンスボディの種類",
       "invalidJsonHint": "レスポンスボディが有効な JSON ではありません。別形式を返す場合は上の「ボディの種類」を変更してください。",
-      "dynamicHint": "動的関数では req.url、req.method、req.headers、req.query、req.body、req.json を参照できます。"
+      "dynamicHint": "動的関数では req.url、req.method、req.headers、req.query、req.body、req.json を参照できます。",
+      "passthroughLabel": "実際のレスポンスを利用",
+      "passthroughHint": "先に実際のリクエストを送信し、関数でレスポンスボディを書き換えます。ステータスコードとヘッダーは実際のレスポンスを引き継ぎます。",
+      "passthroughFunctionHint": "関数では req.* に加えて res.status、res.ok、res.headers、res.body、res.json を参照できます。値を返さない場合は実際のレスポンスが保持されます。"
     },
     "delayActionEditor": {
       "preset": "ネットワークプリセット",
@@ -301,6 +307,9 @@
     "title": "利用可能な動的変数を表示",
     "trigger": "変数",
     "hint": "値フィールドでこれらのプレースホルダーを参照し、クリックしてコピーできます。ページパッチはリクエストごと、ネットワーク層（DNR）はルール同期時に一度評価します。"
+  },
+  "infoHint": {
+    "trigger": "説明"
   },
   "dialog": {
     "close": "閉じる"

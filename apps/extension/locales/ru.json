@@ -87,6 +87,8 @@
     "invalidActionType": "У правила «{{ruleId}}» недопустимый тип действия.",
     "actionChannelMismatch": "Действие правила «{{ruleId}}» не соответствует каналу выполнения.",
     "invalidMockConfig": "У правила «{{ruleId}}» недопустимая конфигурация Mock.",
+    "invalidMockPassthrough": "Переключатель «использовать реальный ответ» правила «{{ruleId}}» должен быть логическим значением.",
+    "mockPassthroughRequiresDynamic": "Переключатель «использовать реальный ответ» правила «{{ruleId}}» доступен только в режиме динамического Mock.",
     "dynamicMockFunctionRequired": "Динамическая функция Mock правила «{{ruleId}}» не может быть пустой.",
     "invalidThrottlePreset": "У правила «{{ruleId}}» недопустимый профиль ограничения.",
     "invalidInsertScriptConfig": "У правила «{{ruleId}}» недопустимая конфигурация внедрения скрипта.",
@@ -166,6 +168,7 @@
       "empty": "(пусто)",
       "modifyHeaders": "Изменить заголовки: {{count}}",
       "mockResponse": "Mock возвращает HTTP {{statusCode}}",
+      "mockResponsePassthrough": "Mock переписывает реальный ответ",
       "delay": "Ограничение: {{preset}}",
       "modifyRequestBody": "Изменить тело ({{sourceMode}})",
       "insertScript": "Внедрить {{codeType}} ({{timing}})"
@@ -229,7 +232,10 @@
     "mockActionEditor": {
       "bodyTypeAriaLabel": "Тип тела ответа",
       "invalidJsonHint": "Тело ответа не является допустимым JSON; для другого формата измените «Тип тела» выше.",
-      "dynamicHint": "Динамическая функция может читать req.url, req.method, req.headers, req.query, req.body и req.json."
+      "dynamicHint": "Динамическая функция может читать req.url, req.method, req.headers, req.query, req.body и req.json.",
+      "passthroughLabel": "Использовать реальный ответ",
+      "passthroughHint": "Сначала отправляет реальный запрос, затем функция переписывает тело ответа. Код статуса и заголовки берутся из реального ответа.",
+      "passthroughFunctionHint": "Функция получает req.*, а также res.status, res.ok, res.headers, res.body и res.json. Если ничего не возвращать, реальный ответ сохраняется."
     },
     "delayActionEditor": {
       "preset": "Профиль сети",
@@ -322,6 +328,9 @@
     "title": "Показать доступные динамические переменные",
     "trigger": "Переменные",
     "hint": "Используйте заполнители в полях значений и нажмите для копирования. Патч вычисляет их для каждого запроса, DNR — при синхронизации."
+  },
+  "infoHint": {
+    "trigger": "Подробнее"
   },
   "dialog": {
     "close": "Закрыть"

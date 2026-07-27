@@ -66,6 +66,8 @@
     "invalidActionType": "La regla «{{ruleId}}» tiene un tipo de acción no válido.",
     "actionChannelMismatch": "La acción de la regla «{{ruleId}}» no coincide con su canal de ejecución.",
     "invalidMockConfig": "La regla «{{ruleId}}» tiene una configuración de simulación no válida.",
+    "invalidMockPassthrough": "El interruptor «usar la respuesta real» de la regla «{{ruleId}}» debe ser un booleano.",
+    "mockPassthroughRequiresDynamic": "El interruptor «usar la respuesta real» de la regla «{{ruleId}}» solo está disponible en el modo de mock dinámico.",
     "dynamicMockFunctionRequired": "La función de simulación dinámica de la regla «{{ruleId}}» no puede estar vacía.",
     "invalidThrottlePreset": "La regla «{{ruleId}}» tiene un ajuste de limitación no válido.",
     "invalidInsertScriptConfig": "La regla «{{ruleId}}» tiene una configuración de inyección de scripts no válida.",
@@ -145,6 +147,7 @@
       "empty": "(vacío)",
       "modifyHeaders": "Modificar encabezados: {{count}} elemento(s)",
       "mockResponse": "Simulación devuelve HTTP {{statusCode}}",
+      "mockResponsePassthrough": "El mock reescribe la respuesta real",
       "delay": "Limitación: {{preset}}",
       "modifyRequestBody": "Modificar cuerpo ({{sourceMode}})",
       "insertScript": "Inyectar {{codeType}} ({{timing}})"
@@ -208,7 +211,10 @@
     "mockActionEditor": {
       "bodyTypeAriaLabel": "Tipo de cuerpo de respuesta",
       "invalidJsonHint": "El cuerpo no contiene JSON válido; para devolver otro formato, cambia el «Tipo de cuerpo» de arriba.",
-      "dynamicHint": "La función dinámica puede leer req.url, req.method, req.headers, req.query, req.body y req.json."
+      "dynamicHint": "La función dinámica puede leer req.url, req.method, req.headers, req.query, req.body y req.json.",
+      "passthroughLabel": "Usar la respuesta real",
+      "passthroughHint": "Envía primero la petición real y reescribe su cuerpo en la función. El código de estado y las cabeceras provienen de la respuesta real.",
+      "passthroughFunctionHint": "La función recibe req.* junto con res.status, res.ok, res.headers, res.body y res.json. No devolver nada conserva la respuesta real."
     },
     "delayActionEditor": {
       "preset": "Perfil de red",
@@ -356,6 +362,9 @@
     "title": "Ver variables dinámicas disponibles",
     "trigger": "Variables",
     "hint": "Usa estos marcadores en los campos de valor y haz clic para copiarlos. El canal de parche evalúa cada solicitud; la capa de red (DNR), una vez al sincronizar."
+  },
+  "infoHint": {
+    "trigger": "Más información"
   },
   "dialog": {
     "close": "Cerrar"

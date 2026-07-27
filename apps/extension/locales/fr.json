@@ -87,6 +87,8 @@
     "invalidActionType": "La règle « {{ruleId}} » utilise un type d’action invalide.",
     "actionChannelMismatch": "L’action de « {{ruleId}} » ne correspond pas à son canal.",
     "invalidMockConfig": "La règle « {{ruleId}} » contient une configuration de mock invalide.",
+    "invalidMockPassthrough": "L'option « utiliser la réponse réelle » de la règle « {{ruleId}} » doit être un booléen.",
+    "mockPassthroughRequiresDynamic": "L'option « utiliser la réponse réelle » de la règle « {{ruleId}} » n'est disponible qu'en mode mock dynamique.",
     "dynamicMockFunctionRequired": "La fonction de mock dynamique de « {{ruleId}} » ne peut pas être vide.",
     "invalidThrottlePreset": "La règle « {{ruleId}} » utilise un profil de limitation invalide.",
     "invalidInsertScriptConfig": "La règle « {{ruleId}} » contient une configuration d’injection invalide.",
@@ -166,6 +168,7 @@
       "empty": "(vide)",
       "modifyHeaders": "Modifier les en-têtes : {{count}} élément(s)",
       "mockResponse": "Le mock renvoie HTTP {{statusCode}}",
+      "mockResponsePassthrough": "Le mock réécrit la réponse réelle",
       "delay": "Limitation : {{preset}}",
       "modifyRequestBody": "Modifier le corps ({{sourceMode}})",
       "insertScript": "Injecter {{codeType}} ({{timing}})"
@@ -229,7 +232,10 @@
     "mockActionEditor": {
       "bodyTypeAriaLabel": "Type du corps de réponse",
       "invalidJsonHint": "Le corps n’est pas un JSON valide ; pour un autre format, changez le « Type du corps » ci-dessus.",
-      "dynamicHint": "La fonction dynamique peut lire req.url, req.method, req.headers, req.query, req.body et req.json."
+      "dynamicHint": "La fonction dynamique peut lire req.url, req.method, req.headers, req.query, req.body et req.json.",
+      "passthroughLabel": "Utiliser la réponse réelle",
+      "passthroughHint": "Envoie d'abord la requête réelle, puis réécrit son corps dans la fonction. Le code de statut et les en-têtes proviennent de la réponse réelle.",
+      "passthroughFunctionHint": "La fonction reçoit req.* ainsi que res.status, res.ok, res.headers, res.body et res.json. Ne rien renvoyer conserve la réponse réelle."
     },
     "delayActionEditor": {
       "preset": "Profil réseau",
@@ -377,6 +383,9 @@
     "title": "Voir les variables dynamiques disponibles",
     "trigger": "Variables",
     "hint": "Utilisez ces espaces réservés dans les valeurs et cliquez pour copier. Le patch les évalue à chaque requête ; DNR, une fois à la synchronisation."
+  },
+  "infoHint": {
+    "trigger": "Plus d'informations"
   },
   "dialog": {
     "close": "Fermer"

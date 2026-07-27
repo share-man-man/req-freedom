@@ -87,6 +87,8 @@
     "invalidActionType": "A regra \"{{ruleId}}\" tem um tipo de ação inválido.",
     "actionChannelMismatch": "A ação da regra \"{{ruleId}}\" não corresponde ao canal de execução.",
     "invalidMockConfig": "A regra \"{{ruleId}}\" tem uma configuração de mock inválida.",
+    "invalidMockPassthrough": "A opção \"usar a resposta real\" da regra \"{{ruleId}}\" deve ser um booleano.",
+    "mockPassthroughRequiresDynamic": "A opção \"usar a resposta real\" da regra \"{{ruleId}}\" só está disponível no modo de mock dinâmico.",
     "dynamicMockFunctionRequired": "A função de mock dinâmico da regra \"{{ruleId}}\" não pode ficar vazia.",
     "invalidThrottlePreset": "A regra \"{{ruleId}}\" tem um perfil de limitação inválido.",
     "invalidInsertScriptConfig": "A regra \"{{ruleId}}\" tem uma configuração de injeção de script inválida.",
@@ -166,6 +168,7 @@
       "empty": "(vazio)",
       "modifyHeaders": "Alterar cabeçalhos: {{count}} item(ns)",
       "mockResponse": "Mock retorna HTTP {{statusCode}}",
+      "mockResponsePassthrough": "O mock reescreve a resposta real",
       "delay": "Limitação: {{preset}}",
       "modifyRequestBody": "Alterar corpo ({{sourceMode}})",
       "insertScript": "Inserir {{codeType}} ({{timing}})"
@@ -229,7 +232,10 @@
     "mockActionEditor": {
       "bodyTypeAriaLabel": "Tipo do corpo da resposta",
       "invalidJsonHint": "O corpo não é um JSON válido; para outro formato, altere o \"Tipo do corpo\" acima.",
-      "dynamicHint": "A função dinâmica pode ler req.url, req.method, req.headers, req.query, req.body e req.json."
+      "dynamicHint": "A função dinâmica pode ler req.url, req.method, req.headers, req.query, req.body e req.json.",
+      "passthroughLabel": "Usar a resposta real",
+      "passthroughHint": "Envia primeiro a requisição real e reescreve o corpo na função. O código de status e os cabeçalhos vêm da resposta real.",
+      "passthroughFunctionHint": "A função recebe req.* e também res.status, res.ok, res.headers, res.body e res.json. Não retornar nada mantém a resposta real."
     },
     "delayActionEditor": {
       "preset": "Perfil de rede",
@@ -322,6 +328,9 @@
     "title": "Ver variáveis dinâmicas disponíveis",
     "trigger": "Variáveis",
     "hint": "Use estes placeholders nos campos de valor e clique para copiar. O patch avalia por requisição; a camada DNR, uma vez ao sincronizar."
+  },
+  "infoHint": {
+    "trigger": "Mais informações"
   },
   "dialog": {
     "close": "Fechar"

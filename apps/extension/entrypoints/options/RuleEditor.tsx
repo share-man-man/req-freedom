@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { browser } from 'wxt/browser';
-import { Check, CheckCircle2, ChevronDown, FlaskConical, Info, RefreshCw, Trash2, XCircle } from 'lucide-react';
+import { Check, CheckCircle2, ChevronDown, FlaskConical, RefreshCw, Trash2, XCircle } from 'lucide-react';
 import type { ReactNode, Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
@@ -14,6 +14,7 @@ import {
   DEFAULT_MOCK_RESPONSE_MODE,
   DEFAULT_MOCK_STATUS,
   DEFAULT_NETWORK_THROTTLE_PRESET,
+  DEFAULT_PASSTHROUGH_MOCK_FUNCTION_CODE,
   DEFAULT_REQUEST_BODY_SOURCE_MODE,
   HeaderOperation,
   HeaderTarget,
@@ -39,8 +40,10 @@ import { DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { CodeEditor, type CodeEditorLanguage } from '@/components/ui/code-editor';
 import { DynamicVariableHint } from '@/components/ui/dynamic-variable-hint';
+import { InfoHint } from '@/components/ui/info-hint';
 import HeadersEditor from './HeadersEditor';
 import KeyValueEditor from './KeyValueEditor';
 import { getLabels } from '@/utils/labels';
@@ -179,7 +182,10 @@ function describeAction(t: TFunction, action: RuleAction): string {
       return t('ruleEditor.describeAction.injectParams', { params: pairs.length ? pairs.join('&') : t('ruleEditor.describeAction.empty') });
     }
     case RuleActionType.ModifyHeaders: return t('ruleEditor.describeAction.modifyHeaders', { count: action.headers.length });
-    case RuleActionType.MockResponse: return t('ruleEditor.describeAction.mockResponse', { statusCode: action.statusCode });
+    // 基于真实响应时状态码来自服务端，摘要里再展示规则内的状态码会误导
+    case RuleActionType.MockResponse: return action.passthrough === true
+      ? t('ruleEditor.describeAction.mockResponsePassthrough')
+      : t('ruleEditor.describeAction.mockResponse', { statusCode: action.statusCode });
     case RuleActionType.Delay: return t('ruleEditor.describeAction.delay', { preset: labels.NETWORK_THROTTLE_PRESET_LABELS[action.throttlePreset] });
     case RuleActionType.ModifyRequestBody: return t('ruleEditor.describeAction.modifyRequestBody', { sourceMode: labels.REQUEST_BODY_SOURCE_MODE_LABELS[action.sourceMode] });
     case RuleActionType.InsertScript: return t('ruleEditor.describeAction.insertScript', { codeType: labels.INSERT_SCRIPT_CODE_TYPE_LABELS[action.codeType], timing: labels.INSERT_SCRIPT_TIMING_LABELS[action.timing] });
@@ -744,20 +750,21 @@ function ActionWorkbench({ draft, focusedType, channelTab, onChannelTab, onToggl
         const activeTab = group.channel === channelTab;
         /** 选中动作落在「另一个（非当前）」通道时，用小圆点提示选择在别的 tab。 */
         const hasSelection = !activeTab && draft.actions.length > 0 && draft.channel === group.channel;
-        return <button key={group.channel} type="button" onClick={() => onChannelTab(group.channel)} className={`relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${activeTab ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-          {group.title}
-          {/* 通道说明 + 组合约束：文字右侧 info 图标，悬停浮出气泡 */}
-          <span className="group/hint relative inline-flex">
-            <Info className="size-3 text-muted-foreground" />
-            <span className="pointer-events-none absolute left-0 top-full z-50 mt-1.5 w-64 space-y-1 rounded-md border border-border bg-popover px-2.5 py-1.5 text-left text-[11px] font-normal leading-snug text-popover-foreground opacity-0 shadow-md transition-opacity group-hover/hint:opacity-100">
-              <span className="block">{group.hint}</span>
-              <span className="block text-muted-foreground">{group.note}</span>
-            </span>
-          </span>
+        // 说明气泡的触发器是按钮，不能嵌在 tab 按钮内，故把 tab 拆成「切换按钮 + 气泡」两个兄弟节点，
+        // 外层 div 承载原来的行布局与底部下划线；左内边距留在按钮上，保证标题周围仍可点击切换。
+        return <div key={group.channel} className="relative flex items-center gap-1.5 pr-3">
+          <button type="button" onClick={() => onChannelTab(group.channel)} className={`py-1.5 pl-3 text-xs font-medium transition-colors ${activeTab ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+            {group.title}
+          </button>
+          {/* 通道说明 + 组合约束：文字右侧 info 图标，悬停或聚焦浮出气泡 */}
+          <InfoHint contentClassName="space-y-1">
+            <span className="block">{group.hint}</span>
+            <span className="block text-muted-foreground">{group.note}</span>
+          </InfoHint>
           {hasSelection && <span className="size-1.5 rounded-full bg-primary" />}
           {/* 当前 tab 的底部下划线，压在面板顶边上 */}
           {activeTab && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-primary" />}
-        </button>;
+        </div>;
       })}
     </div>
     {/* 双栏：左列该通道动作清单（选择器 + master），右列聚焦动作配置（detail） */}
@@ -771,7 +778,7 @@ function ActionWorkbench({ draft, focusedType, channelTab, onChannelTab, onToggl
             const active = type === activeType;
             /** 该动作是否存在校验错误。 */
             const hasError = errorField === actionFieldKey(type);
-            // 行本身不能嵌套按钮，故拆成「主区按钮 + 删除按钮」两个兄弟节点，外层 div 承载选中/悬停底色
+            // 行本身不能嵌套按钮，故拆成「主区按钮 + 说明气泡 + 删除按钮」三个兄弟节点，外层 div 承载选中/悬停底色
             return <div key={type} className={`group flex items-center rounded-md pr-1 transition-colors ${active ? 'bg-primary/10' : 'hover:bg-muted/50'}`}>
               {/* 主区：未选中 → 勾选并聚焦（onToggle 内部会聚焦）；已选中 → 仅切换聚焦 */}
               <button type="button" onClick={() => selectedAction ? onFocus(type) : onToggle(type)} className="flex min-w-0 flex-1 items-center gap-1.5 px-2.5 py-1.5 text-left">
@@ -779,14 +786,11 @@ function ActionWorkbench({ draft, focusedType, channelTab, onChannelTab, onToggl
                   ? <span className="size-1.5 shrink-0 rounded-full bg-destructive" />
                   : <Check className={`size-3.5 shrink-0 ${selectedAction ? 'text-primary' : 'text-transparent'}`} />}
                 <span className={`truncate text-sm font-medium ${selectedAction ? 'text-foreground' : 'text-muted-foreground'}`}>{labels.RULE_ACTION_TYPE_LABELS[type]}</span>
-                {/* 动作说明移入 hover 气泡：默认展示动作用途，已选时展示当前配置预览 */}
-                <span className="group/desc relative inline-flex shrink-0">
-                  <Info className="size-3 text-muted-foreground" />
-                  <span className="pointer-events-none absolute left-0 top-full z-50 mt-1.5 w-56 rounded-md border border-border bg-popover px-2.5 py-1.5 text-left text-[11px] font-normal leading-snug text-popover-foreground opacity-0 shadow-md transition-opacity group-hover/desc:opacity-100">
-                    {selectedAction ? describeAction(t, selectedAction) : actionDescriptions[type]}
-                  </span>
-                </span>
               </button>
+              {/* 动作说明移入气泡：默认展示动作用途，已选时展示当前配置预览 */}
+              <InfoHint className="shrink-0" contentClassName="w-56">
+                {selectedAction ? describeAction(t, selectedAction) : actionDescriptions[type]}
+              </InfoHint>
               {/* 删除入口：仅已选动作可删；聚焦行常显，其余行悬停浮现 */}
               {selectedAction && (
                 <button type="button" title={t('ruleEditor.deleteAction', { actionLabel: labels.RULE_ACTION_TYPE_LABELS[type] })} onClick={() => onRemove(type)} className={`shrink-0 rounded p-1 text-muted-foreground transition-opacity hover:text-destructive ${active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
@@ -1103,6 +1107,26 @@ function ActionEditor({ action, onChange, error, innerRef }: ActionEditorProps) 
 }
 
 /** Mock 参数编辑器。 */
+/**
+ * 切换「基于真实响应」时同步替换仍是预填示例的函数代码。
+ *
+ * 两种模式的示例函数签名不同（`(req)` 与 `(req, res)`），保持预填示例与开关一致能少一次手改；
+ * 用户已改过代码时原样保留，绝不覆盖用户输入。
+ * @param functionCode 当前的动态函数代码
+ * @param passthrough 切换后是否为「基于真实响应」
+ * @returns 应写入规则的函数代码
+ */
+function swapDefaultMockFunctionCode(functionCode: string | undefined, passthrough: boolean): string | undefined {
+  if (passthrough && functionCode === DEFAULT_DYNAMIC_MOCK_FUNCTION_CODE) {
+    return DEFAULT_PASSTHROUGH_MOCK_FUNCTION_CODE;
+  }
+  if (!passthrough && functionCode === DEFAULT_PASSTHROUGH_MOCK_FUNCTION_CODE) {
+    return DEFAULT_DYNAMIC_MOCK_FUNCTION_CODE;
+  }
+  return functionCode;
+}
+
+/** Mock 动作编辑器。 */
 function MockActionEditor({ action, onChange }: { action: Extract<RuleAction, { type: RuleActionType.MockResponse }>; onChange: (action: RuleAction) => void; }) {
   const { t } = useTranslation();
   /** 各枚举展示名映射。 */
@@ -1115,11 +1139,24 @@ function MockActionEditor({ action, onChange }: { action: Extract<RuleAction, { 
   const invalidJsonBody = isStatic && bodyType === MockBodyType.Json && action.body.trim().length > 0 && !isValidJson(action.body);
   /** 编辑器高亮语言：动态模式为 JS；静态模式按响应体类型映射（HTML/XML/文本回退纯文本）。 */
   const editorLanguage: CodeEditorLanguage = isStatic ? MOCK_BODY_TYPE_EDITOR_LANGUAGE[bodyType] : 'javascript';
+  /** 是否已开启「基于真实响应」：此时状态码与响应头沿用真实响应，规则内的配置不再参与。 */
+  const isPassthrough = action.passthrough === true;
   return <div className="space-y-3">
     <div className="grid grid-cols-2 gap-3">
-      <Select value={action.mode} onValueChange={(value) => onChange({ ...action, mode: value as MockResponseMode })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(MockResponseMode).map((mode) => <SelectItem key={mode} value={mode}>{labels.MOCK_RESPONSE_MODE_LABELS[mode]}</SelectItem>)}</SelectContent></Select>
-      <Input type="number" value={action.statusCode} onChange={(event) => onChange({ ...action, statusCode: Number(event.target.value) })} />
+      {/* 切回静态模式时必须清掉 passthrough：静态模式没有 res 入参，残留该字段会让导入校验直接判失败 */}
+      <Select value={action.mode} onValueChange={(value) => onChange(value === MockResponseMode.Static ? { ...action, mode: value as MockResponseMode, passthrough: undefined } : { ...action, mode: value as MockResponseMode })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(MockResponseMode).map((mode) => <SelectItem key={mode} value={mode}>{labels.MOCK_RESPONSE_MODE_LABELS[mode]}</SelectItem>)}</SelectContent></Select>
+      {/* 基于真实响应时状态码来自服务端，隐藏输入框避免用户以为填了会生效 */}
+      {!isPassthrough && <Input type="number" value={action.statusCode} onChange={(event) => onChange({ ...action, statusCode: Number(event.target.value) })} />}
     </div>
+    {/* 「基于真实响应」只在动态模式可用：静态模式发一次真实请求再整体丢弃没有意义 */}
+    {!isStatic && <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/40 px-3 py-2">
+      <Label className="flex items-center gap-1.5 text-xs font-medium" htmlFor="mock-passthrough">
+        {t('ruleEditor.mockActionEditor.passthroughLabel')}
+        {/* 开关语义一句话说不完，收进 info 图标的悬停气泡，避免长文案把这一行撑高 */}
+        <InfoHint>{t('ruleEditor.mockActionEditor.passthroughHint')}</InfoHint>
+      </Label>
+      <Switch id="mock-passthrough" checked={isPassthrough} onCheckedChange={(checked) => onChange({ ...action, passthrough: checked ? true : undefined, functionCode: swapDefaultMockFunctionCode(action.functionCode, checked) })} />
+    </div>}
     {/* 静态模式：把响应体类型下拉塞进编辑器左上角（替代语言名标签），切换后同步驱动高亮与交付时的 Content-Type */}
     <CodeEditor
       language={editorLanguage}
@@ -1134,7 +1171,7 @@ function MockActionEditor({ action, onChange }: { action: Extract<RuleAction, { 
       headerEnd={isStatic ? <DynamicVariableHint /> : undefined}
     />
     {invalidJsonBody && <p className="text-xs text-warning">{t('ruleEditor.mockActionEditor.invalidJsonHint')}</p>}
-    {!isStatic && <p className="text-xs text-muted-foreground">{t('ruleEditor.mockActionEditor.dynamicHint')}</p>}
+    {!isStatic && <p className="text-xs text-muted-foreground">{isPassthrough ? t('ruleEditor.mockActionEditor.passthroughFunctionHint') : t('ruleEditor.mockActionEditor.dynamicHint')}</p>}
   </div>;
 }
 

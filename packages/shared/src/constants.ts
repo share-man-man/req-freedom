@@ -82,6 +82,14 @@ export const DEFAULT_DYNAMIC_MOCK_FUNCTION_CODE = `function mock(req) {
   };
 }`;
 
+/** 开启「基于真实响应」后预填的函数示例（运行时以 req、res 调用，res 为真实响应快照）。 */
+export const DEFAULT_PASSTHROUGH_MOCK_FUNCTION_CODE = `function mock(req, res) {
+  return {
+    ...res.json,
+    patchedBy: 'req-freedom',
+  };
+}`;
+
 /** 新建 Mock 规则时采用的默认响应模式。 */
 export const DEFAULT_MOCK_RESPONSE_MODE = MockResponseMode.Static;
 

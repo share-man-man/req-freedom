@@ -66,6 +66,8 @@
     "invalidActionType": "Rule \"{{ruleId}}\" has an invalid action type.",
     "actionChannelMismatch": "Rule \"{{ruleId}}\" action doesn't match its execution channel.",
     "invalidMockConfig": "Rule \"{{ruleId}}\" has an invalid mock configuration.",
+    "invalidMockPassthrough": "The \"use the real response\" switch of rule \"{{ruleId}}\" must be a boolean.",
+    "mockPassthroughRequiresDynamic": "The \"use the real response\" switch of rule \"{{ruleId}}\" is only available in dynamic mock mode.",
     "dynamicMockFunctionRequired": "Rule \"{{ruleId}}\" dynamic mock function cannot be empty.",
     "invalidThrottlePreset": "Rule \"{{ruleId}}\" has an invalid throttle preset.",
     "invalidInsertScriptConfig": "Rule \"{{ruleId}}\" has an invalid script-injection configuration.",
@@ -145,6 +147,7 @@
       "empty": "(empty)",
       "modifyHeaders": "Modify headers: {{count}} item(s)",
       "mockResponse": "Mock returns HTTP {{statusCode}}",
+      "mockResponsePassthrough": "Mock rewrites the real response",
       "delay": "Throttle: {{preset}}",
       "modifyRequestBody": "Modify body ({{sourceMode}})",
       "insertScript": "Insert {{codeType}} ({{timing}})"
@@ -208,7 +211,10 @@
     "mockActionEditor": {
       "bodyTypeAriaLabel": "Response body type",
       "invalidJsonHint": "The response body isn't valid JSON; to return another format, switch the \"Body type\" above.",
-      "dynamicHint": "The dynamic function can read req.url, req.method, req.headers, req.query, req.body, req.json."
+      "dynamicHint": "The dynamic function can read req.url, req.method, req.headers, req.query, req.body, req.json.",
+      "passthroughLabel": "Use the real response",
+      "passthroughHint": "Send the real request first, then rewrite its body in your function. Status code and headers come from the real response.",
+      "passthroughFunctionHint": "The function receives req.* plus res.status, res.ok, res.headers, res.body and res.json. Return nothing to keep the real response."
     },
     "delayActionEditor": {
       "preset": "Network preset",
@@ -356,6 +362,9 @@
     "title": "View available dynamic variables",
     "trigger": "Variables",
     "hint": "Reference these placeholders in value fields; click to copy. The page-patch channel evaluates per request; the network layer (DNR) evaluates once when rules sync."
+  },
+  "infoHint": {
+    "trigger": "More information"
   },
   "dialog": {
     "close": "Close"

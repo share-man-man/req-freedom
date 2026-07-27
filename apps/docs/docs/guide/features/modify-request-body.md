@@ -6,7 +6,7 @@
 
 `declarativeNetRequest` 拿不到也改不了请求体，因此改请求体走**页面补丁通道**：MAIN world 内容脚本改写页面的 `fetch` 与 `XMLHttpRequest`，命中规则时在发送前替换请求体。
 
-> 注意：仅对页面脚本发起的 fetch / XHR 生效；页面导航、静态资源加载拿不到请求体，不在作用范围内。
+> 注意：仅对页面脚本发起的 fetch / XHR 生效；页面导航、静态资源加载拿不到请求体，不在作用范围内。同步 XHR（`open(..., false)`）会原样放行，规则不生效，详见[已知限制](../architecture.md#已知限制)。
 
 ## 规则字段
 

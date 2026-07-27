@@ -87,6 +87,8 @@
     "invalidActionType": "규칙 \"{{ruleId}}\"의 작업 유형이 잘못되었습니다.",
     "actionChannelMismatch": "규칙 \"{{ruleId}}\"의 작업이 실행 채널과 일치하지 않습니다.",
     "invalidMockConfig": "규칙 \"{{ruleId}}\"의 Mock 구성이 잘못되었습니다.",
+    "invalidMockPassthrough": "규칙 \"{{ruleId}}\"의 \"실제 응답 사용\" 스위치는 불리언이어야 합니다.",
+    "mockPassthroughRequiresDynamic": "규칙 \"{{ruleId}}\"의 \"실제 응답 사용\"은 동적 Mock 모드에서만 사용할 수 있습니다.",
     "dynamicMockFunctionRequired": "규칙 \"{{ruleId}}\"의 동적 Mock 함수는 비워 둘 수 없습니다.",
     "invalidThrottlePreset": "규칙 \"{{ruleId}}\"의 네트워크 제한 프리셋이 잘못되었습니다.",
     "invalidInsertScriptConfig": "규칙 \"{{ruleId}}\"의 스크립트 삽입 구성이 잘못되었습니다.",
@@ -166,6 +168,7 @@
       "empty": "(비어 있음)",
       "modifyHeaders": "헤더 수정: {{count}}개",
       "mockResponse": "Mock에서 HTTP {{statusCode}} 반환",
+      "mockResponsePassthrough": "Mock이 실제 응답을 수정",
       "delay": "네트워크 제한: {{preset}}",
       "modifyRequestBody": "본문 수정({{sourceMode}})",
       "insertScript": "{{codeType}} 삽입({{timing}})"
@@ -229,7 +232,10 @@
     "mockActionEditor": {
       "bodyTypeAriaLabel": "응답 본문 유형",
       "invalidJsonHint": "응답 본문이 올바른 JSON이 아닙니다. 다른 형식을 반환하려면 위의 \"본문 유형\"을 변경하세요.",
-      "dynamicHint": "동적 함수에서 req.url, req.method, req.headers, req.query, req.body, req.json을 읽을 수 있습니다."
+      "dynamicHint": "동적 함수에서 req.url, req.method, req.headers, req.query, req.body, req.json을 읽을 수 있습니다.",
+      "passthroughLabel": "실제 응답 사용",
+      "passthroughHint": "실제 요청을 먼저 보낸 뒤 함수로 응답 본문을 수정합니다. 상태 코드와 헤더는 실제 응답을 따릅니다.",
+      "passthroughFunctionHint": "함수에서 req.* 와 res.status, res.ok, res.headers, res.body, res.json 을 사용할 수 있습니다. 값을 반환하지 않으면 실제 응답이 유지됩니다."
     },
     "delayActionEditor": {
       "preset": "네트워크 프리셋",
@@ -322,6 +328,9 @@
     "title": "사용 가능한 동적 변수 보기",
     "trigger": "변수",
     "hint": "값 필드에서 이 자리 표시자를 사용하고 클릭하여 복사하세요. 페이지 패치는 요청마다, 네트워크 계층(DNR)은 규칙 동기화 시 한 번 평가합니다."
+  },
+  "infoHint": {
+    "trigger": "설명"
   },
   "dialog": {
     "close": "닫기"
