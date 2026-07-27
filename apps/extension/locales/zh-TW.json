@@ -379,7 +379,11 @@
       "title": "Req Freedom 規則管理",
       "subtitle": "攔截 · 重定向 · 引數注入 · Header · Mock · 延遲 · 指令碼注入 · 改請求體",
       "import": "匯入規則",
-      "export": "匯出規則"
+      "export": "匯出規則",
+      "theme": "主題",
+      "themeSystem": "跟隨系統",
+      "themeLight": "淺色",
+      "themeDark": "深色"
     },
     "moreMenu": {
       "trigger": "更多",

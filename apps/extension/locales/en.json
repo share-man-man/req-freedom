@@ -379,7 +379,11 @@
       "title": "Req Freedom Rule Manager",
       "subtitle": "Block · Redirect · Inject params · Headers · Mock · Throttle · Insert script · Modify body",
       "import": "Import rules",
-      "export": "Export rules"
+      "export": "Export rules",
+      "theme": "Theme",
+      "themeSystem": "System",
+      "themeLight": "Light",
+      "themeDark": "Dark"
     },
     "moreMenu": {
       "trigger": "More",

@@ -324,7 +324,11 @@
       "title": "Req Freedom ルール管理",
       "subtitle": "ブロック · リダイレクト · パラメータ注入 · ヘッダー · モック · 帯域制限 · スクリプト注入 · ボディ変更",
       "import": "ルールをインポート",
-      "export": "ルールをエクスポート"
+      "export": "ルールをエクスポート",
+      "theme": "テーマ",
+      "themeSystem": "システムに従う",
+      "themeLight": "ライト",
+      "themeDark": "ダーク"
     },
     "moreMenu": {
       "trigger": "その他",

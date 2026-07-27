@@ -379,7 +379,11 @@
       "title": "Req Freedom 规则管理",
       "subtitle": "拦截 · 重定向 · 参数注入 · Header · Mock · 延迟 · 脚本注入 · 改请求体",
       "import": "导入规则",
-      "export": "导出规则"
+      "export": "导出规则",
+      "theme": "主题",
+      "themeSystem": "跟随系统",
+      "themeLight": "浅色",
+      "themeDark": "深色"
     },
     "moreMenu": {
       "trigger": "更多",

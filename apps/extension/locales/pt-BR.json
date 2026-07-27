@@ -345,7 +345,11 @@
       "title": "Gerenciador de regras Req Freedom",
       "subtitle": "Bloquear · Redirecionar · Injetar parâmetros · Cabeçalhos · Mock · Limitar · Injetar script · Alterar corpo",
       "import": "Importar regras",
-      "export": "Exportar regras"
+      "export": "Exportar regras",
+      "theme": "Tema",
+      "themeSystem": "Sistema",
+      "themeLight": "Claro",
+      "themeDark": "Escuro"
     },
     "moreMenu": {
       "trigger": "Mais",

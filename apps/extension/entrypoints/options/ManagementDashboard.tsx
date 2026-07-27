@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronLeft, Download, FileJson, FolderPlus, Languages, ListChecks, MoreHorizontal, Search, Terminal, ToggleRight, Upload } from 'lucide-react';
+import { Check, ChevronLeft, Download, FileJson, FolderPlus, Languages, ListChecks, Monitor, Moon, MoreHorizontal, Search, Sun, Terminal, ToggleRight, Upload } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { RuleExecutionChannel } from '@req-freedom/shared';
+import { RuleExecutionChannel, ThemeMode } from '@req-freedom/shared';
 import { LogoMark } from '@/components/logo-mark';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { changeLocale, SUPPORTED_LOCALES, type SupportedLocale } from '@/utils/i18n';
+import { getThemeMode, setTheme } from '@/utils/theme';
 
 /** 各受支持语言的自称展示名（用当前语言书写，不随界面语言翻译）。 */
 const LOCALE_DISPLAY_NAMES: Record<SupportedLocale, string> = {
@@ -40,6 +41,129 @@ interface MoreMenuProps {
   onImportHar: () => void;
   /** 点击导出规则后的回调。 */
   onExport: () => void;
+}
+
+/** 主题模式切换入口的图标。 */
+const THEME_MODE_ICON: Record<ThemeMode, typeof Sun> = {
+  [ThemeMode.System]: Monitor,
+  [ThemeMode.Light]: Sun,
+  [ThemeMode.Dark]: Moon,
+};
+
+/**
+ * 顶栏主题菜单：让用户在跟随系统、浅色和深色三个持久化模式之间选择。
+ */
+function ThemeMenu() {
+  const { t } = useTranslation();
+  /** 当前已生效的主题偏好。 */
+  const [theme, setThemeState] = useState<ThemeMode>(() => getThemeMode());
+  /** 主题菜单是否展开。 */
+  const [open, setOpen] = useState(false);
+  /** 触发按钮的包裹节点，用于测量位置与判定点击外部。 */
+  const triggerRef = useRef<HTMLDivElement>(null);
+  /** 菜单节点，用于判定点击外部。 */
+  const menuRef = useRef<HTMLDivElement>(null);
+  /** 菜单相对视口的 fixed 定位坐标；null 表示尚未测量。 */
+  const [position, setPosition] = useState<{ top: number; right: number } | null>(null);
+  /** 当前主题对应的顶栏按钮图标。 */
+  const ThemeIcon = THEME_MODE_ICON[theme];
+
+  // 展开时按触发按钮位置计算菜单坐标，并在滚动 / 缩放时跟随；同时监听点击外部与 Esc 收起
+  useEffect(() => {
+    if (!open) {
+      setPosition(null);
+      return;
+    }
+    /** 依据触发按钮的视口矩形更新菜单坐标（右对齐、下方 4px）。 */
+    const updatePosition = (): void => {
+      /** 触发按钮当前的视口矩形。 */
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (rect) {
+        setPosition({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+      }
+    };
+    updatePosition();
+    /** 点击触发按钮与菜单之外则收起。 */
+    const onPointerDown = (event: PointerEvent): void => {
+      /** 本次事件的目标节点。 */
+      const target = event.target as Node;
+      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) {
+        return;
+      }
+      setOpen(false);
+    };
+    /** 按 Esc 收起。 */
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  /**
+   * 保存主题偏好并关闭菜单。
+   * @param nextTheme 用户选中的主题模式
+   */
+  const chooseTheme = (nextTheme: ThemeMode): void => {
+    setThemeState(nextTheme);
+    setOpen(false);
+    void setTheme(nextTheme);
+  };
+
+  return (
+    <div ref={triggerRef} className="shrink-0">
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={() => setOpen((value) => !value)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title={t('dashboard.header.theme')}
+        aria-label={t('dashboard.header.theme')}
+      >
+        <ThemeIcon />
+      </Button>
+      {open && position && createPortal(
+        <div
+          ref={menuRef}
+          role="menu"
+          aria-label={t('dashboard.header.theme')}
+          style={{ top: position.top, right: position.right }}
+          className="fixed z-50 w-44 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md"
+        >
+          {[ThemeMode.System, ThemeMode.Light, ThemeMode.Dark].map((mode) => {
+            /** 当前菜单项对应的图标。 */
+            const ModeIcon = THEME_MODE_ICON[mode];
+            /** 当前菜单项的翻译键。 */
+            const labelKey = `dashboard.header.theme${mode[0].toUpperCase()}${mode.slice(1)}`;
+            return (
+              <button
+                key={mode}
+                type="button"
+                role="menuitemradio"
+                aria-checked={theme === mode}
+                onClick={() => chooseTheme(mode)}
+                className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+              >
+                <Check className={`size-3.5 shrink-0 ${theme === mode ? 'text-primary' : 'text-transparent'}`} />
+                <ModeIcon className="size-4 text-muted-foreground" />
+                {t(labelKey)}
+              </button>
+            );
+          })}
+        </div>,
+        document.body,
+      )}
+    </div>
+  );
 }
 
 /**
@@ -280,6 +404,7 @@ export function OptionsPageHeader({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <ThemeMenu />
           <MoreMenu
             onImportConfig={onImportConfig}
             onImportCurl={onImportCurl}

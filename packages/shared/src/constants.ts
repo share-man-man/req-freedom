@@ -15,6 +15,9 @@ export const STORAGE_KEY_ENABLED = 'req-freedom:enabled';
 /** storage 中界面语言的键名（值为 i18next 语言代码，如 'zh-CN' / 'en'） */
 export const STORAGE_KEY_LOCALE = 'req-freedom:locale';
 
+/** storage 中界面主题的键名（值为 ThemeMode）。 */
+export const STORAGE_KEY_THEME = 'req-freedom:theme';
+
 /** 导入 / 导出文件当前使用的配置 schema 版本。 */
 export const CONFIG_EXPORT_SCHEMA_VERSION = 2;
 

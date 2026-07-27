@@ -67,8 +67,39 @@
   --dialog-glow-shadow: rgb(36 105 178 / 0.28);
 }
 
+/* 显式深色偏好覆盖系统浅色时，使用与系统深色完全相同的 Options 令牌。 */
+:root.dark {
+  --primary: oklch(0.56 0.2 293);
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+  --success: oklch(0.7 0.16 152);
+  --warning: oklch(0.8 0.16 75);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(1 0 0 / 45%);
+  --aurora-opacity: 0.16;
+  --glow-rest-opacity: 0.4;
+  --glow-blue: #2a8af6;
+  --glow-violet: #8b5cf6;
+  --glow-rose: #e92a67;
+  --glow-shadow: rgb(42 138 246 / 0.55);
+  --dialog-glow-shadow: rgb(42 138 246 / 0.5);
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not(.light) {
     /* ---- 深色（对齐 turborepo .dark 令牌：实心近黑背景 + 略亮深灰卡片） ---- */
     /* 主色仍是流光紫，但比 --glow-violet 深一档，确保白字按钮 ≥ AA 对比 */
     --primary: oklch(0.56 0.2 293);

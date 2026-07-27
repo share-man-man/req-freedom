@@ -400,7 +400,11 @@
       "title": "Gestionnaire de règles Req Freedom",
       "subtitle": "Blocage · Redirection · Paramètres · En-têtes · Mock · Limitation · Script · Modification du corps",
       "import": "Importer les règles",
-      "export": "Exporter les règles"
+      "export": "Exporter les règles",
+      "theme": "Thème",
+      "themeSystem": "Système",
+      "themeLight": "Clair",
+      "themeDark": "Sombre"
     },
     "moreMenu": {
       "trigger": "Plus",

@@ -400,7 +400,11 @@
       "title": "Req Freedom Regelverwaltung",
       "subtitle": "Blockieren · Umleiten · Parameter · Header · Mock · Drosseln · Skript · Body ändern",
       "import": "Regeln importieren",
-      "export": "Regeln exportieren"
+      "export": "Regeln exportieren",
+      "theme": "Design",
+      "themeSystem": "Systemeinstellung",
+      "themeLight": "Hell",
+      "themeDark": "Dunkel"
     },
     "moreMenu": {
       "trigger": "Mehr",

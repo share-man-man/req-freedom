@@ -379,7 +379,11 @@
       "title": "Administrador de reglas de Req Freedom",
       "subtitle": "Bloquear · Redirigir · Inyectar parámetros · Encabezados · Simular · Limitar · Inyectar scripts · Modificar cuerpo",
       "import": "Importar reglas",
-      "export": "Exportar reglas"
+      "export": "Exportar reglas",
+      "theme": "Tema",
+      "themeSystem": "Sistema",
+      "themeLight": "Claro",
+      "themeDark": "Oscuro"
     },
     "moreMenu": {
       "trigger": "Más",

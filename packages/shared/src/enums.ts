@@ -6,6 +6,16 @@ export enum RuleExecutionChannel {
   PagePatch = 'page-patch',
 }
 
+/** 扩展界面可持久化的明暗主题。 */
+export enum ThemeMode {
+  /** 跟随操作系统的颜色方案。 */
+  System = 'system',
+  /** 固定使用浅色主题。 */
+  Light = 'light',
+  /** 固定使用深色主题。 */
+  Dark = 'dark',
+}
+
 /** 通道内可组合的动作类型；仅用于统一规则模型与执行分发。 */
 export enum RuleActionType {
   Block = 'block',

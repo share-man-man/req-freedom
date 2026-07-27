@@ -345,7 +345,11 @@
       "title": "Req Freedom 규칙 관리자",
       "subtitle": "차단 · 리디렉션 · 매개변수 삽입 · 헤더 · Mock · 네트워크 제한 · 스크립트 삽입 · 본문 수정",
       "import": "규칙 가져오기",
-      "export": "규칙 내보내기"
+      "export": "규칙 내보내기",
+      "theme": "테마",
+      "themeSystem": "시스템 설정",
+      "themeLight": "라이트",
+      "themeDark": "다크"
     },
     "moreMenu": {
       "trigger": "더 보기",
