@@ -71,7 +71,7 @@ flowchart LR
 
 - [x] ~~**P1 · 常用规则模板库（含 CORS 解除预设）**~~ — 内置一批开箱预设：解除 CORS（补 `Access-Control-Allow-*`）、禁用缓存、强制 HTTPS、移动端 UA（iPhone / Android）。模板在 `shared` 单一维护（`RULE_TEMPLATES`），选用后不直接落库而是把预填草稿交给规则编辑器微调匹配范围（`utils/factories.instantiateRuleTemplate`），入口收在「添加规则 / 新建规则」下拉里，从某分组进入即落到该组。文档见 [常用规则模板库](apps/docs/docs/guide/features/template-library.md)。
 
-- [x] ~~**P1 · 图标徽标 + 全局暂停开关**~~ — 统计以「命中日志」为唯一原始数据，总数与逐规则计数都是它的投影。图标徽标只表达状态（本页有规则生效即点亮），数量在 popup 内按规则展示并可一键清空。DNR 通道的命中由观测式 `webRequest` 配合 `core.findMatchedRules` 判定，页面补丁通道在执行计划中同步产出。顶部总开关同步暂停两条执行通道。文档见 [查看规则命中](apps/docs/docs/guide/getting-started.md#查看规则命中)。
+- [x] ~~**P1 · 图标徽标 + 全局暂停开关**~~ — 统计以「命中日志」为唯一原始数据，总数与逐规则计数都是它的投影。图标徽标只表达状态（本页有规则生效即点亮），数量在 popup 内按规则展示并可一键清空。DNR 通道的命中由观测式 `webRequest` 配合 `core.findMatchedRules` 判定，页面补丁通道在执行计划中同步产出。顶部总开关同步暂停两条执行通道。文档见 [查看规则命中](apps/docs/docs/guide/getting-started.md#查看规则命中)，设计依据见 [docs/refactor-rule-hit.md](docs/refactor-rule-hit.md)。
 
 - [x] ~~**P1 · cURL / HAR 导入生成规则**~~ — cURL 以安全解析方式提取 URL、方法与 GraphQL 操作，选择 Redirect / Mock 后进入原有单条编辑器补齐配置；HAR 读取 Fetch / XHR 文本响应，批量生成静态 Mock，支持统一选择分组、逐条选择、手风琴编辑、重复请求提示与安全停用策略。两者复用统一 `Rule` 模型和校验，但以追加方式保存，不会触发现有配置导入的整体替换语义。XHR Mock 同步补齐响应头 API、状态说明、响应 URL 与常见 `responseType`。文档见 [从 cURL / HAR 创建规则](apps/docs/docs/guide/features/curl-har-import.md)。
 
