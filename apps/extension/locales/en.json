@@ -29,13 +29,34 @@
     }
   },
   "dynamicVariable": {
-    "uuid": { "label": "UUID", "description": "Random UUID v4" },
-    "timestamp": { "label": "Timestamp (seconds)", "description": "Current Unix timestamp in seconds" },
-    "timestampMs": { "label": "Timestamp (ms)", "description": "Current Unix timestamp in milliseconds" },
-    "isoTime": { "label": "ISO time", "description": "Current time as an ISO 8601 string" },
-    "randomFloat": { "label": "Random float", "description": "Random float in the range [0, 1)" },
-    "randomInt": { "label": "Random integer", "description": "Random integer; argument sets the inclusive range [min, max], defaults to 0-100" },
-    "randomString": { "label": "Random string", "description": "Random alphanumeric string; argument sets the length, defaults to 8" }
+    "uuid": {
+      "label": "UUID",
+      "description": "Random UUID v4"
+    },
+    "timestamp": {
+      "label": "Timestamp (seconds)",
+      "description": "Current Unix timestamp in seconds"
+    },
+    "timestampMs": {
+      "label": "Timestamp (ms)",
+      "description": "Current Unix timestamp in milliseconds"
+    },
+    "isoTime": {
+      "label": "ISO time",
+      "description": "Current time as an ISO 8601 string"
+    },
+    "randomFloat": {
+      "label": "Random float",
+      "description": "Random float in the range [0, 1)"
+    },
+    "randomInt": {
+      "label": "Random integer",
+      "description": "Random integer; argument sets the inclusive range [min, max], defaults to 0-100"
+    },
+    "randomString": {
+      "label": "Random string",
+      "description": "Random alphanumeric string; argument sets the length, defaults to 8"
+    }
   },
   "configTransfer": {
     "invalidJson": "The file is not valid JSON.",
@@ -354,13 +375,12 @@
     "collapseGroup": "Collapse group",
     "ruleCount": "{{count}} rules",
     "manageRules": "Manage rules",
-    "matchedCount": "Rule actions on this page: {{count}}",
-    "clearMatchedCount": "Clear",
+    "hitTotal": "Rule hits on this page: {{count}}",
+    "clearHits": "Clear",
     "jumpToRule": "Go to rule",
-    "ruleActionCount": "Actions from this rule: {{count}}",
-    "unmappedActionCount": "{{count}} historical actions cannot be linked to a current rule",
-    "clearMatchedCountFailed": "Could not clear the action count. Try again.",
-    "matchSummaryUnavailable": "Could not load rule action statistics.",
+    "ruleHitCount": "Hits from this rule: {{count}}",
+    "hitsTruncated": "Only the most recent hits are shown; older ones were dropped.",
+    "hitSummaryUnavailable": "Could not load rule hit statistics.",
     "retry": "Retry"
   },
   "dynamicVariableHint": {

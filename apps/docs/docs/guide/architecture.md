@@ -50,12 +50,18 @@ req-freedom/
 - **页面补丁通道**：返回值 Mock、网络限速与改请求体无法由 DNR 表达，通过 MAIN world 内容脚本改写 `fetch` 与 `XMLHttpRequest` 实现，仅作用于页面脚本发起的请求；`fetch` 的响应流可按下行带宽精确交付，XHR 则仅能模拟请求前的延迟和上行带宽；改请求体在请求发出前替换或 JSON 深合并请求体；脚本注入亦复用该通道，按页面 URL 命中后注入自定义 JS / CSS
   - 同步 XHR 不在作用范围内，见下方[已知限制](#已知限制)
 
-## 动作统计
+## 命中统计
 
-- 工具栏徽标以浏览器原生 DNR 动作计数为准。页面补丁通道只上报实际采用的动作，并通过 `tabUpdate.increment` 并入同一计数器。
-- DNR 数字规则 ID 由持久化注册表分配；规则停用、删除或迁移作用域后仍保留历史映射，避免浏览器保存的旧明细错误关联到另一条业务规则。
-- 页面补丁按标签页独立写入 `storage.session`，以顶层 Document token 拒绝导航后的迟到消息。统计窗口只在 `webNavigation.onBeforeNavigate` 的顶层导航中重建，Hash 与 SPA 同文档跳转不会误清空。
-- MAIN world 与 ISOLATED world 在 `document_start` 建立一次 `MessageChannel`；后续规则和动作计数只通过私有端口传递。bridge 仍会按当前生效规则 ID 校验上报内容。
+统计的唯一原始数据是**命中日志**（`RuleHit`：规则 ID、动作类型、请求 URL、方法、时间）。总数与逐规则计数都是它的投影，不单独维护计数器。
+
+- **图标徽标只表达状态**，不表达数量：当前标签页有任意规则生效时点亮。数量在 popup 里按规则展示。
+- **DNR 通道的命中来自观测式 `chrome.webRequest`**。`onRuleMatchedDebug` 仅未打包扩展可用，`getMatchedRules` 只有 pull 且受 20 次 / 10 分钟配额与 5 分钟保留窗口限制，都无法驱动实时状态。观测到请求后由 `core.findMatchedRules` 判定命中——与页面补丁通道完全同一个匹配器。
+  - 这是**预测**而非事实：网络层真正执行的是编译出的 DNR 规则。`utils/dnr-match-parity.test.ts` 守护两者的语义一致性。
+  - 匹配组监听按需注册：不存在启用的 DNR 通道规则时注销，避免无谓唤醒 Service Worker。
+- **页面补丁通道逐条自报**。执行计划（`utils/page-plan.ts`）在决定动作的同时产出命中记录，不做事后推导。
+- **状态以内存为权威**，`storage.session` 只作防抖镜像。命中是逐请求写入的，若以 storage 为权威，每条命中都要全量序列化整个数组。
+- **重置点是顶层 `main_frame` 请求**（`webRequest.onBeforeRequest`）。重置与该请求自身的命中来自同一事件，天然有序，因此不需要统计窗口时间戳或 Document token。
+- MAIN world 与 ISOLATED world 在 `document_start` 建立一次 `MessageChannel`，命中记录只通过私有端口传递；bridge 仍按当前生效规则 ID 校验上报内容。
 
 ## 已知限制
 

@@ -375,13 +375,12 @@
     "collapseGroup": "Gruppe zuklappen",
     "ruleCount": "{{count}} Regeln",
     "manageRules": "Regeln verwalten",
-    "matchedCount": "Regelaktionen auf dieser Seite: {{count}}",
-    "clearMatchedCount": "Leeren",
+    "hitTotal": "Regeltreffer auf dieser Seite: {{count}}",
+    "clearHits": "Leeren",
     "jumpToRule": "Zur Regel",
-    "ruleActionCount": "Aktionen dieser Regel: {{count}}",
-    "unmappedActionCount": "{{count}} historische Aktionen können keiner aktuellen Regel zugeordnet werden",
-    "clearMatchedCountFailed": "Der Aktionszähler konnte nicht geleert werden. Versuche es erneut.",
-    "matchSummaryUnavailable": "Die Regelaktionsstatistik konnte nicht geladen werden.",
+    "ruleHitCount": "Treffer dieser Regel: {{count}}",
+    "hitsTruncated": "Nur die neuesten Treffer werden angezeigt; ältere wurden verworfen.",
+    "hitSummaryUnavailable": "Die Trefferstatistik konnte nicht geladen werden.",
     "retry": "Erneut versuchen"
   },
   "dynamicVariableHint": {

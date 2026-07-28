@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
 import { CheckCircle2, ChevronDown, Settings2, Target } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { RuleGroup, RuleMatchCount, RuleMatchSummary } from '@req-freedom/shared';
+import type { RuleGroup, RuleHitSummary } from '@req-freedom/shared';
 import {
   RULE_HIGHLIGHT_QUERY_PARAM,
-  RUNTIME_MSG_CLEAR_RULE_MATCHES,
-  RUNTIME_MSG_GET_RULE_MATCH_SUMMARY,
+  RUNTIME_MSG_CLEAR_RULE_HITS,
+  RUNTIME_MSG_GET_RULE_HIT_SUMMARY,
 } from '@req-freedom/shared';
 import { collectActiveRules } from '@req-freedom/core';
 import { getEnabled, getGroups, saveGroups, setEnabled } from '@/utils/storage';
@@ -16,11 +16,11 @@ import { Switch } from '@/components/ui/switch';
 import { LogoMark } from '@/components/logo-mark';
 
 /**
- * 把逐规则动作计数格式化为适合角标展示的短文本。
- * @param count 规则累计动作数
+ * 把逐规则命中数格式化为适合角标展示的短文本。
+ * @param count 规则累计命中数
  * @returns 最大四字符的角标文本
  */
-function formatRuleMatchCount(count: number): string {
+function formatRuleHitCount(count: number): string {
   return count > 999 ? '999+' : String(count);
 }
 
@@ -35,48 +35,45 @@ export default function App() {
   const [groups, setGroups] = useState<RuleGroup[]>([]);
   /** 已折叠的分组 ID 集合，仅保留在当前弹窗会话中 */
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
-  /** 当前页面累计原生动作数；由扩展图标徽标统一承载两条执行通道的计数。 */
-  const [matchedCount, setMatchedCount] = useState(0);
-  /** 当前页面按业务规则归并的动作计数。 */
-  const [matchedRuleCounts, setMatchedRuleCounts] = useState<RuleMatchCount[]>([]);
-  /** 暂时无法还原到业务规则的历史 DNR 动作数。 */
-  const [unmappedCount, setUnmappedCount] = useState(0);
+  /** 当前页面两条通道合并后的命中总数。 */
+  const [hitTotal, setHitTotal] = useState(0);
+  /** 当前页面按业务规则归并的命中数。 */
+  const [hitsByRule, setHitsByRule] = useState<Record<string, number>>({});
+  /** 命中日志是否已因超出上限丢弃过最早的记录。 */
+  const [hitsTruncated, setHitsTruncated] = useState(false);
   /** 点击 popup 时所在的标签页 ID。 */
   const [activeTabId, setActiveTabId] = useState<number | null>(null);
-  /** 动作摘要的加载状态，用于区分“零动作”和“读取失败”。 */
-  const [matchSummaryStatus, setMatchSummaryStatus] = useState<'loading' | 'ready' | 'error'>('loading');
-  /** 最近一次清空动作是否失败。 */
-  const [clearMatchedCountFailed, setClearMatchedCountFailed] = useState(false);
+  /** 命中摘要的加载状态，用于区分“零命中”和“读取失败”。 */
+  const [hitSummaryStatus, setHitSummaryStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
   /**
-   * 读取当前活动标签页的动作摘要。
+   * 读取当前活动标签页的命中摘要。
    */
-  const loadRuleMatchSummary = async (): Promise<void> => {
-    setMatchSummaryStatus('loading');
+  const loadRuleHitSummary = async (): Promise<void> => {
+    setHitSummaryStatus('loading');
     try {
       /** popup 当前关联的活动标签页。 */
       const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true });
       if (activeTab?.id === undefined) {
-        setMatchSummaryStatus('error');
+        setHitSummaryStatus('error');
         return;
       }
       setActiveTabId(activeTab.id);
-      /** background 合并后的 DNR 与页面补丁动作摘要。 */
+      /** background 合并后的两条通道命中摘要。 */
       const summary = (await browser.runtime.sendMessage({
-        type: RUNTIME_MSG_GET_RULE_MATCH_SUMMARY,
+        type: RUNTIME_MSG_GET_RULE_HIT_SUMMARY,
         tabId: activeTab.id,
-      })) as RuleMatchSummary | undefined;
+      })) as RuleHitSummary | undefined;
       if (!summary) {
-        setMatchSummaryStatus('error');
+        setHitSummaryStatus('error');
         return;
       }
-      setMatchedCount(summary.count);
-      setMatchedRuleCounts(summary.ruleCounts);
-      setUnmappedCount(summary.unmappedCount);
-      setClearMatchedCountFailed(false);
-      setMatchSummaryStatus('ready');
+      setHitTotal(summary.total);
+      setHitsByRule(summary.byRule);
+      setHitsTruncated(summary.truncated);
+      setHitSummaryStatus('ready');
     } catch {
-      setMatchSummaryStatus('error');
+      setHitSummaryStatus('error');
     }
   };
 
@@ -87,7 +84,7 @@ export default function App() {
       const [nextEnabled, nextGroups] = await Promise.all([getEnabled(), getGroups()]);
       setEnabledState(nextEnabled);
       setGroups(nextGroups);
-      await loadRuleMatchSummary();
+      await loadRuleHitSummary();
     })();
   }, []);
 
@@ -101,27 +98,22 @@ export default function App() {
   };
 
   /**
-   * 清空当前标签页累计的规则动作数。
+   * 清空当前标签页累计的命中日志。
    */
-  const handleClearMatchedCount = async (): Promise<void> => {
+  const handleClearHits = async (): Promise<void> => {
+    if (activeTabId === null) {
+      return;
+    }
     try {
-      if (activeTabId === null) {
-        return;
-      }
-      /** background 完成原生计数与明细清空后返回的零值摘要。 */
-      const summary = (await browser.runtime.sendMessage({
-        type: RUNTIME_MSG_CLEAR_RULE_MATCHES,
+      await browser.runtime.sendMessage({
+        type: RUNTIME_MSG_CLEAR_RULE_HITS,
         tabId: activeTabId,
-      })) as RuleMatchSummary | undefined;
-      if (!summary || summary.count !== 0) {
-        throw new Error('规则动作统计未完成清空');
-      }
-      setMatchedCount(0);
-      setMatchedRuleCounts([]);
-      setUnmappedCount(0);
-      setClearMatchedCountFailed(false);
+      });
+      setHitTotal(0);
+      setHitsByRule({});
+      setHitsTruncated(false);
     } catch {
-      setClearMatchedCountFailed(true);
+      setHitSummaryStatus('error');
     }
   };
 
@@ -214,10 +206,7 @@ export default function App() {
   const activeCount = enabled ? collectActiveRules(groups).length : 0;
   /** 是否已存在任意规则 */
   const hasRules = groups.some((group) => group.rules.length > 0);
-  /** 便于规则列表读取角标与高亮状态的逐规则动作计数。 */
-  const matchedRuleCountMap = new Map(
-    matchedRuleCounts.map((item) => [item.ruleId, item.count]),
-  );
+
 
   return (
     <div className="flex flex-col">
@@ -237,22 +226,17 @@ export default function App() {
         <Switch checked={enabled} onCheckedChange={handleToggleGlobal} />
       </header>
 
-      {/* 当前页面命中提示：计数同时包含 DNR 与页面补丁通道。 */}
-      {matchedCount > 0 && (
+      {/* 当前页面命中提示：总数同时包含 DNR 与页面补丁通道。 */}
+      {hitTotal > 0 && (
         <div className="mx-3 mt-3 flex items-start gap-2 rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-primary">
           <CheckCircle2 className="size-4 shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-medium">
-              {t('popup.matchedCount', { count: matchedCount })}
+              {t('popup.hitTotal', { count: hitTotal })}
             </p>
-            {unmappedCount > 0 && (
+            {hitsTruncated && (
               <p className="mt-0.5 text-[11px] text-primary/80">
-                {t('popup.unmappedActionCount', { count: unmappedCount })}
-              </p>
-            )}
-            {clearMatchedCountFailed && (
-              <p className="mt-0.5 text-[11px] text-destructive">
-                {t('popup.clearMatchedCountFailed')}
+                {t('popup.hitsTruncated')}
               </p>
             )}
           </div>
@@ -261,24 +245,24 @@ export default function App() {
             variant="ghost"
             size="sm"
             className="h-6 shrink-0 px-2 text-xs text-primary hover:bg-primary/10 hover:text-primary"
-            onClick={() => void handleClearMatchedCount()}
+            onClick={() => void handleClearHits()}
           >
-            {t('popup.clearMatchedCount')}
+            {t('popup.clearHits')}
           </Button>
         </div>
       )}
 
-      {matchSummaryStatus === 'error' && (
+      {hitSummaryStatus === 'error' && (
         <div className="mx-3 mt-3 flex items-center gap-2 rounded-lg border border-destructive/25 bg-destructive/10 px-3 py-2 text-destructive">
           <p className="min-w-0 flex-1 text-xs font-medium">
-            {t('popup.matchSummaryUnavailable')}
+            {t('popup.hitSummaryUnavailable')}
           </p>
           <Button
             type="button"
             variant="ghost"
             size="sm"
             className="h-6 shrink-0 px-2 text-xs"
-            onClick={() => void loadRuleMatchSummary()}
+            onClick={() => void loadRuleHitSummary()}
           >
             {t('popup.retry')}
           </Button>
@@ -339,9 +323,9 @@ export default function App() {
                   >
                     {group.rules.map((rule) => {
                       /** 当前规则在本页面累计执行的动作数。 */
-                      const ruleMatchCount = matchedRuleCountMap.get(rule.id) ?? 0;
+                      const ruleHitCount = hitsByRule[rule.id] ?? 0;
                       /** 当前规则是否在本页面至少执行过一个动作。 */
-                      const isMatched = ruleMatchCount > 0;
+                      const isMatched = ruleHitCount > 0;
                       return (
                         <li
                           key={rule.id}
@@ -354,10 +338,10 @@ export default function App() {
                           {isMatched && (
                             <span
                               className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-[18px] text-primary-foreground shadow-sm"
-                              title={t('popup.ruleActionCount', { count: ruleMatchCount })}
-                              aria-label={t('popup.ruleActionCount', { count: ruleMatchCount })}
+                              title={t('popup.ruleHitCount', { count: ruleHitCount })}
+                              aria-label={t('popup.ruleHitCount', { count: ruleHitCount })}
                             >
-                              {formatRuleMatchCount(ruleMatchCount)}
+                              {formatRuleHitCount(ruleHitCount)}
                             </span>
                           )}
                           <div className="flex min-w-0 items-center gap-2">

@@ -29,13 +29,34 @@
     }
   },
   "dynamicVariable": {
-    "uuid": { "label": "UUID", "description": "隨機 UUID v4" },
-    "timestamp": { "label": "時間戳（秒）", "description": "當前秒級 Unix 時間戳" },
-    "timestampMs": { "label": "時間戳（毫秒）", "description": "當前毫秒級 Unix 時間戳" },
-    "isoTime": { "label": "ISO 時間", "description": "當前時間的 ISO 8601 字串" },
-    "randomFloat": { "label": "隨機小數", "description": "[0, 1) 區間的隨機浮點數" },
-    "randomInt": { "label": "隨機整數", "description": "隨機整數，引數指定閉區間 [min, max]，預設 0-100" },
-    "randomString": { "label": "隨機字串", "description": "隨機字母數字串，引數指定長度，預設 8 位" }
+    "uuid": {
+      "label": "UUID",
+      "description": "隨機 UUID v4"
+    },
+    "timestamp": {
+      "label": "時間戳（秒）",
+      "description": "當前秒級 Unix 時間戳"
+    },
+    "timestampMs": {
+      "label": "時間戳（毫秒）",
+      "description": "當前毫秒級 Unix 時間戳"
+    },
+    "isoTime": {
+      "label": "ISO 時間",
+      "description": "當前時間的 ISO 8601 字串"
+    },
+    "randomFloat": {
+      "label": "隨機小數",
+      "description": "[0, 1) 區間的隨機浮點數"
+    },
+    "randomInt": {
+      "label": "隨機整數",
+      "description": "隨機整數，引數指定閉區間 [min, max]，預設 0-100"
+    },
+    "randomString": {
+      "label": "隨機字串",
+      "description": "隨機字母數字串，引數指定長度，預設 8 位"
+    }
   },
   "configTransfer": {
     "invalidJson": "檔案不是有效的 JSON。",
@@ -354,13 +375,12 @@
     "collapseGroup": "摺疊分組",
     "ruleCount": "{{count}} 條",
     "manageRules": "管理規則",
-    "matchedCount": "目前頁面規則動作：{{count}}",
-    "clearMatchedCount": "清空",
+    "hitTotal": "目前頁面規則命中：{{count}}",
+    "clearHits": "清空",
     "jumpToRule": "跳至規則",
-    "ruleActionCount": "該規則動作數：{{count}}",
-    "unmappedActionCount": "其中 {{count}} 個歷史動作無法關聯到目前規則",
-    "clearMatchedCountFailed": "清空動作計數失敗，請重試。",
-    "matchSummaryUnavailable": "規則動作統計載入失敗。",
+    "ruleHitCount": "該規則命中數：{{count}}",
+    "hitsTruncated": "僅顯示最近的命中記錄，更早的已捨棄。",
+    "hitSummaryUnavailable": "規則命中統計載入失敗。",
     "retry": "重試"
   },
   "dynamicVariableHint": {

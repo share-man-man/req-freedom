@@ -71,7 +71,7 @@ flowchart LR
 
 - [x] ~~**P1 · 常用规则模板库（含 CORS 解除预设）**~~ — 内置一批开箱预设：解除 CORS（补 `Access-Control-Allow-*`）、禁用缓存、强制 HTTPS、移动端 UA（iPhone / Android）。模板在 `shared` 单一维护（`RULE_TEMPLATES`），选用后不直接落库而是把预填草稿交给规则编辑器微调匹配范围（`utils/factories.instantiateRuleTemplate`），入口收在「添加规则 / 新建规则」下拉里，从某分组进入即落到该组。文档见 [常用规则模板库](apps/docs/docs/guide/features/template-library.md)。
 
-- [x] ~~**P1 · 图标徽标 + 全局暂停开关**~~ — 扩展图标徽标使用浏览器原生动作计数：DNR 动作由浏览器直接累计，页面补丁把实际采用的 Mock / 延迟 / 改请求体 / 脚本注入动作通过 `tabUpdate.increment` 并入同一计数器；popup 展示动作总数，高亮相关规则并在规则卡片右上角显示逐规则动作角标，可一键清空。顶部总开关同步暂停两条执行通道。文档见 [查看规则命中](apps/docs/docs/guide/getting-started.md#查看规则命中)。
+- [x] ~~**P1 · 图标徽标 + 全局暂停开关**~~ — 统计以「命中日志」为唯一原始数据，总数与逐规则计数都是它的投影。图标徽标只表达状态（本页有规则生效即点亮），数量在 popup 内按规则展示并可一键清空。DNR 通道的命中由观测式 `webRequest` 配合 `core.findMatchedRules` 判定，页面补丁通道在执行计划中同步产出。顶部总开关同步暂停两条执行通道。文档见 [查看规则命中](apps/docs/docs/guide/getting-started.md#查看规则命中)。
 
 - [x] ~~**P1 · cURL / HAR 导入生成规则**~~ — cURL 以安全解析方式提取 URL、方法与 GraphQL 操作，选择 Redirect / Mock 后进入原有单条编辑器补齐配置；HAR 读取 Fetch / XHR 文本响应，批量生成静态 Mock，支持统一选择分组、逐条选择、手风琴编辑、重复请求提示与安全停用策略。两者复用统一 `Rule` 模型和校验，但以追加方式保存，不会触发现有配置导入的整体替换语义。XHR Mock 同步补齐响应头 API、状态说明、响应 URL 与常见 `responseType`。文档见 [从 cURL / HAR 创建规则](apps/docs/docs/guide/features/curl-har-import.md)。
 
@@ -79,6 +79,7 @@ flowchart LR
 
 - [ ] **P2 · 请求日志 / 命中高亮**
   - 让用户看见「哪条规则命中了哪个请求」，否则规则不生效时无从排查。
+  - 数据层已就绪：命中日志已按标签页记录 URL、方法、动作类型与时间（`utils/rule-hit.ts`），只差展示层。
 
 - [ ] **P2 · 规则命中测试器**
   - 输入一个 URL，实时显示命中哪条规则、改写后结果。与「请求日志」互补：那个是事后看，这个是事前验。
@@ -121,7 +122,8 @@ WXT 本身支持多浏览器打包（`wxt build -b firefox / edge / safari`）�
 | MAIN world 内容脚本（页面补丁通道） | ✅ 111+ | ✅ 128+ | ❌ `world:'MAIN'` 基本不可靠 |
 | File System Access API（读本地文件，`MapLocal` 已否决未采用） | ✅ 桌面版 | ❌ 无 `showDirectoryPicker` | ❌ 无 |
 | `storage.sync` / `storage.local` | ✅ | ✅ | ✅ |
-| `declarativeNetRequest.setExtensionActionOptions`（原生动作徽标） | ✅ | ✅ | ✅ |
+| `action.setBadgeText`（状态徽标） | ✅ | ✅ | ✅ |
+| `webRequest` 观测式监听（命中统计数据源） | ✅ | ✅ | ⚠️ 支持有限，统计能力下降 |
 | `commands`（快捷键） | ✅ | ✅ | ⚠️ 有限 |
 | `scripting` API | ✅ | ✅ | ✅ |
 

@@ -18,7 +18,9 @@ export default defineConfig({
       'activeTab',
       'declarativeNetRequest',
       'tabGroups',
-      'webNavigation',
+      // 观测式 webRequest 是唯一可用的 DNR 命中推送信号，且不触发额外的安装警告；
+      // webNavigation 会触发「读取您的浏览记录」，改用 main_frame 请求作为重置点后已移除。
+      'webRequest',
     ],
     host_permissions: ['<all_urls>'],
   }),

@@ -305,11 +305,66 @@
     "noMatchingGroupsHint": "검색어나 필터를 조정해 보세요"
   },
   "ruleImport": {
-    "menu": {"config": "Import Req Freedom configuration", "curl": "Create from cURL", "har": "Create mocks from HAR"},
-    "curl": {"title": "Create rule from cURL", "hint": "The request URL and method will be extracted, then you can finish the generated rule in the existing editor.", "action": "Create as", "mock": "Mock response", "redirect": "Redirect", "command": "cURL command", "continue": "Continue editing"},
-    "har": {"title": "Create mocks from HAR", "chooseHint": "Choose a HAR file to preview text responses.", "chooseFile": "Choose HAR", "summary": "{{selected}} of {{total}} selected · about {{size}} KB", "group": "Target group", "newGroup": "Create a new import group", "groupName": "New group name", "defaultGroupName": "HAR import", "enableImmediately": "Enable imported rules immediately", "disabledHint": "A new group stays disabled by default; rules added to an existing group stay individually disabled.", "selectAll": "Select all", "selectNone": "Select none", "toggleSelection": "Include this rule", "selectionRequired": "Select at least one rule and provide a group name.", "fixErrors": "Fix the highlighted rules before importing.", "noCandidates": "No supported text responses were found in this HAR.", "saveFailure": "Could not save imported rules: {{message}}", "targetGroupMissing": "The selected target group no longer exists. Choose another group and try again.", "saving": "Importing…", "importSelected": "Import selected", "success": "Imported {{count}} rules from HAR."},
-    "warnings": {"sensitive-query": "The URL may contain a token or signature; review it before saving.", "request-headers-ignored": "Request headers are not converted into rule actions.", "binary-body-skipped": "Binary response body was skipped.", "body-too-large": "Response body is too large to import.", "duplicate-request": "Another entry has the same URL and method; this one is unselected by default.", "unsupported-entry": "This HAR entry is not supported."},
-    "errors": {"curl-empty": "Paste a cURL command first.", "curl-shell-syntax-unsupported": "Shell operators and variable expansion are not supported.", "curl-quote-unclosed": "The cURL command contains an unclosed quote or escape.", "curl-command-required": "The input must start with curl.", "curl-option-value-required": "A cURL option is missing its value.", "curl-file-input-unsupported": "Reading request data from a local file is not supported.", "curl-config-unsupported": "cURL config files are not supported.", "curl-url-required": "No request URL was found.", "curl-url-invalid": "The request URL must be an absolute HTTP or HTTPS URL.", "http-method-unsupported": "This HTTP method is not supported by the rule model.", "har-json-invalid": "The HAR file is not valid JSON.", "har-structure-invalid": "The file does not contain a valid HAR log.", "unknown": "The import could not be parsed."}
+    "menu": {
+      "config": "Import Req Freedom configuration",
+      "curl": "Create from cURL",
+      "har": "Create mocks from HAR"
+    },
+    "curl": {
+      "title": "Create rule from cURL",
+      "hint": "The request URL and method will be extracted, then you can finish the generated rule in the existing editor.",
+      "action": "Create as",
+      "mock": "Mock response",
+      "redirect": "Redirect",
+      "command": "cURL command",
+      "continue": "Continue editing"
+    },
+    "har": {
+      "title": "Create mocks from HAR",
+      "chooseHint": "Choose a HAR file to preview text responses.",
+      "chooseFile": "Choose HAR",
+      "summary": "{{selected}} of {{total}} selected · about {{size}} KB",
+      "group": "Target group",
+      "newGroup": "Create a new import group",
+      "groupName": "New group name",
+      "defaultGroupName": "HAR import",
+      "enableImmediately": "Enable imported rules immediately",
+      "disabledHint": "A new group stays disabled by default; rules added to an existing group stay individually disabled.",
+      "selectAll": "Select all",
+      "selectNone": "Select none",
+      "toggleSelection": "Include this rule",
+      "selectionRequired": "Select at least one rule and provide a group name.",
+      "fixErrors": "Fix the highlighted rules before importing.",
+      "noCandidates": "No supported text responses were found in this HAR.",
+      "saveFailure": "Could not save imported rules: {{message}}",
+      "targetGroupMissing": "The selected target group no longer exists. Choose another group and try again.",
+      "saving": "Importing…",
+      "importSelected": "Import selected",
+      "success": "Imported {{count}} rules from HAR."
+    },
+    "warnings": {
+      "sensitive-query": "The URL may contain a token or signature; review it before saving.",
+      "request-headers-ignored": "Request headers are not converted into rule actions.",
+      "binary-body-skipped": "Binary response body was skipped.",
+      "body-too-large": "Response body is too large to import.",
+      "duplicate-request": "Another entry has the same URL and method; this one is unselected by default.",
+      "unsupported-entry": "This HAR entry is not supported."
+    },
+    "errors": {
+      "curl-empty": "Paste a cURL command first.",
+      "curl-shell-syntax-unsupported": "Shell operators and variable expansion are not supported.",
+      "curl-quote-unclosed": "The cURL command contains an unclosed quote or escape.",
+      "curl-command-required": "The input must start with curl.",
+      "curl-option-value-required": "A cURL option is missing its value.",
+      "curl-file-input-unsupported": "Reading request data from a local file is not supported.",
+      "curl-config-unsupported": "cURL config files are not supported.",
+      "curl-url-required": "No request URL was found.",
+      "curl-url-invalid": "The request URL must be an absolute HTTP or HTTPS URL.",
+      "http-method-unsupported": "This HTTP method is not supported by the rule model.",
+      "har-json-invalid": "The HAR file is not valid JSON.",
+      "har-structure-invalid": "The file does not contain a valid HAR log.",
+      "unknown": "The import could not be parsed."
+    }
   },
   "popup": {
     "activeCount": "규칙 {{count}}개 활성화",
@@ -320,13 +375,12 @@
     "collapseGroup": "그룹 접기",
     "ruleCount": "규칙 {{count}}개",
     "manageRules": "규칙 관리",
-    "matchedCount": "이 페이지의 규칙 동작: {{count}}회",
-    "clearMatchedCount": "지우기",
+    "hitTotal": "이 페이지의 규칙 적중: {{count}}회",
+    "clearHits": "지우기",
     "jumpToRule": "규칙으로 이동",
-    "ruleActionCount": "이 규칙의 동작: {{count}}회",
-    "unmappedActionCount": "{{count}}개의 이전 동작을 현재 규칙에 연결할 수 없습니다",
-    "clearMatchedCountFailed": "동작 수를 지우지 못했습니다. 다시 시도하세요.",
-    "matchSummaryUnavailable": "규칙 동작 통계를 불러오지 못했습니다.",
+    "ruleHitCount": "이 규칙의 적중: {{count}}회",
+    "hitsTruncated": "최근 적중만 표시되며 이전 기록은 삭제되었습니다.",
+    "hitSummaryUnavailable": "규칙 적중 통계를 불러오지 못했습니다.",
     "retry": "다시 시도"
   },
   "dynamicVariableHint": {

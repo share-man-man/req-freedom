@@ -375,13 +375,12 @@
     "collapseGroup": "Réduire le groupe",
     "ruleCount": "{{count}} règles",
     "manageRules": "Gérer les règles",
-    "matchedCount": "Actions de règles sur cette page : {{count}}",
-    "clearMatchedCount": "Effacer",
+    "hitTotal": "Déclenchements de règles sur cette page : {{count}}",
+    "clearHits": "Effacer",
     "jumpToRule": "Accéder à la règle",
-    "ruleActionCount": "Actions de cette règle : {{count}}",
-    "unmappedActionCount": "{{count}} actions historiques ne peuvent pas être liées à une règle actuelle",
-    "clearMatchedCountFailed": "Impossible d’effacer le compteur d’actions. Réessayez.",
-    "matchSummaryUnavailable": "Impossible de charger les statistiques d’actions des règles.",
+    "ruleHitCount": "Déclenchements de cette règle : {{count}}",
+    "hitsTruncated": "Seuls les déclenchements les plus récents sont affichés ; les plus anciens ont été supprimés.",
+    "hitSummaryUnavailable": "Impossible de charger les statistiques de déclenchements.",
     "retry": "Réessayer"
   },
   "dynamicVariableHint": {

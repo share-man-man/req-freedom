@@ -1,108 +1,53 @@
 import { browser } from 'wxt/browser';
 import { defineContentScript } from 'wxt/utils/define-content-script';
-import type { RuleMatchCount, ScopeContext } from '@req-freedom/shared';
+import type { ScopeContext } from '@req-freedom/shared';
 import {
   PAGE_MESSAGE_CHANNEL_REQUEST_SOURCE,
-  PAGE_PORT_MSG_RULE_ACTIONS,
+  PAGE_PORT_MSG_RULE_HITS,
   PAGE_PORT_MSG_RULES,
   RUNTIME_MSG_GET_SCOPE_CONTEXT,
-  RUNTIME_MSG_RULE_MATCH_DOCUMENT_STARTED,
-  RUNTIME_MSG_RULE_MATCHED,
+  RUNTIME_MSG_RULE_HIT,
   RUNTIME_MSG_SCOPE_CONTEXT_CHANGED,
   RuleExecutionChannel,
   STORAGE_KEY_ENABLED,
   STORAGE_KEY_GROUPS,
 } from '@req-freedom/shared';
 import { collectActiveRules, filterRulesByScope } from '@req-freedom/core';
-import {
-  mergeRuleMatchCounts,
-  parseRuleMatchCounts,
-} from '@/utils/rule-match-counts';
+import { parseHits } from '@/utils/rule-hit';
 import { getEnabled, getGroups } from '@/utils/storage';
-
-/** 页面补丁动作在 bridge 中的批量发送窗口。 */
-const RULE_ACTION_BATCH_DELAY_MS = 100;
-
-/**
- * 为当前顶层 Document 创建不可预测的 bridge 实例标识。
- *
- * 使用在非安全页面也可用的 getRandomValues，避免 HTTP 页面缺少 randomUUID。
- * @returns 128 位十六进制 Document token
- */
-function createDocumentToken(): string {
-  /** 当前 Document token 使用的四个 32 位随机值。 */
-  const randomValues = crypto.getRandomValues(new Uint32Array(4));
-  return [...randomValues]
-    .map((value) => value.toString(16).padStart(8, '0'))
-    .join('');
-}
 
 /**
  * 桥接内容脚本（ISOLATED world）
  *
  * MAIN world 的拦截脚本无法访问扩展 API。本脚本在 document_start 接受 interceptor
- * 发起的首个 MessageChannel，并通过私有端口双向传递规则与动作计数，避免宿主页伪造
+ * 发起的首个 MessageChannel，并通过私有端口双向传递规则与命中记录，避免宿主页伪造
  * window.postMessage 命中消息。
+ *
+ * 命中逐条转交、不做批量：批量窗口会让命中在导航后才送达 background，从而需要额外的
+ * Document token 去识别迟到消息；逐条转发后消息顺序天然正确，那套机制不再需要。
  */
 export default defineContentScript({
   matches: ['<all_urls>'],
   runAt: 'document_start',
   main() {
-    /** bridge 为当前顶层 Document 生成、仅扩展上下文可见的实例标识。 */
-    const documentToken = createDocumentToken();
     /** 当前标签作用域上下文；未知时只下发 AllTabs 规则。 */
     let scopeContext: ScopeContext = {};
     /** 与 MAIN world interceptor 建立的私有消息端口。 */
     let pagePort: MessagePort | undefined;
-    /** 当前允许通过页面补丁通道上报动作的业务规则 ID。 */
+    /** 当前允许通过页面补丁通道上报命中的业务规则 ID。 */
     let activePageRuleIds = new Set<string>();
-    /** 批量窗口内累计的页面补丁动作。 */
-    let pendingRuleCounts: RuleMatchCount[] = [];
-    /** 当前批量发送定时器。 */
-    let ruleActionBatchTimer: ReturnType<typeof setTimeout> | undefined;
 
     /**
-     * 把待发送动作批次转交 background。
+     * 校验 MAIN world 上报的命中并转交 background。
+     * @param value 私有 MessagePort 收到的未知命中字段
      */
-    const flushRuleActionBatch = (): void => {
-      if (ruleActionBatchTimer !== undefined) {
-        clearTimeout(ruleActionBatchTimer);
-        ruleActionBatchTimer = undefined;
-      }
-      /** 本次真正发送的页面补丁动作批次。 */
-      const ruleCounts = pendingRuleCounts;
-      pendingRuleCounts = [];
-      if (ruleCounts.length === 0) {
+    const forwardRuleHits = (value: unknown): void => {
+      /** 通过协议字段校验并限量的命中记录。 */
+      const hits = parseHits(value).filter((hit) => activePageRuleIds.has(hit.ruleId));
+      if (hits.length === 0) {
         return;
       }
-      void browser.runtime.sendMessage({
-        type: RUNTIME_MSG_RULE_MATCHED,
-        documentToken,
-        ruleCounts,
-      }).catch(() => undefined);
-    };
-
-    /**
-     * 校验并合并 MAIN world 上报的页面补丁动作。
-     * @param value 私有 MessagePort 收到的未知计数字段
-     */
-    const queueRuleActionBatch = (value: unknown): void => {
-      /** 通过协议字段校验并限幅的动作计数。 */
-      const parsedCounts = parseRuleMatchCounts(value);
-      /** 只保留当前作用域内实际启用的页面补丁规则。 */
-      const allowedCounts = parsedCounts.filter((item) =>
-        activePageRuleIds.has(item.ruleId),
-      );
-      if (allowedCounts.length === 0) {
-        return;
-      }
-      pendingRuleCounts = mergeRuleMatchCounts(pendingRuleCounts, allowedCounts);
-      if (ruleActionBatchTimer === undefined) {
-        ruleActionBatchTimer = setTimeout(
-          flushRuleActionBatch,
-          RULE_ACTION_BATCH_DELAY_MS,
-        );
-      }
+      void browser.runtime.sendMessage({ type: RUNTIME_MSG_RULE_HIT, hits }).catch(() => undefined);
     };
 
     /**
@@ -158,19 +103,14 @@ export default defineContentScript({
       }
       pagePort = candidatePort;
       pagePort.onmessage = (portEvent: MessageEvent) => {
-        if (portEvent.data?.type === PAGE_PORT_MSG_RULE_ACTIONS) {
-          queueRuleActionBatch(portEvent.data.ruleCounts);
+        if (portEvent.data?.type === PAGE_PORT_MSG_RULE_HITS) {
+          forwardRuleHits(portEvent.data.hits);
         }
       };
       pagePort.start();
       void pushRulesToPage();
     });
 
-    // 独立注册 Document token；导航后 background 会拒绝旧 Document 的迟到消息。
-    void browser.runtime.sendMessage({
-      type: RUNTIME_MSG_RULE_MATCH_DOCUMENT_STARTED,
-      documentToken,
-    }).catch(() => undefined);
     void refreshScopeContext().then(pushRulesToPage);
 
     // 标签归组或跨窗口移动后刷新作用域过滤。
@@ -189,8 +129,5 @@ export default defineContentScript({
         void pushRulesToPage();
       }
     });
-
-    // 页面销毁前立即提交剩余批次，缩小短页面漏计窗口。
-    window.addEventListener('pagehide', flushRuleActionBatch, { once: true });
   },
 });
