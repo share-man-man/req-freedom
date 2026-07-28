@@ -266,12 +266,22 @@ export interface RuleGroup {
   rules: Rule[];
 }
 
-/** 当前标签页的规则命中摘要，供 popup 展示命中规则与累计次数。 */
-export interface RuleMatchSummary {
-  /** DNR 与页面补丁通道合并后的累计命中次数。 */
+/** 单条业务规则在当前页面产生的原生动作计数。 */
+export interface RuleMatchCount {
+  /** 业务规则 ID。 */
+  ruleId: string;
+  /** 该业务规则累计执行的动作数量。 */
   count: number;
-  /** 至少命中过一次的业务规则 ID，已去重。 */
-  ruleIds: string[];
+}
+
+/** 当前标签页的规则动作摘要，供 popup 展示原生动作总数与逐规则计数。 */
+export interface RuleMatchSummary {
+  /** DNR 原生动作与页面补丁实际动作合并后的累计数量。 */
+  count: number;
+  /** 按业务规则归并的动作数量。 */
+  ruleCounts: RuleMatchCount[];
+  /** 无法还原到业务规则的旧版本或已删除 DNR 动作数量。 */
+  unmappedCount: number;
 }
 
 /**

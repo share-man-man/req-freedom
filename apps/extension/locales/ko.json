@@ -320,9 +320,14 @@
     "collapseGroup": "그룹 접기",
     "ruleCount": "규칙 {{count}}개",
     "manageRules": "규칙 관리",
-    "matchedCount": "이 페이지의 규칙 일치: {{count}}회",
+    "matchedCount": "이 페이지의 규칙 동작: {{count}}회",
     "clearMatchedCount": "지우기",
-    "jumpToRule": "규칙으로 이동"
+    "jumpToRule": "규칙으로 이동",
+    "ruleActionCount": "이 규칙의 동작: {{count}}회",
+    "unmappedActionCount": "{{count}}개의 이전 동작을 현재 규칙에 연결할 수 없습니다",
+    "clearMatchedCountFailed": "동작 수를 지우지 못했습니다. 다시 시도하세요.",
+    "matchSummaryUnavailable": "규칙 동작 통계를 불러오지 못했습니다.",
+    "retry": "다시 시도"
   },
   "dynamicVariableHint": {
     "title": "사용 가능한 동적 변수 보기",

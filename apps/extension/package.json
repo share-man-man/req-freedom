@@ -9,6 +9,7 @@
     "dev:firefox": "wxt -b firefox",
     "icons": "node scripts/generate-icons.mjs",
     "build": "wxt build",
+    "test": "vitest run",
     "zip": "wxt zip",
     "typecheck": "tsc --noEmit && pnpm i18n:check",
     "i18n:check": "node scripts/validate-locales.mjs",
@@ -48,6 +49,7 @@
     "@wxt-dev/module-react": "^1.1.3",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.8.3",
+    "vitest": "^4.1.10",
     "wxt": "^0.20.6"
   }
 }

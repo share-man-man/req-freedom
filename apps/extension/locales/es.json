@@ -354,9 +354,14 @@
     "collapseGroup": "Contraer grupo",
     "ruleCount": "{{count}} reglas",
     "manageRules": "Administrar reglas",
-    "matchedCount": "Coincidencias en esta página: {{count}}",
+    "matchedCount": "Acciones de reglas en esta página: {{count}}",
     "clearMatchedCount": "Borrar",
-    "jumpToRule": "Ir a la regla"
+    "jumpToRule": "Ir a la regla",
+    "ruleActionCount": "Acciones de esta regla: {{count}}",
+    "unmappedActionCount": "{{count}} acciones históricas no se pueden vincular a una regla actual",
+    "clearMatchedCountFailed": "No se pudo borrar el contador de acciones. Inténtalo de nuevo.",
+    "matchSummaryUnavailable": "No se pudieron cargar las estadísticas de acciones de reglas.",
+    "retry": "Reintentar"
   },
   "dynamicVariableHint": {
     "title": "Ver variables dinámicas disponibles",

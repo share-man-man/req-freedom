@@ -320,9 +320,14 @@
     "collapseGroup": "Свернуть группу",
     "ruleCount": "{{count}} правил",
     "manageRules": "Управление правилами",
-    "matchedCount": "Срабатываний правил на этой странице: {{count}}",
+    "matchedCount": "Действий правил на этой странице: {{count}}",
     "clearMatchedCount": "Очистить",
-    "jumpToRule": "Перейти к правилу"
+    "jumpToRule": "Перейти к правилу",
+    "ruleActionCount": "Действий этого правила: {{count}}",
+    "unmappedActionCount": "{{count}} исторических действий невозможно связать с текущим правилом",
+    "clearMatchedCountFailed": "Не удалось очистить счётчик действий. Повторите попытку.",
+    "matchSummaryUnavailable": "Не удалось загрузить статистику действий правил.",
+    "retry": "Повторить"
   },
   "dynamicVariableHint": {
     "title": "Показать доступные динамические переменные",

@@ -354,9 +354,14 @@
     "collapseGroup": "摺疊分組",
     "ruleCount": "{{count}} 條",
     "manageRules": "管理規則",
-    "matchedCount": "目前頁面已命中 {{count}} 次",
+    "matchedCount": "目前頁面規則動作：{{count}}",
     "clearMatchedCount": "清空",
-    "jumpToRule": "跳至規則"
+    "jumpToRule": "跳至規則",
+    "ruleActionCount": "該規則動作數：{{count}}",
+    "unmappedActionCount": "其中 {{count}} 個歷史動作無法關聯到目前規則",
+    "clearMatchedCountFailed": "清空動作計數失敗，請重試。",
+    "matchSummaryUnavailable": "規則動作統計載入失敗。",
+    "retry": "重試"
   },
   "dynamicVariableHint": {
     "title": "檢視可用的動態變數",

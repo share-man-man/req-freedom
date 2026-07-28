@@ -354,9 +354,14 @@
     "collapseGroup": "折叠分组",
     "ruleCount": "{{count}} 条",
     "manageRules": "管理规则",
-    "matchedCount": "当前页面已命中 {{count}} 次",
+    "matchedCount": "当前页面规则动作：{{count}}",
     "clearMatchedCount": "清空",
-    "jumpToRule": "跳转到规则"
+    "jumpToRule": "跳转到规则",
+    "ruleActionCount": "该规则动作数：{{count}}",
+    "unmappedActionCount": "其中 {{count}} 个历史动作无法关联到当前规则",
+    "clearMatchedCountFailed": "清空动作计数失败，请重试。",
+    "matchSummaryUnavailable": "规则动作统计加载失败。",
+    "retry": "重试"
   },
   "dynamicVariableHint": {
     "title": "查看可用的动态变量",

@@ -13,6 +13,7 @@
     "dev:lab": "pnpm --filter @req-freedom/request-lab dev",
     "dev:docs": "pnpm --filter @req-freedom/docs dev",
     "version:extension": "pnpm --filter @req-freedom/extension exec npm version --no-git-tag-version",
+    "test": "pnpm -r --if-present test",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "knip": "knip"

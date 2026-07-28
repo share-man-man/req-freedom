@@ -1,5 +1,5 @@
 import { browser, type Browser } from 'wxt/browser';
-import type { Rule } from '@req-freedom/shared';
+import type { Rule, RuleAction } from '@req-freedom/shared';
 import {
   HeaderOperation,
   HeaderTarget,
@@ -11,6 +11,34 @@ import { resolveDynamicVariables } from '@req-freedom/core';
 
 /** DNR 规则类型别名，简化书写。 */
 type DnrRule = Browser.declarativeNetRequest.Rule;
+
+/** 带稳定业务动作身份的 DNR 编译结果。 */
+export interface CompiledDnrRule {
+  /** 不受其他动作增删或排序影响的业务动作键。 */
+  actionKey: string;
+  /** 兼容现有哈希分配的初始候选键。 */
+  legacyKey: string;
+  /** 浏览器可注册的 DNR 规则。 */
+  dnrRule: DnrRule;
+}
+
+/**
+ * 判断一个业务动作是否会实际编译成 DNR 规则。
+ * @param action 待检查的业务动作
+ * @returns 当前动作会产生 DNR 规则时为 true
+ */
+function isCompilableDnrAction(action: RuleAction): boolean {
+  switch (action.type) {
+    case RuleActionType.Block:
+    case RuleActionType.Redirect:
+    case RuleActionType.InjectParams:
+      return true;
+    case RuleActionType.ModifyHeaders:
+      return action.headers.length > 0;
+    default:
+      return false;
+  }
+}
 
 /**
  * 把规则的 URL 匹配配置转换为 DNR 的 condition。
@@ -60,7 +88,7 @@ function toDnrHeaderOperation(operation: HeaderOperation): Browser.declarativeNe
  * 注意：动态变量（`{{uuid}}` 等）在此声明式编译阶段解析一次。DNR 规则由网络层原生执行，
  * 无法逐请求求值，因此同一次同步内命中的所有请求会拿到相同的值；真·逐请求动态请走页面补丁通道。
  */
-export function toDnrRules(rule: Rule, firstDnrId: number, tabIds?: number[]): DnrRule[] {
+function toDnrRules(rule: Rule, firstDnrId: number, tabIds?: number[]): DnrRule[] {
   if (rule.channel !== RuleExecutionChannel.Dnr) {
     return [];
   }
@@ -132,4 +160,41 @@ export function toDnrRules(rule: Rule, firstDnrId: number, tabIds?: number[]): D
     }
   }
   return dnrRules;
+}
+
+/**
+ * 编译 DNR 规则并为每个动作生成稳定业务身份。
+ *
+ * 动作键使用「规则 ID + 动作类型 + 同类型序号」，因此不同类型动作的增删或排序不会改变
+ * 已存在动作的身份；legacyKey 保持当前数字 ID 初始哈希兼容。
+ * @param rule 待编译的业务规则
+ * @param firstDnrId 临时 DNR ID 起点
+ * @param tabIds 可选的 session 作用域标签页
+ * @returns 带稳定动作键的 DNR 编译结果
+ */
+export function toCompiledDnrRules(
+  rule: Rule,
+  firstDnrId: number,
+  tabIds?: number[],
+): CompiledDnrRule[] {
+  /** 实际能编译到 DNR 的业务动作。 */
+  const actions = rule.channel === RuleExecutionChannel.Dnr
+    ? rule.actions.filter(isCompilableDnrAction)
+    : [];
+  /** 与业务动作顺序一一对应的 DNR 规则。 */
+  const dnrRules = toDnrRules(rule, firstDnrId, tabIds);
+  /** 各动作类型已经出现的次数。 */
+  const occurrencesByType = new Map<RuleActionType, number>();
+  return dnrRules.map((dnrRule, actionIndex) => {
+    /** 当前 DNR 规则对应的业务动作。 */
+    const action = actions[actionIndex];
+    /** 当前动作类型此前已经出现的次数。 */
+    const occurrence = occurrencesByType.get(action.type) ?? 0;
+    occurrencesByType.set(action.type, occurrence + 1);
+    return {
+      actionKey: JSON.stringify([rule.id, action.type, occurrence]),
+      legacyKey: `${rule.id}:${actionIndex}`,
+      dnrRule,
+    };
+  });
 }

@@ -4,6 +4,7 @@ import type {
   InsertScriptAction,
   MockResponseAction,
   Rule,
+  RuleMatchCount,
 } from '@req-freedom/shared';
 import {
   DEFAULT_MOCK_BODY_TYPE,
@@ -12,8 +13,9 @@ import {
   InsertScriptTiming,
   MOCK_BODY_TYPE_CONTENT_TYPES,
   MockResponseMode,
-  PAGE_MESSAGE_RULE_MATCHED_SOURCE,
-  PAGE_MESSAGE_SOURCE,
+  PAGE_MESSAGE_CHANNEL_REQUEST_SOURCE,
+  PAGE_PORT_MSG_RULE_ACTIONS,
+  PAGE_PORT_MSG_RULES,
   RequestBodyMode,
   RequestBodySourceMode,
   RuleActionType,
@@ -34,6 +36,7 @@ import {
   rulesNeedBody,
   sleep,
 } from '@req-freedom/core';
+import { countRuleActions } from '@/utils/rule-match-counts';
 
 /** 动态 Mock 与动态改请求体函数可读取的请求快照。 */
 interface DynamicRequestContext {
@@ -104,7 +107,7 @@ interface XhrMockResponseState {
  *
  * 在页面自身的 JS 环境中给 fetch / XMLHttpRequest 打补丁，
  * 实现 DNR 无法覆盖的两类能力：返回值 Mock、网络限速模拟。
- * 规则由 bridge.content.ts 通过 postMessage 推送。
+ * 规则由 bridge.content.ts 通过 document_start 时建立的私有 MessagePort 推送。
  */
 export default defineContentScript({
   matches: ['<all_urls>'],
@@ -117,30 +120,40 @@ export default defineContentScript({
     /** 已注入的 InsertScript 规则 ID，防止 storage 变更重推时重复注入 */
     const injectedRuleIds = new Set<string>();
 
+    /** 用于与 ISOLATED world bridge 建立私有通信的 MessageChannel。 */
+    const bridgeChannel = new MessageChannel();
+    /** MAIN world 保留、专门收发规则和动作计数的私有端口。 */
+    const bridgePort = bridgeChannel.port1;
+
     /**
-     * 通知桥接脚本当前页面有规则实际命中。
-     * @param ruleIds 实际产生效果的业务规则 ID
+     * 通知桥接脚本当前页面实际执行的动作数量。
+     * @param ruleCounts 按业务规则归并的实际动作计数
      */
-    const reportRuleMatch = (ruleIds: string[]): void => {
-      /** 同一条业务规则在一次请求中只计一次。 */
-      const uniqueRuleIds = [...new Set(ruleIds)];
-      if (uniqueRuleIds.length === 0) {
+    const reportRuleMatch = (ruleCounts: RuleMatchCount[]): void => {
+      if (ruleCounts.length === 0) {
         return;
       }
-      window.postMessage({ source: PAGE_MESSAGE_RULE_MATCHED_SOURCE, ruleIds: uniqueRuleIds }, '*');
+      bridgePort.postMessage({ type: PAGE_PORT_MSG_RULE_ACTIONS, ruleCounts });
     };
 
-    // 监听桥接脚本推送的规则更新
-    window.addEventListener('message', (event: MessageEvent) => {
-      // 只接受同窗口、带指定来源标识的消息
-      if (event.source !== window || event.data?.source !== PAGE_MESSAGE_SOURCE) {
+    // 私有端口只接受 bridge 推送的规则更新，宿主页无法伪造后续动作消息。
+    bridgePort.onmessage = (event: MessageEvent) => {
+      if (event.data?.type !== PAGE_PORT_MSG_RULES) {
         return;
       }
       state.enabled = Boolean(event.data.enabled);
       state.rules = Array.isArray(event.data.rules) ? (event.data.rules as Rule[]) : [];
       // 规则到达后按需注入命中当前页面的脚本 / 样式
       applyInsertScripts();
-    });
+    };
+    bridgePort.start();
+
+    // document_start 时只通过 window 暴露一次握手端口，后续消息全部走私有 MessageChannel。
+    window.postMessage(
+      { source: PAGE_MESSAGE_CHANNEL_REQUEST_SOURCE },
+      '*',
+      [bridgeChannel.port2],
+    );
 
     // ---------- InsertScript 脚本 / 样式注入 ----------
 
@@ -201,13 +214,13 @@ export default defineContentScript({
             'DOMContentLoaded',
             () => {
               injectCode(action);
-              reportRuleMatch([ownerRule.id]);
+              reportRuleMatch([{ ruleId: ownerRule.id, count: 1 }]);
             },
             { once: true },
           );
         } else {
           injectCode(action);
-          reportRuleMatch([ownerRule.id]);
+          reportRuleMatch([{ ruleId: ownerRule.id, count: 1 }]);
         }
       }
     };
@@ -249,23 +262,26 @@ export default defineContentScript({
      * GET / HEAD 不执行请求体改写，因此也不应把对应规则标为命中。
      * @param rules 已完成 URL、方法与请求体过滤的规则
      * @param method 当前请求方法
-     * @returns 实际产生效果的业务规则 ID
+     * @returns 按业务规则归并的实际动作计数
      */
-    const getAppliedRuleIds = (rules: Rule[], method: string): string[] => {
+    const getAppliedRuleCounts = (rules: Rule[], method: string): RuleMatchCount[] => {
       const { mockRule, delayRule, modifyBodyRule } = pickPageActions(rules);
+      /** 改请求体仅在真实请求会发出且方法允许携带请求体时执行。 */
+      const appliesRequestBody =
+        method !== 'GET' &&
+        method !== 'HEAD' &&
+        (mockRule === undefined || isPassthroughMock(mockRule));
       /** 当前请求真正采用的动作引用。 */
       const appliedActions = [
         mockRule,
         delayRule,
-        method !== 'GET' && method !== 'HEAD' ? modifyBodyRule : undefined,
+        appliesRequestBody ? modifyBodyRule : undefined,
       ].filter((action) => action !== undefined);
-      return [
-        ...new Set(
-          appliedActions
-            .map((action) => rules.find((rule) => rule.actions.includes(action))?.id)
-            .filter((ruleId): ruleId is string => typeof ruleId === 'string'),
-        ),
-      ];
+      /** 每个实际采用动作所属的业务规则 ID；同一规则的多个动作保留重复项。 */
+      const appliedRuleIds = appliedActions
+        .map((action) => rules.find((rule) => rule.actions.includes(action))?.id)
+        .filter((ruleId): ruleId is string => typeof ruleId === 'string');
+      return countRuleActions(appliedRuleIds);
     };
 
     /**
@@ -772,10 +788,10 @@ export default defineContentScript({
         ? filterRulesByBody(candidateRules, await readFetchBodyText(input, init))
         : candidateRules;
       const { mockRule, delayRule, modifyBodyRule } = pickPageActions(activeRules);
-      /** 本次请求真正产生效果的规则。 */
-      const appliedRuleIds = getAppliedRuleIds(activeRules, method);
-      if (appliedRuleIds.length > 0) {
-        reportRuleMatch(appliedRuleIds);
+      /** 本次请求真正执行、按业务规则归并的动作计数。 */
+      const appliedRuleCounts = getAppliedRuleCounts(activeRules, method);
+      if (appliedRuleCounts.length > 0) {
+        reportRuleMatch(appliedRuleCounts);
       }
 
       // 关键步骤：在请求实际发出前模拟网络往返延迟与上行传输时间
@@ -1092,10 +1108,10 @@ export default defineContentScript({
        */
       const proceed = (activeRules: Rule[]): void => {
         const { mockRule, delayRule, modifyBodyRule } = pickPageActions(activeRules);
-        /** 本次请求真正产生效果的规则。 */
-        const appliedRuleIds = getAppliedRuleIds(activeRules, method);
-        if (appliedRuleIds.length > 0) {
-          reportRuleMatch(appliedRuleIds);
+        /** 本次请求真正执行、按业务规则归并的动作计数。 */
+        const appliedRuleCounts = getAppliedRuleCounts(activeRules, method);
+        if (appliedRuleCounts.length > 0) {
+          reportRuleMatch(appliedRuleCounts);
         }
         /** 延迟规则与 Mock 自带延迟的总时长。XHR 不暴露可替换的响应流，因此仅模拟请求前的网络延迟与上行带宽。 */
         const totalDelayMs =

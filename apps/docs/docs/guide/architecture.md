@@ -32,7 +32,7 @@ req-freedom/
                             │      ┌────────────────────┐
                             ▼      │ bridge.content.ts  │ (ISOLATED)
                   ┌──────────────┐ └────────┬───────────┘
-                  │ background   │          │ postMessage
+                  │ background   │          │ MessagePort
                   └──────┬───────┘          ▼
                          │         ┌──────────────────────┐
         updateDynamicRules│        │ interceptor.content  │ (MAIN)
@@ -50,7 +50,14 @@ req-freedom/
 - **页面补丁通道**：返回值 Mock、网络限速与改请求体无法由 DNR 表达，通过 MAIN world 内容脚本改写 `fetch` 与 `XMLHttpRequest` 实现，仅作用于页面脚本发起的请求；`fetch` 的响应流可按下行带宽精确交付，XHR 则仅能模拟请求前的延迟和上行带宽；改请求体在请求发出前替换或 JSON 深合并请求体；脚本注入亦复用该通道，按页面 URL 命中后注入自定义 JS / CSS
   - 同步 XHR 不在作用范围内，见下方[已知限制](#已知限制)
 
+## 动作统计
+
+- 工具栏徽标以浏览器原生 DNR 动作计数为准。页面补丁通道只上报实际采用的动作，并通过 `tabUpdate.increment` 并入同一计数器。
+- DNR 数字规则 ID 由持久化注册表分配；规则停用、删除或迁移作用域后仍保留历史映射，避免浏览器保存的旧明细错误关联到另一条业务规则。
+- 页面补丁按标签页独立写入 `storage.session`，以顶层 Document token 拒绝导航后的迟到消息。统计窗口只在 `webNavigation.onBeforeNavigate` 的顶层导航中重建，Hash 与 SPA 同文档跳转不会误清空。
+- MAIN world 与 ISOLATED world 在 `document_start` 建立一次 `MessageChannel`；后续规则和动作计数只通过私有端口传递。bridge 仍会按当前生效规则 ID 校验上报内容。
+
 ## 已知限制
 
-- 页面加载极早期（规则尚未通过 postMessage 送达时）发起的请求不会被 Mock / 延迟
+- 页面加载极早期（规则尚未通过 MessagePort 送达时）发起的请求不会被 Mock / 延迟
 - **同步 XHR（`open(..., false)`）一律原样放行，页面补丁规则不生效**。该通道的处理全是异步的——读请求体、执行动态函数、发影子请求都要等微任务或事件；而同步 XHR 要求 `send` 返回时响应已就绪，插进去只会让页面读到空响应。这里刻意选择 fail-open：宁可规则不生效，也不破坏页面。命中过页面补丁规则时会在页面控制台提示一次，便于排查「为什么规则没生效」。DNR 通道的规则不受影响，仍在网络层照常执行

@@ -24,14 +24,20 @@ export const CONFIG_EXPORT_SCHEMA_VERSION = 2;
 /** 导出配置文件的文件名固定前缀。 */
 export const CONFIG_EXPORT_FILE_NAME_PREFIX = 'req-freedom-config';
 
-/** 页面内 postMessage 通信的来源标识（ISOLATED 内容脚本 -> MAIN world 注入脚本） */
-export const PAGE_MESSAGE_SOURCE = 'req-freedom:bridge';
+/** MAIN world 拦截脚本请求与 ISOLATED world bridge 建立私有 MessagePort 的握手来源。 */
+export const PAGE_MESSAGE_CHANNEL_REQUEST_SOURCE = 'req-freedom:page-channel-request';
 
-/** MAIN world 拦截脚本通知桥接脚本「页面补丁规则已命中」的消息来源标识。 */
-export const PAGE_MESSAGE_RULE_MATCHED_SOURCE = 'req-freedom:page-rule-matched';
+/** bridge 通过私有 MessagePort 向 MAIN world 推送规则的消息类型。 */
+export const PAGE_PORT_MSG_RULES = 'req-freedom:page-rules';
 
-/** 桥接脚本通知 background 累加当前标签页命中次数的消息类型。 */
+/** MAIN world 通过私有 MessagePort 上报页面补丁动作的消息类型。 */
+export const PAGE_PORT_MSG_RULE_ACTIONS = 'req-freedom:page-rule-actions';
+
+/** 桥接脚本通知 background 累加当前标签页页面补丁动作数的消息类型。 */
 export const RUNTIME_MSG_RULE_MATCHED = 'req-freedom:rule-matched';
+
+/** bridge 通知 background 当前顶层 Document 已启动的消息类型。 */
+export const RUNTIME_MSG_RULE_MATCH_DOCUMENT_STARTED = 'req-freedom:rule-match-document-started';
 
 /** popup 向 background 查询当前标签页命中摘要的消息类型。 */
 export const RUNTIME_MSG_GET_RULE_MATCH_SUMMARY = 'req-freedom:get-rule-match-summary';
@@ -39,17 +45,14 @@ export const RUNTIME_MSG_GET_RULE_MATCH_SUMMARY = 'req-freedom:get-rule-match-su
 /** popup 通知 background 清空当前标签页命中记录的消息类型。 */
 export const RUNTIME_MSG_CLEAR_RULE_MATCHES = 'req-freedom:clear-rule-matches';
 
-/** storage.session 中按标签页保存页面补丁命中状态的键名。 */
+/** storage.session 中按标签页保存动作统计窗口与页面补丁逐规则计数的键名。 */
 export const STORAGE_KEY_RULE_MATCH_STATE = 'req-freedom:rule-match-state';
+
+/** storage.local 中持久化 DNR 业务动作到原生数字 ID 注册表的键名。 */
+export const STORAGE_KEY_DNR_RULE_ID_REGISTRY = 'req-freedom:dnr-rule-id-registry';
 
 /** options 页面用于定位并高亮规则的查询参数名。 */
 export const RULE_HIGHLIGHT_QUERY_PARAM = 'highlightRuleId';
-
-/** Chrome 为动态 DNR 规则返回的内置规则集 ID。 */
-export const DNR_DYNAMIC_RULESET_ID = '_dynamic';
-
-/** Chrome 为 session DNR 规则返回的内置规则集 ID。 */
-export const DNR_SESSION_RULESET_ID = '_session';
 
 /** declarativeNetRequest 动态规则 ID 起始偏移，避免与其他来源的规则 ID 冲突 */
 export const DNR_RULE_ID_OFFSET = 1000;

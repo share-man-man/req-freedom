@@ -1,62 +1,136 @@
 import { browser } from 'wxt/browser';
 import { defineContentScript } from 'wxt/utils/define-content-script';
-import type { ScopeContext } from '@req-freedom/shared';
+import type { RuleMatchCount, ScopeContext } from '@req-freedom/shared';
 import {
-  PAGE_MESSAGE_RULE_MATCHED_SOURCE,
-  PAGE_MESSAGE_SOURCE,
+  PAGE_MESSAGE_CHANNEL_REQUEST_SOURCE,
+  PAGE_PORT_MSG_RULE_ACTIONS,
+  PAGE_PORT_MSG_RULES,
   RUNTIME_MSG_GET_SCOPE_CONTEXT,
+  RUNTIME_MSG_RULE_MATCH_DOCUMENT_STARTED,
   RUNTIME_MSG_RULE_MATCHED,
   RUNTIME_MSG_SCOPE_CONTEXT_CHANGED,
+  RuleExecutionChannel,
   STORAGE_KEY_ENABLED,
   STORAGE_KEY_GROUPS,
 } from '@req-freedom/shared';
 import { collectActiveRules, filterRulesByScope } from '@req-freedom/core';
+import {
+  mergeRuleMatchCounts,
+  parseRuleMatchCounts,
+} from '@/utils/rule-match-counts';
 import { getEnabled, getGroups } from '@/utils/storage';
+
+/** 页面补丁动作在 bridge 中的批量发送窗口。 */
+const RULE_ACTION_BATCH_DELAY_MS = 100;
+
+/**
+ * 为当前顶层 Document 创建不可预测的 bridge 实例标识。
+ *
+ * 使用在非安全页面也可用的 getRandomValues，避免 HTTP 页面缺少 randomUUID。
+ * @returns 128 位十六进制 Document token
+ */
+function createDocumentToken(): string {
+  /** 当前 Document token 使用的四个 32 位随机值。 */
+  const randomValues = crypto.getRandomValues(new Uint32Array(4));
+  return [...randomValues]
+    .map((value) => value.toString(16).padStart(8, '0'))
+    .join('');
+}
 
 /**
  * 桥接内容脚本（ISOLATED world）
  *
- * MAIN world 的拦截脚本无法访问 chrome.storage，
- * 由本脚本读取规则并通过 window.postMessage 推送给页面内的拦截脚本；
- * storage 变化时增量推送，保持页面内规则实时更新。
- *
- * 作用域过滤也在此完成：内容脚本拿不到自己的 tabId，先向 background 请求自身标签上下文
- * （tabId / windowId / groupId），据此把「限定作用域」的规则过滤掉后再推给页面拦截脚本。
+ * MAIN world 的拦截脚本无法访问扩展 API。本脚本在 document_start 接受 interceptor
+ * 发起的首个 MessageChannel，并通过私有端口双向传递规则与动作计数，避免宿主页伪造
+ * window.postMessage 命中消息。
  */
 export default defineContentScript({
   matches: ['<all_urls>'],
   runAt: 'document_start',
   main() {
-    /**
-     * 当前标签的作用域上下文。
-     *
-     * 初始为空对象——此时 matchScope 只会命中 AllTabs 规则，作用域规则一律不下发，
-     * 保证「上下文未知」时限定范围的规则不会误生效（fail closed）。
-     */
+    /** bridge 为当前顶层 Document 生成、仅扩展上下文可见的实例标识。 */
+    const documentToken = createDocumentToken();
+    /** 当前标签作用域上下文；未知时只下发 AllTabs 规则。 */
     let scopeContext: ScopeContext = {};
+    /** 与 MAIN world interceptor 建立的私有消息端口。 */
+    let pagePort: MessagePort | undefined;
+    /** 当前允许通过页面补丁通道上报动作的业务规则 ID。 */
+    let activePageRuleIds = new Set<string>();
+    /** 批量窗口内累计的页面补丁动作。 */
+    let pendingRuleCounts: RuleMatchCount[] = [];
+    /** 当前批量发送定时器。 */
+    let ruleActionBatchTimer: ReturnType<typeof setTimeout> | undefined;
 
     /**
-     * 读取当前规则与开关，按作用域过滤后推送到页面
+     * 把待发送动作批次转交 background。
      */
-    const pushRulesToPage = async (): Promise<void> => {
-      /** 全局开关状态 */
-      const enabled = await getEnabled();
-      /** 全部规则分组 */
-      const groups = await getGroups();
-      /** 当前生效规则（启用分组下的启用规则），分组停用状态已在此处过滤 */
-      const activeRules = collectActiveRules(groups);
-      /** 作用域命中当前标签的规则；上下文未知时仅保留 AllTabs 规则 */
-      const rules = filterRulesByScope(activeRules, scopeContext);
-      // 通过 postMessage 跨 world 传递（仅当前窗口，不跨源）
-      window.postMessage({ source: PAGE_MESSAGE_SOURCE, enabled, rules }, '*');
+    const flushRuleActionBatch = (): void => {
+      if (ruleActionBatchTimer !== undefined) {
+        clearTimeout(ruleActionBatchTimer);
+        ruleActionBatchTimer = undefined;
+      }
+      /** 本次真正发送的页面补丁动作批次。 */
+      const ruleCounts = pendingRuleCounts;
+      pendingRuleCounts = [];
+      if (ruleCounts.length === 0) {
+        return;
+      }
+      void browser.runtime.sendMessage({
+        type: RUNTIME_MSG_RULE_MATCHED,
+        documentToken,
+        ruleCounts,
+      }).catch(() => undefined);
     };
 
     /**
-     * 向 background 请求当前标签的作用域上下文并缓存
+     * 校验并合并 MAIN world 上报的页面补丁动作。
+     * @param value 私有 MessagePort 收到的未知计数字段
+     */
+    const queueRuleActionBatch = (value: unknown): void => {
+      /** 通过协议字段校验并限幅的动作计数。 */
+      const parsedCounts = parseRuleMatchCounts(value);
+      /** 只保留当前作用域内实际启用的页面补丁规则。 */
+      const allowedCounts = parsedCounts.filter((item) =>
+        activePageRuleIds.has(item.ruleId),
+      );
+      if (allowedCounts.length === 0) {
+        return;
+      }
+      pendingRuleCounts = mergeRuleMatchCounts(pendingRuleCounts, allowedCounts);
+      if (ruleActionBatchTimer === undefined) {
+        ruleActionBatchTimer = setTimeout(
+          flushRuleActionBatch,
+          RULE_ACTION_BATCH_DELAY_MS,
+        );
+      }
+    };
+
+    /**
+     * 读取开关与规则，按作用域过滤后通过私有端口推送给 MAIN world。
+     */
+    const pushRulesToPage = async (): Promise<void> => {
+      /** 全局开关状态。 */
+      const enabled = await getEnabled();
+      /** 全部规则分组。 */
+      const groups = await getGroups();
+      /** 当前启用分组下的启用规则。 */
+      const activeRules = collectActiveRules(groups);
+      /** 作用域命中当前标签页的规则。 */
+      const rules = filterRulesByScope(activeRules, scopeContext);
+      activePageRuleIds = new Set(
+        rules
+          .filter((rule) => rule.channel === RuleExecutionChannel.PagePatch)
+          .map((rule) => rule.id),
+      );
+      pagePort?.postMessage({ type: PAGE_PORT_MSG_RULES, enabled, rules });
+    };
+
+    /**
+     * 向 background 请求当前标签页作用域上下文。
      */
     const refreshScopeContext = async (): Promise<void> => {
       try {
-        /** background 依据 sender.tab 回传的作用域上下文。 */
+        /** background 依据 sender.tab 返回的作用域上下文。 */
         const context = (await browser.runtime.sendMessage({
           type: RUNTIME_MSG_GET_SCOPE_CONTEXT,
         })) as ScopeContext | undefined;
@@ -64,14 +138,42 @@ export default defineContentScript({
           scopeContext = context;
         }
       } catch {
-        // background 未就绪或无响应时保持空上下文，仅下发 AllTabs 规则
+        // background 未就绪时保持空上下文，限定作用域规则 fail closed。
       }
     };
 
-    // 初始：先取上下文，再按作用域过滤推送
+    // interceptor 在 MAIN world 启动后发起一次 MessageChannel 握手；只接受首个有效端口。
+    window.addEventListener('message', (event: MessageEvent) => {
+      if (
+        pagePort !== undefined ||
+        event.source !== window ||
+        event.data?.source !== PAGE_MESSAGE_CHANNEL_REQUEST_SOURCE
+      ) {
+        return;
+      }
+      /** interceptor 转移给 bridge 的私有端口。 */
+      const [candidatePort] = event.ports;
+      if (!candidatePort) {
+        return;
+      }
+      pagePort = candidatePort;
+      pagePort.onmessage = (portEvent: MessageEvent) => {
+        if (portEvent.data?.type === PAGE_PORT_MSG_RULE_ACTIONS) {
+          queueRuleActionBatch(portEvent.data.ruleCounts);
+        }
+      };
+      pagePort.start();
+      void pushRulesToPage();
+    });
+
+    // 独立注册 Document token；导航后 background 会拒绝旧 Document 的迟到消息。
+    void browser.runtime.sendMessage({
+      type: RUNTIME_MSG_RULE_MATCH_DOCUMENT_STARTED,
+      documentToken,
+    }).catch(() => undefined);
     void refreshScopeContext().then(pushRulesToPage);
 
-    // background 在标签归组 / 跨窗口移动后主动推送最新上下文，据此重新过滤并推送
+    // 标签归组或跨窗口移动后刷新作用域过滤。
     browser.runtime.onMessage.addListener((message) => {
       /** 携带最新作用域上下文的消息。 */
       const scopeMessage = message as { type?: string; context?: ScopeContext } | undefined;
@@ -81,35 +183,14 @@ export default defineContentScript({
       }
     });
 
-    // MAIN world 命中页面补丁规则后，由桥接脚本转交 background 累加当前标签页计数。
-    window.addEventListener('message', (event: MessageEvent) => {
-      if (event.source !== window || event.data?.source !== PAGE_MESSAGE_RULE_MATCHED_SOURCE) {
-        return;
-      }
-      /** 实际产生效果的业务规则 ID；仅接受有限数量的字符串。 */
-      const ruleIds = Array.isArray(event.data.ruleIds)
-        ? [
-            ...new Set(
-              event.data.ruleIds
-                .filter((ruleId: unknown): ruleId is string => typeof ruleId === 'string')
-                .slice(0, 20),
-            ),
-          ]
-        : [];
-      if (ruleIds.length === 0) {
-        return;
-      }
-      void browser.runtime.sendMessage({ type: RUNTIME_MSG_RULE_MATCHED, ruleIds });
-    });
-
-    // storage 变化时重新推送（作用域上下文沿用缓存）
+    // 配置变化时通过已建立的私有端口推送最新规则。
     browser.storage.onChanged.addListener((changes, area) => {
-      if (area !== 'local') {
-        return;
-      }
-      if (STORAGE_KEY_GROUPS in changes || STORAGE_KEY_ENABLED in changes) {
+      if (area === 'local' && (STORAGE_KEY_GROUPS in changes || STORAGE_KEY_ENABLED in changes)) {
         void pushRulesToPage();
       }
     });
+
+    // 页面销毁前立即提交剩余批次，缩小短页面漏计窗口。
+    window.addEventListener('pagehide', flushRuleActionBatch, { once: true });
   },
 });

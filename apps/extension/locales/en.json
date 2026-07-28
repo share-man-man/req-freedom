@@ -354,9 +354,14 @@
     "collapseGroup": "Collapse group",
     "ruleCount": "{{count}} rules",
     "manageRules": "Manage rules",
-    "matchedCount": "Matches on this page: {{count}}",
+    "matchedCount": "Rule actions on this page: {{count}}",
     "clearMatchedCount": "Clear",
-    "jumpToRule": "Go to rule"
+    "jumpToRule": "Go to rule",
+    "ruleActionCount": "Actions from this rule: {{count}}",
+    "unmappedActionCount": "{{count}} historical actions cannot be linked to a current rule",
+    "clearMatchedCountFailed": "Could not clear the action count. Try again.",
+    "matchSummaryUnavailable": "Could not load rule action statistics.",
+    "retry": "Retry"
   },
   "dynamicVariableHint": {
     "title": "View available dynamic variables",

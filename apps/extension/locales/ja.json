@@ -299,9 +299,14 @@
     "collapseGroup": "グループを折りたたむ",
     "ruleCount": "{{count}} 件のルール",
     "manageRules": "ルールを管理",
-    "matchedCount": "このページでのルール一致: {{count}} 回",
+    "matchedCount": "このページでのルール動作: {{count}} 回",
     "clearMatchedCount": "クリア",
-    "jumpToRule": "ルールへ移動"
+    "jumpToRule": "ルールへ移動",
+    "ruleActionCount": "このルールの動作: {{count}} 回",
+    "unmappedActionCount": "{{count}} 件の履歴動作を現在のルールに関連付けできません",
+    "clearMatchedCountFailed": "動作カウントをクリアできませんでした。再試行してください。",
+    "matchSummaryUnavailable": "ルール動作の統計を読み込めませんでした。",
+    "retry": "再試行"
   },
   "dynamicVariableHint": {
     "title": "利用可能な動的変数を表示",

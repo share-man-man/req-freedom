@@ -320,9 +320,14 @@
     "collapseGroup": "Recolher grupo",
     "ruleCount": "{{count}} regras",
     "manageRules": "Gerenciar regras",
-    "matchedCount": "Correspondências nesta página: {{count}}",
+    "matchedCount": "Ações de regras nesta página: {{count}}",
     "clearMatchedCount": "Limpar",
-    "jumpToRule": "Ir para a regra"
+    "jumpToRule": "Ir para a regra",
+    "ruleActionCount": "Ações desta regra: {{count}}",
+    "unmappedActionCount": "{{count}} ações históricas não podem ser vinculadas a uma regra atual",
+    "clearMatchedCountFailed": "Não foi possível limpar a contagem de ações. Tente novamente.",
+    "matchSummaryUnavailable": "Não foi possível carregar as estatísticas de ações das regras.",
+    "retry": "Tentar novamente"
   },
   "dynamicVariableHint": {
     "title": "Ver variáveis dinâmicas disponíveis",

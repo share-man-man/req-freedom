@@ -375,9 +375,14 @@
     "collapseGroup": "Gruppe zuklappen",
     "ruleCount": "{{count}} Regeln",
     "manageRules": "Regeln verwalten",
-    "matchedCount": "Regelübereinstimmungen auf dieser Seite: {{count}}",
+    "matchedCount": "Regelaktionen auf dieser Seite: {{count}}",
     "clearMatchedCount": "Leeren",
-    "jumpToRule": "Zur Regel"
+    "jumpToRule": "Zur Regel",
+    "ruleActionCount": "Aktionen dieser Regel: {{count}}",
+    "unmappedActionCount": "{{count}} historische Aktionen können keiner aktuellen Regel zugeordnet werden",
+    "clearMatchedCountFailed": "Der Aktionszähler konnte nicht geleert werden. Versuche es erneut.",
+    "matchSummaryUnavailable": "Die Regelaktionsstatistik konnte nicht geladen werden.",
+    "retry": "Erneut versuchen"
   },
   "dynamicVariableHint": {
     "title": "Verfügbare dynamische Variablen anzeigen",

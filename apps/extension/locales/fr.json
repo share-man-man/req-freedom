@@ -375,9 +375,14 @@
     "collapseGroup": "Réduire le groupe",
     "ruleCount": "{{count}} règles",
     "manageRules": "Gérer les règles",
-    "matchedCount": "Correspondances sur cette page : {{count}}",
+    "matchedCount": "Actions de règles sur cette page : {{count}}",
     "clearMatchedCount": "Effacer",
-    "jumpToRule": "Accéder à la règle"
+    "jumpToRule": "Accéder à la règle",
+    "ruleActionCount": "Actions de cette règle : {{count}}",
+    "unmappedActionCount": "{{count}} actions historiques ne peuvent pas être liées à une règle actuelle",
+    "clearMatchedCountFailed": "Impossible d’effacer le compteur d’actions. Réessayez.",
+    "matchSummaryUnavailable": "Impossible de charger les statistiques d’actions des règles.",
+    "retry": "Réessayer"
   },
   "dynamicVariableHint": {
     "title": "Voir les variables dynamiques disponibles",
