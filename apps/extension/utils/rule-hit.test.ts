@@ -3,7 +3,7 @@ import { RuleActionType } from '@req-freedom/shared';
 import type { RuleHit } from '@req-freedom/shared';
 import {
   appendHits,
-  countByRule,
+  collectHitRuleIds,
   createTabHitLog,
   mergeRestoredHits,
   parseHits,
@@ -40,16 +40,22 @@ describe('rule-hit', () => {
     expect(log.truncated).toBe(false);
   });
 
-  it('按业务规则归并并投影成摘要', () => {
-    const log = appendHits(createTabHitLog(), [hit('a'), hit('b'), hit('a')]);
+  it('摘要按规则去重并保持首次命中顺序', () => {
+    const log = appendHits(createTabHitLog(), [hit('b'), hit('a'), hit('b')]);
 
-    expect(countByRule(log.hits)).toEqual({ a: 2, b: 1 });
-    expect(summarizeHits(log)).toEqual({
-      total: 3,
-      byRule: { a: 2, b: 1 },
-      truncated: false,
-    });
-    expect(summarizeHits(undefined)).toEqual({ total: 0, byRule: {}, truncated: false });
+    expect(collectHitRuleIds(log.hits)).toEqual(['b', 'a']);
+    expect(summarizeHits(log)).toEqual({ ruleIds: ['b', 'a'], truncated: false });
+    expect(summarizeHits(undefined)).toEqual({ ruleIds: [], truncated: false });
+  });
+
+  it('同一规则的多个动作在摘要中只出现一次', () => {
+    /** 同一规则的重定向与 Header 改写两个动作。 */
+    const log = appendHits(createTabHitLog(), [
+      hit('a', RuleActionType.Redirect),
+      hit('a', RuleActionType.ModifyHeaders),
+    ]);
+
+    expect(summarizeHits(log).ruleIds).toEqual(['a']);
   });
 
   it('拒绝字段非法或动作类型未知的上报', () => {

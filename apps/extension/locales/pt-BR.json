@@ -312,10 +312,7 @@
     },
     "curl": {
       "title": "Create rule from cURL",
-      "hint": "The request URL and method will be extracted, then you can finish the generated rule in the existing editor.",
-      "action": "Create as",
-      "mock": "Mock response",
-      "redirect": "Redirect",
+      "hint": "A URL e o método da requisição são extraídos e o editor de regras abre com uma regra de mock de resposta. Você pode trocar a ação lá a qualquer momento.",
       "command": "cURL command",
       "continue": "Continue editing"
     },
@@ -375,10 +372,10 @@
     "collapseGroup": "Recolher grupo",
     "ruleCount": "{{count}} regras",
     "manageRules": "Gerenciar regras",
-    "hitTotal": "Acionamentos de regras nesta página: {{count}}",
+    "hitTotal": "Regras acionadas nesta página: {{count}}",
     "clearHits": "Limpar",
     "jumpToRule": "Ir para a regra",
-    "ruleHitCount": "Acionamentos desta regra: {{count}}",
+    "ruleMatched": "Esta regra foi acionada nesta página",
     "hitsTruncated": "Apenas os acionamentos mais recentes são exibidos; os antigos foram descartados.",
     "hitSummaryUnavailable": "Não foi possível carregar as estatísticas de acionamentos.",
     "retry": "Tentar novamente"

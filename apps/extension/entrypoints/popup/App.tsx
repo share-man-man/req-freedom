@@ -16,15 +16,6 @@ import { Switch } from '@/components/ui/switch';
 import { LogoMark } from '@/components/logo-mark';
 
 /**
- * 把逐规则命中数格式化为适合角标展示的短文本。
- * @param count 规则累计命中数
- * @returns 最大四字符的角标文本
- */
-function formatRuleHitCount(count: number): string {
-  return count > 999 ? '999+' : String(count);
-}
-
-/**
  * Popup 主界面：全局开关 + 按分组快速启停
  */
 export default function App() {
@@ -35,10 +26,8 @@ export default function App() {
   const [groups, setGroups] = useState<RuleGroup[]>([]);
   /** 已折叠的分组 ID 集合，仅保留在当前弹窗会话中 */
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
-  /** 当前页面两条通道合并后的命中总数。 */
-  const [hitTotal, setHitTotal] = useState(0);
-  /** 当前页面按业务规则归并的命中数。 */
-  const [hitsByRule, setHitsByRule] = useState<Record<string, number>>({});
+  /** 当前页面命中过的业务规则 ID，已按规则去重。 */
+  const [hitRuleIds, setHitRuleIds] = useState<string[]>([]);
   /** 命中日志是否已因超出上限丢弃过最早的记录。 */
   const [hitsTruncated, setHitsTruncated] = useState(false);
   /** 点击 popup 时所在的标签页 ID。 */
@@ -68,8 +57,7 @@ export default function App() {
         setHitSummaryStatus('error');
         return;
       }
-      setHitTotal(summary.total);
-      setHitsByRule(summary.byRule);
+      setHitRuleIds(summary.ruleIds);
       setHitsTruncated(summary.truncated);
       setHitSummaryStatus('ready');
     } catch {
@@ -109,8 +97,7 @@ export default function App() {
         type: RUNTIME_MSG_CLEAR_RULE_HITS,
         tabId: activeTabId,
       });
-      setHitTotal(0);
-      setHitsByRule({});
+      setHitRuleIds([]);
       setHitsTruncated(false);
     } catch {
       setHitSummaryStatus('error');
@@ -206,6 +193,8 @@ export default function App() {
   const activeCount = enabled ? collectActiveRules(groups).length : 0;
   /** 是否已存在任意规则 */
   const hasRules = groups.some((group) => group.rules.length > 0);
+  /** 便于规则列表判断命中状态的集合。 */
+  const hitRuleIdSet = new Set(hitRuleIds);
 
 
   return (
@@ -227,12 +216,12 @@ export default function App() {
       </header>
 
       {/* 当前页面命中提示：总数同时包含 DNR 与页面补丁通道。 */}
-      {hitTotal > 0 && (
+      {hitRuleIds.length > 0 && (
         <div className="mx-3 mt-3 flex items-start gap-2 rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-primary">
-          <CheckCircle2 className="size-4 shrink-0" />
+          <CheckCircle2 className="mt-px size-4 shrink-0" />
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium">
-              {t('popup.hitTotal', { count: hitTotal })}
+            <p className="text-xs font-medium leading-4">
+              {t('popup.hitTotal', { count: hitRuleIds.length })}
             </p>
             {hitsTruncated && (
               <p className="mt-0.5 text-[11px] text-primary/80">
@@ -244,7 +233,7 @@ export default function App() {
             type="button"
             variant="ghost"
             size="sm"
-            className="h-6 shrink-0 px-2 text-xs text-primary hover:bg-primary/10 hover:text-primary"
+            className="h-4 shrink-0 px-1.5 text-xs leading-4 text-primary hover:bg-primary/10 hover:text-primary"
             onClick={() => void handleClearHits()}
           >
             {t('popup.clearHits')}
@@ -322,35 +311,55 @@ export default function App() {
                     }`}
                   >
                     {group.rules.map((rule) => {
-                      /** 当前规则在本页面累计执行的动作数。 */
-                      const ruleHitCount = hitsByRule[rule.id] ?? 0;
-                      /** 当前规则是否在本页面至少执行过一个动作。 */
-                      const isMatched = ruleHitCount > 0;
+                      /** 当前规则是否在本页面命中过。 */
+                      const isMatched = hitRuleIdSet.has(rule.id);
                       return (
                         <li
                           key={rule.id}
-                          className={`relative flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 transition-colors ${
+                          role="button"
+                          tabIndex={0}
+                          title={t('popup.jumpToRule')}
+                          aria-label={t('popup.jumpToRule')}
+                          onClick={() => handleJumpToRule(rule.id)}
+                          onKeyDown={(event) => {
+                            // 焦点在 Switch 等子控件上时按键交给它自己处理，避免误跳转
+                            if (event.target !== event.currentTarget) {
+                              return;
+                            }
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              handleJumpToRule(rule.id);
+                            }
+                          }}
+                          className={`relative flex cursor-pointer items-center justify-between gap-2 rounded-md border px-2 py-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
                             isMatched
-                              ? 'border-primary/40 bg-primary/10 ring-1 ring-inset ring-primary/20'
+                              ? 'border-primary/40 bg-primary/10 ring-1 ring-inset ring-primary/20 hover:bg-primary/20'
                               : 'border-transparent hover:bg-muted/60'
                           }`}
                         >
+                          {/* 命中标记固定在卡片右上角，只表达「命中过」，不表达次数 */}
                           {isMatched && (
                             <span
-                              className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-[18px] text-primary-foreground shadow-sm"
-                              title={t('popup.ruleHitCount', { count: ruleHitCount })}
-                              aria-label={t('popup.ruleHitCount', { count: ruleHitCount })}
+                              className="absolute -right-1 -top-1 flex size-[18px] items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm"
+                              title={t('popup.ruleMatched')}
+                              aria-label={t('popup.ruleMatched')}
                             >
-                              {formatRuleHitCount(ruleHitCount)}
+                              <Target className="size-3" />
                             </span>
                           )}
-                          <div className="flex min-w-0 items-center gap-2">
-                            <Switch
-                              checked={rule.enabled}
-                              onCheckedChange={() => handleToggleRule(rule.id)}
-                            />
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            {/* 开关自成一体：拦下冒泡，避免切换启停时误触发整卡片的跳转 */}
                             <span
-                              className={`truncate text-sm ${
+                              className="contents"
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              <Switch
+                                checked={rule.enabled}
+                                onCheckedChange={() => handleToggleRule(rule.id)}
+                              />
+                            </span>
+                            <span
+                              className={`min-w-0 flex-1 truncate text-sm ${
                                 rule.enabled ? 'text-foreground' : 'text-muted-foreground'
                               }`}
                               title={rule.name}
@@ -364,19 +373,6 @@ export default function App() {
                                 ? 'DNR'
                                 : t('templateLibrary.channelPagePatch')}
                             </Badge>
-                            {isMatched && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="size-7 text-primary hover:bg-primary/10 hover:text-primary"
-                                title={t('popup.jumpToRule')}
-                                aria-label={t('popup.jumpToRule')}
-                                onClick={() => handleJumpToRule(rule.id)}
-                              >
-                                <Target className="size-3.5" />
-                              </Button>
-                            )}
                           </div>
                         </li>
                       );

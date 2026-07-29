@@ -312,10 +312,7 @@
     },
     "curl": {
       "title": "從 cURL 建立規則",
-      "hint": "將擷取請求 URL 和方法，接著進入原有規則編輯器補齊 Mock 回應或重新導向位址。",
-      "action": "建立為",
-      "mock": "回應 Mock",
-      "redirect": "重新導向",
+      "hint": "將擷取請求 URL 和方法，並以「回應值 Mock」產生規則草稿，隨後進入規則編輯器；需要重新導向等其他動作時在編輯器中直接切換即可。",
       "command": "cURL 命令",
       "continue": "繼續編輯"
     },
@@ -378,7 +375,7 @@
     "hitTotal": "目前頁面規則命中：{{count}}",
     "clearHits": "清空",
     "jumpToRule": "跳至規則",
-    "ruleHitCount": "該規則命中數：{{count}}",
+    "ruleMatched": "該規則在本頁命中過",
     "hitsTruncated": "僅顯示最近的命中記錄，更早的已捨棄。",
     "hitSummaryUnavailable": "規則命中統計載入失敗。",
     "retry": "重試"

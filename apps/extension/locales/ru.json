@@ -312,10 +312,7 @@
     },
     "curl": {
       "title": "Create rule from cURL",
-      "hint": "The request URL and method will be extracted, then you can finish the generated rule in the existing editor.",
-      "action": "Create as",
-      "mock": "Mock response",
-      "redirect": "Redirect",
+      "hint": "URL и метод запроса извлекаются, затем открывается редактор правил с правилом мока ответа. Действие можно изменить прямо там.",
       "command": "cURL command",
       "continue": "Continue editing"
     },
@@ -375,10 +372,10 @@
     "collapseGroup": "Свернуть группу",
     "ruleCount": "{{count}} правил",
     "manageRules": "Управление правилами",
-    "hitTotal": "Срабатываний правил на этой странице: {{count}}",
+    "hitTotal": "Сработавших правил на этой странице: {{count}}",
     "clearHits": "Очистить",
     "jumpToRule": "Перейти к правилу",
-    "ruleHitCount": "Срабатываний этого правила: {{count}}",
+    "ruleMatched": "Это правило сработало на этой странице",
     "hitsTruncated": "Показаны только последние срабатывания; более старые записи удалены.",
     "hitSummaryUnavailable": "Не удалось загрузить статистику срабатываний.",
     "retry": "Повторить"

@@ -312,10 +312,7 @@
     },
     "curl": {
       "title": "Create rule from cURL",
-      "hint": "The request URL and method will be extracted, then you can finish the generated rule in the existing editor.",
-      "action": "Create as",
-      "mock": "Mock response",
-      "redirect": "Redirect",
+      "hint": "Se extraen la URL y el método; luego se abre el editor de reglas con una regla de mock de respuesta. Puedes cambiar la acción allí en cualquier momento.",
       "command": "cURL command",
       "continue": "Continue editing"
     },
@@ -375,10 +372,10 @@
     "collapseGroup": "Contraer grupo",
     "ruleCount": "{{count}} reglas",
     "manageRules": "Administrar reglas",
-    "hitTotal": "Coincidencias de reglas en esta página: {{count}}",
+    "hitTotal": "Reglas aplicadas en esta página: {{count}}",
     "clearHits": "Borrar",
     "jumpToRule": "Ir a la regla",
-    "ruleHitCount": "Coincidencias de esta regla: {{count}}",
+    "ruleMatched": "Esta regla se aplicó en esta página",
     "hitsTruncated": "Solo se muestran las coincidencias más recientes; las anteriores se descartaron.",
     "hitSummaryUnavailable": "No se pudieron cargar las estadísticas de coincidencias.",
     "retry": "Reintentar"

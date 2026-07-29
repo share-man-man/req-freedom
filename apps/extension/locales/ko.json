@@ -312,10 +312,7 @@
     },
     "curl": {
       "title": "Create rule from cURL",
-      "hint": "The request URL and method will be extracted, then you can finish the generated rule in the existing editor.",
-      "action": "Create as",
-      "mock": "Mock response",
-      "redirect": "Redirect",
+      "hint": "요청 URL과 메서드를 추출한 뒤 응답 Mock 규칙으로 규칙 편집기를 엽니다. 동작은 편집기에서 언제든지 변경할 수 있습니다.",
       "command": "cURL command",
       "continue": "Continue editing"
     },
@@ -375,10 +372,10 @@
     "collapseGroup": "그룹 접기",
     "ruleCount": "규칙 {{count}}개",
     "manageRules": "규칙 관리",
-    "hitTotal": "이 페이지의 규칙 적중: {{count}}회",
+    "hitTotal": "이 페이지에서 적중한 규칙: {{count}}개",
     "clearHits": "지우기",
     "jumpToRule": "규칙으로 이동",
-    "ruleHitCount": "이 규칙의 적중: {{count}}회",
+    "ruleMatched": "이 규칙이 이 페이지에서 적중했습니다",
     "hitsTruncated": "최근 적중만 표시되며 이전 기록은 삭제되었습니다.",
     "hitSummaryUnavailable": "규칙 적중 통계를 불러오지 못했습니다.",
     "retry": "다시 시도"

@@ -61,31 +61,25 @@ export function appendHits(
 }
 
 /**
- * 把命中日志按业务规则归并成计数。
+ * 取出命中日志中出现过的业务规则 ID。
  * @param hits 命中记录
- * @returns 业务规则 ID 到命中数量的映射
+ * @returns 按首次命中顺序去重后的规则 ID
  */
-export function countByRule(hits: readonly RuleHit[]): Record<string, number> {
-  /** 按业务规则累计的命中数量。 */
-  const counts: Record<string, number> = {};
-  for (const hit of hits) {
-    counts[hit.ruleId] = (counts[hit.ruleId] ?? 0) + 1;
-  }
-  return counts;
+export function collectHitRuleIds(hits: readonly RuleHit[]): string[] {
+  return [...new Set(hits.map((hit) => hit.ruleId))];
 }
 
 /**
  * 把命中日志投影成 popup 需要的摘要。
  * @param log 标签页命中日志
- * @returns 总数、逐规则计数与截断标记
+ * @returns 去重后的命中规则 ID 与截断标记
  */
 export function summarizeHits(log: TabHitLog | undefined): RuleHitSummary {
   if (!log) {
-    return { total: 0, byRule: {}, truncated: false };
+    return { ruleIds: [], truncated: false };
   }
   return {
-    total: log.hits.length,
-    byRule: countByRule(log.hits),
+    ruleIds: collectHitRuleIds(log.hits),
     truncated: log.truncated,
   };
 }

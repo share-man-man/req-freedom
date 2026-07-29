@@ -284,12 +284,15 @@ export interface RuleHit {
   at: number;
 }
 
-/** 当前标签页的命中摘要，供 popup 展示总数与逐规则角标。 */
+/**
+ * 当前标签页的命中摘要，供 popup 展示命中规则数与逐规则标记。
+ *
+ * 只给出去重后的规则 ID：popup 关心的是「哪些规则生效了」，而不是各触发了多少次；
+ * 次数信息仍完整保留在命中日志里，留给后续的请求日志视图。
+ */
 export interface RuleHitSummary {
-  /** 两条通道合并后的命中总数。 */
-  total: number;
-  /** 按业务规则归并的命中数量。 */
-  byRule: Record<string, number>;
+  /** 本页命中过的业务规则 ID，已按规则去重，保持首次命中顺序。 */
+  ruleIds: string[];
   /** 日志是否因超出上限而丢弃过最早的记录。 */
   truncated: boolean;
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, FolderPlus, GripVertical, LayoutTemplate, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, FolderPlus, GripVertical, LayoutTemplate, Pencil, Plus, Terminal, Trash2 } from 'lucide-react';
 import type { ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
@@ -363,6 +363,8 @@ interface SortableGroupCardProps {
   onAddRule: (groupId: string) => void;
   /** 为该分组打开模板库（选用模板后规则落到本组） */
   onOpenTemplates: (groupId: string) => void;
+  /** 为该分组打开 cURL 导入（解析出的规则落到本组） */
+  onImportCurl: (groupId: string) => void;
   /** 切换组内单条规则启用状态 */
   onToggleRule: (ruleId: string) => void;
   /** 编辑组内规则 */
@@ -392,6 +394,7 @@ function SortableGroupCard({
   onDeleteGroup,
   onAddRule,
   onOpenTemplates,
+  onImportCurl,
   onToggleRule,
   onEditRule,
   onDeleteRule,
@@ -490,6 +493,7 @@ function SortableGroupCard({
           label={t('app.addRule')}
           onBlank={() => onAddRule(group.id)}
           onTemplate={() => onOpenTemplates(group.id)}
+          onCurl={() => onImportCurl(group.id)}
         />
         <Button
           variant="ghost"
@@ -654,16 +658,18 @@ interface AddRuleMenuProps {
   onBlank: () => void;
   /** 选择「从模板库」的回调。 */
   onTemplate: () => void;
+  /** 选择「从 cURL 创建」的回调。 */
+  onCurl: () => void;
 }
 
 /**
- * 新建规则入口：主按钮展开下拉，二选一——空白规则 / 从模板库。
+ * 新建规则入口：主按钮展开下拉——空白规则 / 从模板库 / 从 cURL。
  *
  * 用与 MatchTester 一致的「点击外部 + Esc 收起」轻量气泡，不引入额外下拉依赖；
  * 菜单经 Portal 挂到 body 并以 fixed 定位，绕开分组卡片的 overflow-hidden 裁剪（折叠 / 空分组时尤为关键）。
  * @param props 文案与两种创建方式的回调
  */
-function AddRuleMenu({ label, onBlank, onTemplate }: AddRuleMenuProps) {
+function AddRuleMenu({ label, onBlank, onTemplate, onCurl }: AddRuleMenuProps) {
   const { t } = useTranslation();
   /** 下拉是否展开。 */
   const [open, setOpen] = useState(false);
@@ -756,6 +762,15 @@ function AddRuleMenu({ label, onBlank, onTemplate }: AddRuleMenuProps) {
             <LayoutTemplate className="size-4 text-muted-foreground" />
             {t('app.addRuleMenu.fromTemplate')}
           </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => choose(onCurl)}
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+          >
+            <Terminal className="size-4 text-muted-foreground" />
+            {t('ruleImport.menu.curl')}
+          </button>
         </div>,
         document.body,
       )}
@@ -776,6 +791,8 @@ export default function App() {
   const [templateTargetGroupId, setTemplateTargetGroupId] = useState<string | null>(null);
   /** cURL 单条导入或 HAR 批量导入对话框。 */
   const [ruleImportDialog, setRuleImportDialog] = useState<'curl' | 'har' | null>(null);
+  /** cURL 导入的目标分组；从头部「导入规则」进入时为 null，表示沿用首个分组。 */
+  const [curlTargetGroupId, setCurlTargetGroupId] = useState<string | null>(null);
   /** 当前正在拖拽的分组 ID，用于渲染外层分组 DragOverlay 预览 */
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   /** 已折叠的分组 ID 集合（纯视图状态，不写入 storage，避免无谓触发规则重同步） */
@@ -912,12 +929,21 @@ export default function App() {
   };
 
   /**
+   * 打开 cURL 导入弹窗并记录目标分组。
+   * @param groupId 解析结果要落入的分组；null 表示沿用首个分组
+   */
+  const handleOpenCurlImport = (groupId: string | null): void => {
+    setCurlTargetGroupId(groupId);
+    setRuleImportDialog('curl');
+  };
+
+  /**
    * cURL 解析完成后复用原有单条新建规则编辑器。
    * @param rule 解析生成的规则草稿
    */
   const handleContinueCurlImport = (rule: Rule): void => {
-    /** 优先使用首个现有分组；无分组时使用保存阶段才创建的默认分组占位。 */
-    const groupId = groups[0]?.id ?? DEFAULT_GROUP_SENTINEL;
+    /** 从某分组的「添加规则」进入时落到该组；从头部导入进入时退回首个分组。 */
+    const groupId = curlTargetGroupId ?? groups[0]?.id ?? DEFAULT_GROUP_SENTINEL;
     setRuleImportDialog(null);
     setRuleDialog({ groupId, rule, isNew: true });
   };
@@ -1296,7 +1322,7 @@ export default function App() {
       />
       <OptionsPageHeader
         onImportConfig={handleImportClick}
-        onImportCurl={() => setRuleImportDialog('curl')}
+        onImportCurl={() => handleOpenCurlImport(null)}
         onImportHar={() => setRuleImportDialog('har')}
         onExport={() => void handleExport()}
       />
@@ -1342,6 +1368,7 @@ export default function App() {
                 label={t('app.newRule')}
                 onBlank={handleAddFirstRule}
                 onTemplate={() => handleOpenTemplates(DEFAULT_GROUP_SENTINEL)}
+                onCurl={() => handleOpenCurlImport(DEFAULT_GROUP_SENTINEL)}
               />
               <Button variant="outline" size="sm" onClick={handleAddGroup}>
                 <FolderPlus />
@@ -1380,6 +1407,7 @@ export default function App() {
                     onDeleteGroup={handleDeleteGroup}
                     onAddRule={handleAddRule}
                     onOpenTemplates={handleOpenTemplates}
+                    onImportCurl={handleOpenCurlImport}
                     onToggleRule={handleToggleRule}
                     onEditRule={handleEditRule}
                     onDeleteRule={handleDeleteRule}
