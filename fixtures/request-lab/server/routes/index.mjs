@@ -5,6 +5,7 @@ import { handleEcho } from './echo.mjs';
 import { handleGraphql } from './graphql.mjs';
 import { handleMethods } from './methods.mjs';
 import { handleStatus } from './status.mjs';
+import { handleUploadProbe } from './upload-probe.mjs';
 
 /**
  * 构建主站点（默认 4317）的路由表。
@@ -40,6 +41,12 @@ export function createLabRoutes({ crossOriginBaseUrl }) {
       path: '/api/graphql',
       description: '按 operationName 区分的 GraphQL 式端点',
       handler: handleGraphql,
+    },
+    {
+      method: '*',
+      path: '/api/upload-probe',
+      description: '读完请求体后回报字节数，用于上行带宽测试',
+      handler: handleUploadProbe,
     },
     {
       method: 'GET',
