@@ -120,19 +120,24 @@ export function parseHits(value: unknown): RuleHit[] {
 }
 
 /**
- * 把镜像中恢复的日志并入内存，且不覆盖已存在的标签页。
+ * 把镜像中恢复的日志并入内存，且不覆盖已存在或已被改动过的标签页。
  *
  * Service Worker 重启后「恢复」与「新请求写入」会竞争；只填充缺失的标签页即可避免
  * 恢复结果冲掉重启后已经记录的命中，无需额外的就绪门控。
+ *
+ * 「已存在」不足以覆盖清空：清空会把标签页从内存中移除，此时镜像读取可能已在途中，
+ * 旧日志仍会被并回来。因此清空与丢弃必须额外把标签页登记进 skipTabIds。
  * @param current 内存中的权威日志
  * @param restored 从 storage.session 镜像读回的日志
+ * @param skipTabIds 恢复完成前已被改动过的标签页，一律不从镜像回填
  */
 export function mergeRestoredHits(
   current: Map<number, TabHitLog>,
   restored: Iterable<readonly [number, TabHitLog]>,
+  skipTabIds: ReadonlySet<number> = new Set(),
 ): void {
   for (const [tabId, log] of restored) {
-    if (!current.has(tabId)) {
+    if (!current.has(tabId) && !skipTabIds.has(tabId)) {
       current.set(tabId, log);
     }
   }

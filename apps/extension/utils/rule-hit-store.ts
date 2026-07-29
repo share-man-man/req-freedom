@@ -26,6 +26,18 @@ const dirtyTabIds = new Set<number>();
 /** 当前待触发的镜像写回定时器。 */
 let mirrorTimer: ReturnType<typeof setTimeout> | undefined;
 
+/** 冷启动恢复是否已结束；结束后镜像不会再被读回内存。 */
+let restoreSettled = false;
+
+/**
+ * 恢复结束前被改动过的标签页。
+ *
+ * 恢复读取是异步的，其结果可能晚于「清空」到达：清空只把标签页从内存移除，
+ * 而 mergeRestoredHits 判定「内存中不存在」就会回填，旧日志因此复活。登记改动过的
+ * 标签页即可让恢复跳过它们。恢复结束后这份登记不再有用，随即清空以免无界增长。
+ */
+const mutatedTabIds = new Set<number>();
+
 /**
  * 返回单个标签页镜像使用的 storage.session 键。
  * @param tabId 标签页 ID
@@ -85,6 +97,32 @@ function scheduleMirror(tabId: number): void {
 }
 
 /**
+ * 修改某个标签页的命中日志，并同步维护镜像与恢复登记。
+ *
+ * 所有改动内存的路径都必须经由此函数。内存是权威、镜像是副本，二者的同步此前依赖
+ * 每个调用点自己记得调用 scheduleMirror，`clearHits` 就曾因少了这一步而在 Service Worker
+ * 冷启动窗口内清空失效。这里把「改内存」「打脏标记」「登记已改动」绑成一个不可分割的动作。
+ * @param tabId 目标标签页
+ * @param nextLog 依据当前日志算出的新日志；返回 undefined 表示删除该标签页的日志
+ */
+function mutateLog(
+  tabId: number,
+  nextLog: (log: TabHitLog | undefined) => TabHitLog | undefined,
+): void {
+  /** 改动后的日志；undefined 代表该标签页不再有日志。 */
+  const next = nextLog(hitsByTab.get(tabId));
+  if (next) {
+    hitsByTab.set(tabId, next);
+  } else {
+    hitsByTab.delete(tabId);
+  }
+  if (!restoreSettled) {
+    mutatedTabIds.add(tabId);
+  }
+  scheduleMirror(tabId);
+}
+
+/**
  * 记录一批命中。
  *
  * 全程同步：Service Worker 单线程且此处无 await，天然不会与其他事件交错，
@@ -94,15 +132,10 @@ function scheduleMirror(tabId: number): void {
  * @returns 记录后该标签页是否已有命中
  */
 export function recordHits(tabId: number, hits: readonly RuleHit[]): boolean {
-  if (tabId < 0 || hits.length === 0) {
-    return (hitsByTab.get(tabId)?.hits.length ?? 0) > 0;
+  if (tabId >= 0 && hits.length > 0) {
+    mutateLog(tabId, (log) => appendHits(log ?? createTabHitLog(), hits));
   }
-  /** 当前标签页的命中日志。 */
-  const log = hitsByTab.get(tabId) ?? createTabHitLog();
-  appendHits(log, hits);
-  hitsByTab.set(tabId, log);
-  scheduleMirror(tabId);
-  return true;
+  return hasHits(tabId);
 }
 
 /**
@@ -110,26 +143,23 @@ export function recordHits(tabId: number, hits: readonly RuleHit[]): boolean {
  * @param tabId 标签页 ID
  */
 export function clearHits(tabId: number): void {
-  if (!hitsByTab.has(tabId)) {
-    return;
-  }
-  hitsByTab.delete(tabId);
-  scheduleMirror(tabId);
+  mutateLog(tabId, () => undefined);
 }
 
 /**
  * 丢弃已关闭标签页的命中日志与镜像。
+ *
+ * 存储层的动作与 clearHits 完全相同，保留独立入口只为在调用点区分「导航重置」与「标签关闭」。
  * @param tabId 标签页 ID
  */
 export function dropTab(tabId: number): void {
-  hitsByTab.delete(tabId);
-  scheduleMirror(tabId);
+  mutateLog(tabId, () => undefined);
 }
 
 /**
  * 读取某个标签页的命中摘要。
  * @param tabId 标签页 ID
- * @returns 总数、逐规则计数与截断标记
+ * @returns 命中过的业务规则 ID 与截断标记
  */
 export function getHitSummary(tabId: number): RuleHitSummary {
   return summarizeHits(hitsByTab.get(tabId));
@@ -147,7 +177,8 @@ function hasHits(tabId: number): boolean {
 /**
  * 从 storage.session 镜像恢复内存日志。
  *
- * 只填充内存中缺失的标签页，避免恢复结果冲掉 Service Worker 重启后已记录的新命中。
+ * 只填充内存中缺失、且恢复期间未被改动过的标签页，避免恢复结果冲掉 Service Worker
+ * 重启后已记录的新命中或已经发生的清空。
  * @returns 恢复完成后的 Promise
  */
 export async function restoreHits(): Promise<void> {
@@ -169,9 +200,13 @@ export async function restoreHits(): Promise<void> {
       }
       restored.push([tabId, { hits: log.hits, truncated: Boolean(log.truncated) }]);
     }
-    mergeRestoredHits(hitsByTab, restored);
+    mergeRestoredHits(hitsByTab, restored, mutatedTabIds);
   } catch (error) {
     console.error('[req-freedom] 恢复命中日志镜像失败：', error);
+  } finally {
+    // 恢复结束后镜像不会再被读回，登记随即失效；失败路径同样置位，避免登记无界增长。
+    restoreSettled = true;
+    mutatedTabIds.clear();
   }
 }
 
