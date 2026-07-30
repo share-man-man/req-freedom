@@ -57,10 +57,11 @@ req-freedom/
 - **图标徽标只表达状态**，不表达数量：当前标签页有任意规则生效时点亮一个小圆点。popup 展示按规则去重后的命中规则数，逐规则以图标标记而非数字角标——次数信息仍完整保留在命中日志里，留给后续的请求日志视图。
 - **DNR 通道的命中来自观测式 `chrome.webRequest`**。`onRuleMatchedDebug` 仅未打包扩展可用，`getMatchedRules` 只有 pull 且受 20 次 / 10 分钟配额与 5 分钟保留窗口限制，都无法驱动实时状态。观测到请求后由 `core.findMatchedRules` 判定命中——与页面补丁通道完全同一个匹配器。
   - 这是**预测**而非事实：网络层真正执行的是编译出的 DNR 规则。`utils/dnr-match-parity.test.ts` 守护两者的语义一致性。
-  - 匹配组监听按需注册：不存在启用的 DNR 通道规则时注销，避免无谓唤醒 Service Worker。
+  - 子资源监听按需注册：不存在启用的 DNR 通道规则时注销，避免无谓唤醒 Service Worker。顶层文档监听常驻，否则没有规则时导航重置会一并失效。
 - **页面补丁通道逐条自报**。执行计划（`utils/page-plan.ts`）在决定动作的同时产出命中记录，不做事后推导。
 - **状态以内存为权威**，`storage.session` 只作防抖镜像。命中是逐请求写入的，若以 storage 为权威，每条命中都要全量序列化整个数组。
 - **重置点是顶层 `main_frame` 请求**（`webRequest.onBeforeRequest`）。重置与该请求自身的命中来自同一事件，天然有序，因此不需要统计窗口时间戳或 Document token。
+  - 顶层文档请求由常驻监听**独占**处理：重置与记录是同一个回调里的两条相邻语句，子资源监听显式跳过 `main_frame`。拆成两个监听器时「重置先于记录」只能依赖派发顺序，而 webRequest 并未承诺同一扩展内多个观测监听器的先后。
   - 重定向跳按 `requestId` 与新导航区分：主文档被重定向时会以同一 `requestId` 再次触发 `onBeforeRequest`，此时不重置，否则这次导航自己的重定向命中会被抹掉。
 - MAIN world 与 ISOLATED world 在 `document_start` 建立一次 `MessageChannel`，命中记录只通过私有端口传递；bridge 仍按当前生效规则 ID 校验上报内容。
 

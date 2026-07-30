@@ -1,20 +1,48 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Rule } from '@req-freedom/shared';
 
+/** 被观测请求的完整字段，覆盖两个监听器各自需要的部分。 */
+interface ObservedDetails {
+  /** 完整请求 URL。 */
+  url: string;
+  /** 请求方法。 */
+  method: string;
+  /** 发起请求的标签页。 */
+  tabId: number;
+  /** 请求 ID；同一次导航的重定向跳保持不变。 */
+  requestId: string;
+  /** 资源类型。 */
+  type: string;
+}
+
 /** 由 mock 与用例共享的 webRequest 假实现状态。 */
 const webRequest = vi.hoisted(() => ({
-  /** 通过 addListener 注册的监听器，按注册顺序保存。 */
-  listeners: [] as ((details: { tabId: number; requestId: string }) => unknown)[],
+  /** 通过 addListener 注册的监听器与其过滤条件，按注册顺序保存。 */
+  listeners: [] as {
+    /** 监听器本体。 */
+    listener: (details: never) => unknown;
+    /** 注册时声明的过滤条件；省略 types 表示接受全部资源类型。 */
+    filter: { urls: string[]; types?: string[] };
+  }[],
 }));
 
 vi.mock('wxt/browser', () => ({
   browser: {
     webRequest: {
       onBeforeRequest: {
-        addListener: (listener: (details: { tabId: number; requestId: string }) => unknown): void => {
-          webRequest.listeners.push(listener);
+        addListener: (
+          listener: (details: never) => unknown,
+          filter: { urls: string[]; types?: string[] },
+        ): void => {
+          webRequest.listeners.push({ listener, filter });
         },
-        removeListener: (): void => undefined,
+        removeListener: (listener: (details: never) => unknown): void => {
+          /** 待注销监听器在注册表中的位置。 */
+          const index = webRequest.listeners.findIndex((entry) => entry.listener === listener);
+          if (index >= 0) {
+            webRequest.listeners.splice(index, 1);
+          }
+        },
       },
     },
   },
@@ -137,91 +165,159 @@ describe('toRuleHits', () => {
   });
 });
 
-/** 顶层导航监听的测试夹具。 */
-interface NavigationHarness {
-  /** 被重置过的标签页，按发生顺序记录。 */
-  resets: number[];
-  /** 模拟一次 main_frame 请求。 */
-  dispatch: (tabId: number, requestId: string) => void;
+
+/** 一条只拦截的规则，用于让被观测请求产生恰好一条命中。 */
+const BLOCK_RULE = rule('block', [{ type: RuleActionType.Block }]);
+
+/** 请求观测的测试夹具。 */
+interface ObserverHarness {
+  /** 回调发生顺序；重置与记录混在同一序列，便于断言先后。 */
+  events: string[];
+  /** 把一个请求派发给当前已注册的全部监听器。 */
+  dispatch: (details: ObservedDetails, options?: { reverse?: boolean }) => void;
   /** 丢弃某个标签页的导航跟踪状态。 */
   forgetTab: (tabId: number) => void;
+  /** 注册或注销子资源监听。 */
+  syncSubResourceListener: (hasActiveRules: boolean) => void;
 }
 
 /**
- * 加载一份全新的观测模块并注册顶层导航监听。
+ * 构造一次顶层文档请求。
+ * @param tabId 标签页 ID
+ * @param requestId 请求 ID
+ * @param url 请求 URL
+ * @returns 顶层文档请求详情
+ */
+function mainFrame(tabId: number, requestId: string, url = 'https://x/api'): ObservedDetails {
+  return { url, method: 'GET', tabId, requestId, type: 'main_frame' };
+}
+
+/**
+ * 构造一次子资源请求。
+ * @param tabId 标签页 ID
+ * @param requestId 请求 ID
+ * @returns 子资源请求详情
+ */
+function subResource(tabId: number, requestId: string): ObservedDetails {
+  return { url: 'https://x/api', method: 'GET', tabId, requestId, type: 'xmlhttprequest' };
+}
+
+/**
+ * 加载一份全新的观测模块并注册两个监听器。
  *
  * 模块以模块级 Map 跟踪各标签页最近一次导航，用例之间必须重置模块注册表才能互不影响。
- * @returns 顶层导航监听的测试夹具
+ * @returns 请求观测的测试夹具
  */
-async function loadNavigationObserver(): Promise<NavigationHarness> {
+async function loadObserver(): Promise<ObserverHarness> {
   vi.resetModules();
   webRequest.listeners.length = 0;
   /** 全新加载的观测模块。 */
   const observer = await import('./dnr-observer');
-  /** 被重置过的标签页。 */
-  const resets: number[] = [];
-  observer.observeTopLevelNavigation((tabId) => resets.push(tabId));
-  /** 注册到 onBeforeRequest 的顶层导航监听。 */
-  const listener = webRequest.listeners[0];
+  /** 与观测模块同一份模块图中的规则快照缓存。 */
+  const cache = await import('./active-rules-cache');
+  cache.setActiveDnrRules(snapshot([BLOCK_RULE]));
+  /** 回调发生顺序。 */
+  const events: string[] = [];
+  observer.initRuleHitObserver({
+    onNavigationReset: (tabId) => events.push(`reset:${tabId}`),
+    onRuleHits: (tabId) => events.push(`hits:${tabId}`),
+  });
+  observer.syncSubResourceListener(true);
   return {
-    resets,
-    dispatch: (tabId, requestId) => void listener({ tabId, requestId }),
+    events,
+    dispatch: (details, options) => {
+      /** 过滤条件接受本次资源类型的监听器。 */
+      const matched = webRequest.listeners.filter(
+        (entry) => !entry.filter.types || entry.filter.types.includes(details.type),
+      );
+      /** 本次派发顺序；reverse 用于模拟未承诺的监听器派发顺序。 */
+      const listeners = options?.reverse ? matched.reverse() : matched;
+      for (const { listener } of listeners) {
+        listener(details as never);
+      }
+    },
     forgetTab: observer.forgetTab,
+    syncSubResourceListener: observer.syncSubResourceListener,
   };
 }
 
-describe('observeTopLevelNavigation', () => {
-  let harness: NavigationHarness;
+describe('请求观测', () => {
+  let harness: ObserverHarness;
 
   beforeEach(async () => {
-    harness = await loadNavigationObserver();
+    harness = await loadObserver();
   });
 
-  it('新的顶层导航触发重置', () => {
-    harness.dispatch(7, 'r1');
+  it('新的顶层导航先重置、再记录本次请求自身的命中', () => {
+    harness.dispatch(mainFrame(7, 'r1'));
 
-    expect(harness.resets).toEqual([7]);
+    expect(harness.events).toEqual(['reset:7', 'hits:7']);
   });
 
-  it('同一次导航的重定向跳不再重置', () => {
-    // 主文档被 DNR 重定向时，onBeforeRequest 会以同一个 requestId 对新地址再触发一次；
-    // 若照常重置，这次导航自己的重定向命中会被抹掉。
-    harness.dispatch(7, 'r1');
-    harness.dispatch(7, 'r1');
-    harness.dispatch(7, 'r1');
+  it('主文档的重置与记录不依赖两个监听器的派发顺序', () => {
+    // webRequest 未承诺同一扩展内多个观测监听器的先后，因此主文档由常驻监听独占处理：
+    // 反序派发时结果必须完全一致，否则命中主文档的规则会被紧随其后的重置抹掉。
+    harness.dispatch(mainFrame(7, 'r1'), { reverse: true });
 
-    expect(harness.resets).toEqual([7]);
+    expect(harness.events).toEqual(['reset:7', 'hits:7']);
+  });
+
+  it('同一次导航的重定向跳不再重置，但仍记录命中', () => {
+    harness.dispatch(mainFrame(7, 'r1'));
+    harness.dispatch(mainFrame(7, 'r1', 'https://x/api/next'));
+
+    expect(harness.events).toEqual(['reset:7', 'hits:7', 'hits:7']);
   });
 
   it('重定向之后的下一次导航仍会重置', () => {
-    harness.dispatch(7, 'r1');
-    harness.dispatch(7, 'r1');
-    harness.dispatch(7, 'r2');
+    harness.dispatch(mainFrame(7, 'r1'));
+    harness.dispatch(mainFrame(7, 'r1'));
+    harness.dispatch(mainFrame(7, 'r2'));
 
-    expect(harness.resets).toEqual([7, 7]);
+    expect(harness.events.filter((event) => event.startsWith('reset'))).toEqual(['reset:7', 'reset:7']);
   });
 
   it('各标签页独立跟踪各自的导航', () => {
-    harness.dispatch(7, 'r1');
-    harness.dispatch(8, 'r2');
-    harness.dispatch(7, 'r1');
-    harness.dispatch(8, 'r2');
+    harness.dispatch(mainFrame(7, 'r1'));
+    harness.dispatch(mainFrame(8, 'r2'));
+    harness.dispatch(mainFrame(7, 'r1'));
+    harness.dispatch(mainFrame(8, 'r2'));
 
-    expect(harness.resets).toEqual([7, 8]);
+    expect(harness.events.filter((event) => event.startsWith('reset'))).toEqual(['reset:7', 'reset:8']);
   });
 
-  it('非标签页请求不触发重置', () => {
-    harness.dispatch(-1, 'r1');
+  it('非标签页请求既不重置也不记录', () => {
+    harness.dispatch(mainFrame(-1, 'r1'));
 
-    expect(harness.resets).toEqual([]);
+    expect(harness.events).toEqual([]);
   });
 
   it('标签页关闭后不再保留其导航跟踪状态', () => {
-    harness.dispatch(7, 'r1');
+    harness.dispatch(mainFrame(7, 'r1'));
     harness.forgetTab(7);
     // requestId 在会话内唯一，实际不会重现；这里仅用于观察跟踪状态确已清除。
-    harness.dispatch(7, 'r1');
+    harness.dispatch(mainFrame(7, 'r1'));
 
-    expect(harness.resets).toEqual([7, 7]);
+    expect(harness.events.filter((event) => event.startsWith('reset'))).toEqual(['reset:7', 'reset:7']);
+  });
+
+  it('子资源请求只记录命中，不触发重置', () => {
+    harness.dispatch(subResource(7, 'r1'));
+
+    expect(harness.events).toEqual(['hits:7']);
+  });
+
+  it('注销子资源监听后不再记录子资源命中', () => {
+    harness.syncSubResourceListener(false);
+    harness.dispatch(subResource(7, 'r1'));
+
+    expect(harness.events).toEqual([]);
+  });
+
+  it('注销子资源监听后顶层导航仍照常重置与记录', () => {
+    harness.syncSubResourceListener(false);
+    harness.dispatch(mainFrame(7, 'r1'));
+
+    expect(harness.events).toEqual(['reset:7', 'hits:7']);
   });
 });

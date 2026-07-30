@@ -18,9 +18,8 @@ import { setActiveDnrRules } from '@/utils/active-rules-cache';
 import { toDnrRules } from '@/utils/dnr';
 import {
   forgetTab,
-  observeTopLevelNavigation,
-  setRuleHitHandler,
-  syncMatchListener,
+  initRuleHitObserver,
+  syncSubResourceListener,
 } from '@/utils/dnr-observer';
 import { parseHits } from '@/utils/rule-hit';
 import {
@@ -170,7 +169,7 @@ function syncDnrRuleSets(): Promise<void> {
 
     // 关键步骤：先更新观测快照，逐请求匹配才能与刚提交的规则集保持一致。
     setActiveDnrRules({ rules: activeRules, tabIdsByRuleId });
-    syncMatchListener(activeRules.length > 0);
+    syncSubResourceListener(activeRules.length > 0);
 
     /** 不限定作用域、由动态规则承载的规则。 */
     const unscopedRules = activeRules.filter((rule) => !isRuleScoped(rule));
@@ -256,11 +255,12 @@ export default defineBackground(() => {
 
   // 观测式 webRequest 是本扩展唯一可用的 DNR 命中推送信号：onRuleMatchedDebug 仅未打包可用，
   // getMatchedRules 只有 pull 且受 20 次 / 10 分钟配额与 5 分钟保留窗口限制。
-  setRuleHitHandler(applyRuleHits);
-  observeTopLevelNavigation((tabId) => {
-    // 顶层导航开始即重置；重置与本次请求自身的命中来自同一事件，天然有序。
-    clearHits(tabId);
-    setActionIconState(tabId, false);
+  initRuleHitObserver({
+    onNavigationReset: (tabId) => {
+      clearHits(tabId);
+      setActionIconState(tabId, false);
+    },
+    onRuleHits: applyRuleHits,
   });
 
   void syncDnrRuleSets().catch((error) => {

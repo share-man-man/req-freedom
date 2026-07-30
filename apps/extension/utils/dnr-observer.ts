@@ -68,61 +68,96 @@ export function toRuleHits(
   });
 }
 
-/** 匹配组监听当前是否已注册。 */
-let matchListenerRegistered = false;
+/** 顶层文档请求的资源类型。 */
+const MAIN_FRAME_TYPE = 'main_frame';
 
-/**
- * 匹配组监听器；仅存在启用的 DNR 通道规则时注册。
- *
- * 返回 undefined 而非 void：MV3 的 onBeforeRequest 监听器签名仍声明可返回 BlockingResponse，
- * 这里是纯观测，不参与阻断。
- * @param details 被观测的请求
- * @returns 始终为 undefined
- */
-function onMatchableRequest(details: ObservedRequest): undefined {
-  /** 本次请求预测出的命中。 */
-  const hits = toRuleHits(details, getActiveDnrRules(), Date.now());
-  if (hits.length > 0) {
-    onRuleHits(details.tabId, hits);
-  }
-  return undefined;
+/** 命中观测所需的回调，由 background 注入以更新存储与图标。 */
+export interface RuleHitObserverHandlers {
+  /** 新的顶层导航开始，需重置该标签页的命中日志。 */
+  onNavigationReset: (tabId: number) => void;
+  /** 本次请求预测出了命中。 */
+  onRuleHits: (tabId: number, hits: RuleHit[]) => void;
 }
 
-/** 记录命中后的回调，由 background 注入以更新存储与图标。 */
-let onRuleHits: (tabId: number, hits: RuleHit[]) => void = () => undefined;
+/** 当前回调；initRuleHitObserver 注入前为空实现，便于监听器持有稳定引用。 */
+let handlers: RuleHitObserverHandlers = {
+  onNavigationReset: () => undefined,
+  onRuleHits: () => undefined,
+};
+
+/** 子资源监听当前是否已注册。 */
+let subResourceListenerRegistered = false;
 
 /** 各标签页最近一次顶层导航的 requestId，用于识别同一次导航的重定向跳。 */
 const lastTopLevelRequestIdByTab = new Map<number, string>();
 
 /**
- * 注册顶层导航监听，用于在新页面开始加载时重置命中日志。
- *
- * 常驻注册：每个页面仅触发一次，开销极小；且它不能跟随匹配组一起按需注册，
- * 否则没有启用规则时清空逻辑会一并失效。
- *
- * 重定向跳必须与新导航区分开：主文档被重定向时，onBeforeRequest 会以**同一个 requestId**
- * 对新地址再触发一次，若照常重置，刚记录的重定向命中会被自己抹掉——Redirect 与
- * InjectParams 规则命中顶层导航时因此永远统计不到。requestId 在整个浏览器会话内唯一，
- * 且跨重定向保持不变，据此即可判定。
- * @param onTopLevelNavigation 新的顶层导航开始时的回调
+ * 记录一个被观测请求预测出的命中。
+ * @param request 被观测的请求
  */
-export function observeTopLevelNavigation(
-  onTopLevelNavigation: (tabId: number) => void,
-): void {
-  browser.webRequest.onBeforeRequest.addListener(
-    (details: { tabId: number; requestId: string }): undefined => {
-      if (details.tabId < 0) {
-        return undefined;
-      }
-      if (lastTopLevelRequestIdByTab.get(details.tabId) === details.requestId) {
-        return undefined;
-      }
-      lastTopLevelRequestIdByTab.set(details.tabId, details.requestId);
-      onTopLevelNavigation(details.tabId);
-      return undefined;
-    },
-    { urls: ['<all_urls>'], types: ['main_frame'] },
-  );
+function recordRequestHits(request: ObservedRequest): void {
+  /** 本次请求预测出的命中。 */
+  const hits = toRuleHits(request, getActiveDnrRules(), Date.now());
+  if (hits.length > 0) {
+    handlers.onRuleHits(request.tabId, hits);
+  }
+}
+
+/**
+ * 处理顶层文档请求：先按需重置，再记录本次请求自身的命中。
+ *
+ * 两件事刻意放在同一个回调里顺序执行。拆成两个监听器时，「重置先于记录」只能依赖
+ * 监听器的派发顺序，而 webRequest 并未承诺同一扩展内多个观测监听器的先后；一旦顺序
+ * 相反，命中主文档的规则（拦截、Header 改写、重定向）会被紧随其后的重置抹掉，且失败
+ * 完全静默。写成两条相邻语句后，顺序由代码结构保证。
+ *
+ * 重定向跳不算新导航：主文档被重定向时，onBeforeRequest 会以**同一个 requestId** 对新
+ * 地址再触发一次，此时若照常重置，上一跳刚记录的重定向命中会被抹掉。requestId 在整个
+ * 浏览器会话内唯一且跨重定向保持不变，据此即可判定。
+ *
+ * 返回 undefined 而非 void：MV3 的 onBeforeRequest 监听器签名仍声明可返回 BlockingResponse，
+ * 这里是纯观测，不参与阻断。
+ * @param details 被观测的顶层文档请求
+ * @returns 始终为 undefined
+ */
+function onTopLevelRequest(details: ObservedRequest & { requestId: string }): undefined {
+  if (details.tabId < 0) {
+    return undefined;
+  }
+  if (lastTopLevelRequestIdByTab.get(details.tabId) !== details.requestId) {
+    lastTopLevelRequestIdByTab.set(details.tabId, details.requestId);
+    handlers.onNavigationReset(details.tabId);
+  }
+  recordRequestHits(details);
+  return undefined;
+}
+
+/**
+ * 处理子资源请求；顶层文档请求由常驻监听独占，避免重复计数。
+ * @param details 被观测的请求
+ * @returns 始终为 undefined
+ */
+function onSubResourceRequest(details: ObservedRequest & { type: string }): undefined {
+  if (details.type === MAIN_FRAME_TYPE) {
+    return undefined;
+  }
+  recordRequestHits(details);
+  return undefined;
+}
+
+/**
+ * 注入回调并注册常驻的顶层文档监听。
+ *
+ * 该监听不能跟随子资源监听按需注册：没有启用的 DNR 规则时，导航重置逻辑会一并失效。
+ * 它每次导航仅触发一次，开销极小；没有规则时规则快照为空，记录一步自然不产生命中。
+ * @param nextHandlers 命中与导航重置的处理函数
+ */
+export function initRuleHitObserver(nextHandlers: RuleHitObserverHandlers): void {
+  handlers = nextHandlers;
+  browser.webRequest.onBeforeRequest.addListener(onTopLevelRequest, {
+    urls: ['<all_urls>'],
+    types: [MAIN_FRAME_TYPE],
+  });
 }
 
 /**
@@ -136,29 +171,21 @@ export function forgetTab(tabId: number): void {
 }
 
 /**
- * 设置命中回调。
- * @param handler 命中产生时的处理函数
- */
-export function setRuleHitHandler(handler: (tabId: number, hits: RuleHit[]) => void): void {
-  onRuleHits = handler;
-}
-
-/**
- * 按当前是否存在启用的 DNR 通道规则，注册或注销匹配组监听。
+ * 按当前是否存在启用的 DNR 通道规则，注册或注销子资源监听。
  *
  * 没有规则时保持注销，避免无谓地为每个请求唤醒 Service Worker。
  * @param hasActiveRules 当前是否存在启用的 DNR 通道规则
  */
-export function syncMatchListener(hasActiveRules: boolean): void {
-  if (hasActiveRules === matchListenerRegistered) {
+export function syncSubResourceListener(hasActiveRules: boolean): void {
+  if (hasActiveRules === subResourceListenerRegistered) {
     return;
   }
   if (hasActiveRules) {
-    browser.webRequest.onBeforeRequest.addListener(onMatchableRequest, {
+    browser.webRequest.onBeforeRequest.addListener(onSubResourceRequest, {
       urls: ['<all_urls>'],
     });
   } else {
-    browser.webRequest.onBeforeRequest.removeListener(onMatchableRequest);
+    browser.webRequest.onBeforeRequest.removeListener(onSubResourceRequest);
   }
-  matchListenerRegistered = hasActiveRules;
+  subResourceListenerRegistered = hasActiveRules;
 }
