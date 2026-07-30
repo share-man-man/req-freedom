@@ -183,10 +183,15 @@ export function summarizeHits(log: TabHitLog | undefined): RuleHitSummary {
  * 校验来自页面上下文的命中上报。
  *
  * MAIN world 与宿主页共享执行环境，上报内容一律视为不可信输入。
+ *
+ * 记录时间由接收方给出，上报里的 `at` 一律丢弃：它参与标签页淘汰的活跃度排序，宿主页
+ * 报一个远期时间就能把自己的日志钉住、把其他标签页挤出预算。页面执行与接收之间只隔一次
+ * 消息投递，用接收时间不损失精度。
  * @param value 未受信任的消息字段
+ * @param at 接收方的记录时间
  * @returns 字段合法且数量受限的命中记录
  */
-export function parseHits(value: unknown): RuleHit[] {
+export function parseHits(value: unknown, at: number): RuleHit[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -194,8 +199,8 @@ export function parseHits(value: unknown): RuleHit[] {
     if (typeof item !== 'object' || item === null) {
       return [];
     }
-    /** 待校验的命中字段。 */
-    const { ruleId, action, url, method, at, outcome, reason } = item as Record<string, unknown>;
+    /** 待校验的命中字段；上报的 `at` 不参与校验，记录时间以接收方为准。 */
+    const { ruleId, action, url, method, outcome, reason } = item as Record<string, unknown>;
     if (
       typeof ruleId !== 'string' ||
       ruleId.length === 0 ||
@@ -206,14 +211,13 @@ export function parseHits(value: unknown): RuleHit[] {
       url.length > MAX_URL_LENGTH ||
       typeof method !== 'string' ||
       method.length > MAX_METHOD_LENGTH ||
-      !Number.isFinite(at) ||
       typeof outcome !== 'string' ||
       !VALID_OUTCOMES.has(outcome)
     ) {
       return [];
     }
     /** 命中记录的公共字段。 */
-    const base = { ruleId, action: action as RuleActionType, url, method, at: Number(at) };
+    const base = { ruleId, action: action as RuleActionType, url, method, at };
     if (outcome === RuleHitOutcome.Applied) {
       return [{ ...base, outcome: RuleHitOutcome.Applied }];
     }

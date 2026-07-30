@@ -42,8 +42,8 @@ export default defineContentScript({
      * @param value 私有 MessagePort 收到的未知命中字段
      */
     const forwardRuleHits = (value: unknown): void => {
-      /** 通过协议字段校验并限量的命中记录。 */
-      const hits = parseHits(value).filter((hit) => activePageRuleIds.has(hit.ruleId));
+      /** 通过协议字段校验并限量的命中记录；记录时间取接收时刻，不采信页面上报的值。 */
+      const hits = parseHits(value, Date.now()).filter((hit) => activePageRuleIds.has(hit.ruleId));
       if (hits.length === 0) {
         return;
       }

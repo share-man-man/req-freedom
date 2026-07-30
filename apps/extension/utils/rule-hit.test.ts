@@ -128,17 +128,43 @@ describe('rule-hit', () => {
       valid,
       { ...valid, ruleId: '' },
       { ...valid, ruleId: 'b', action: 'not-a-real-action' },
-      { ...valid, ruleId: 'c', at: 'NaN' },
       { ...valid, ruleId: 'd', url: 'x'.repeat(4096) },
       // 结果字段缺失或取值未知
-      { ruleId: 'e', action: RuleActionType.Block, url: 'https://x/', method: 'GET', at: 1 },
+      { ruleId: 'e', action: RuleActionType.Block, url: 'https://x/', method: 'GET' },
       { ...valid, ruleId: 'f', outcome: 'not-a-real-outcome' },
       // 跳过必须带合法原因，否则界面无从解释
       { ...valid, ruleId: 'g', outcome: RuleHitOutcome.Skipped },
       { ...valid, ruleId: 'h', outcome: RuleHitOutcome.Skipped, reason: 'not-a-real-reason' },
       'not-an-object',
-    ])).toEqual([valid]);
-    expect(parseHits('not-an-array')).toEqual([]);
+    ], 5)).toEqual([valid]);
+    expect(parseHits('not-an-array', 5)).toEqual([]);
+  });
+
+  it('记录时间取接收时刻，不采信页面上报的值', () => {
+    /** 谎报了一个远期时间的上报：它会让该标签页在活跃度排序里永远排在最前。 */
+    const forged = {
+      ruleId: 'a',
+      action: RuleActionType.Block,
+      url: 'https://x/',
+      method: 'GET',
+      at: Number.MAX_SAFE_INTEGER,
+      outcome: RuleHitOutcome.Applied,
+    };
+
+    expect(parseHits([forged], 42)).toEqual([{ ...forged, at: 42 }]);
+  });
+
+  it('缺少 at 字段的上报照常接受', () => {
+    /** 页面侧不必自报时间，缺字段不算非法。 */
+    const reported = {
+      ruleId: 'a',
+      action: RuleActionType.Block,
+      url: 'https://x/',
+      method: 'GET',
+      outcome: RuleHitOutcome.Applied,
+    };
+
+    expect(parseHits([reported], 7)).toEqual([{ ...reported, at: 7 }]);
   });
 
   it('接受带合法原因的跳过记录', () => {
@@ -153,7 +179,7 @@ describe('rule-hit', () => {
       reason: RuleHitSkipReason.OpaqueResponse,
     };
 
-    expect(parseHits([reported])).toEqual([reported]);
+    expect(parseHits([reported], 1)).toEqual([reported]);
   });
 
   it('单条消息上报的命中数量受限', () => {
@@ -167,7 +193,7 @@ describe('rule-hit', () => {
       outcome: RuleHitOutcome.Applied,
     }));
 
-    expect(parseHits(flood)).toHaveLength(100);
+    expect(parseHits(flood, 1)).toHaveLength(100);
   });
 
   it('恢复镜像时不覆盖内存中已存在的标签页', () => {

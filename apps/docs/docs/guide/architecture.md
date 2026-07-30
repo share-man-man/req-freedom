@@ -70,7 +70,7 @@ req-freedom/
 - **重置点是顶层 `main_frame` 请求**（`webRequest.onBeforeRequest`）。重置与该请求自身的命中来自同一事件，天然有序，因此不需要统计窗口时间戳或 Document token。
   - 顶层文档请求由常驻监听**独占**处理：重置与记录是同一个回调里的两条相邻语句，子资源监听显式跳过 `main_frame`。拆成两个监听器时「重置先于记录」只能依赖派发顺序，而 webRequest 并未承诺同一扩展内多个观测监听器的先后。
   - 重定向跳按 `requestId` 与新导航区分：主文档被重定向时会以同一 `requestId` 再次触发 `onBeforeRequest`，此时不重置，否则这次导航自己的重定向命中会被抹掉。
-- MAIN world 与 ISOLATED world 在 `document_start` 建立一次 `MessageChannel`，命中记录只通过私有端口传递；bridge 仍按当前生效规则 ID 校验上报内容。
+- MAIN world 与 ISOLATED world 在 `document_start` 建立一次 `MessageChannel`，命中记录只通过私有端口传递；bridge 仍按当前生效规则 ID 校验上报内容。记录时间由接收方盖章，不采信上报值——它参与标签页淘汰的活跃度排序，页面报一个远期时间就能把自己的日志钉住、把别的标签页挤出预算。
 
 ## 已知限制
 

@@ -251,7 +251,7 @@ export default defineBackground(() => {
       if (tabId === undefined) {
         return undefined;
       }
-      applyRuleHits(tabId, parseHits((message as { hits?: unknown }).hits));
+      applyRuleHits(tabId, parseHits((message as { hits?: unknown }).hits, Date.now()));
       return undefined;
     }
 

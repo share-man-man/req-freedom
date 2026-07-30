@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Rule } from '@req-freedom/shared';
 import {
+  BodyMatchType,
   HttpMethod,
   MatchType,
   MockResponseMode,
@@ -11,7 +12,7 @@ import {
   RuleHitOutcome,
   RuleHitSkipReason,
 } from '@req-freedom/shared';
-import { resolvePagePlan, toSkippedHit } from './page-plan';
+import { resolvePagePlan, resolveSyncXhrSkippedHits, toSkippedHit } from './page-plan';
 
 /**
  * 构造一条页面补丁通道的测试规则。
@@ -131,6 +132,67 @@ describe('resolvePagePlan', () => {
       hits: [],
       mockHit: undefined,
     });
+  });
+});
+
+describe('resolveSyncXhrSkippedHits', () => {
+  it('命中的动作全部记为 SyncXhr 跳过', () => {
+    const hits = resolveSyncXhrSkippedHits(
+      [SHORT_CIRCUIT_MOCK, DELAY],
+      'https://x/api',
+      'GET',
+      3,
+    );
+
+    expect(hits).toEqual([
+      {
+        ruleId: 'delay',
+        action: RuleActionType.Delay,
+        url: 'https://x/api',
+        method: 'GET',
+        at: 3,
+        outcome: RuleHitOutcome.Skipped,
+        reason: RuleHitSkipReason.SyncXhr,
+      },
+      {
+        ruleId: 'mock',
+        action: RuleActionType.MockResponse,
+        url: 'https://x/api',
+        method: 'GET',
+        at: 3,
+        outcome: RuleHitOutcome.Skipped,
+        reason: RuleHitSkipReason.SyncXhr,
+      },
+    ]);
+  });
+
+  it('带请求体条件的规则不上报——同步路径读不到请求体，无从确认是否真的匹配', () => {
+    /** 只在请求体命中时才生效的 Mock 规则。 */
+    const bodyMatched: Rule = {
+      ...SHORT_CIRCUIT_MOCK,
+      id: 'body-matched',
+      bodyMatch: { type: BodyMatchType.Contains, value: 'x' },
+    };
+
+    expect(resolveSyncXhrSkippedHits([bodyMatched], 'https://x/api', 'POST', 1)).toEqual([]);
+    // 同一批里不带请求体条件的规则照常上报
+    expect(
+      resolveSyncXhrSkippedHits([bodyMatched, DELAY], 'https://x/api', 'POST', 1).map(
+        (hit) => hit.ruleId,
+      ),
+    ).toEqual(['delay']);
+  });
+
+  it('无命中规则时不产生记录', () => {
+    expect(resolveSyncXhrSkippedHits([], 'https://x/api', 'GET', 1)).toEqual([]);
+  });
+
+  it('沿用执行计划的取舍：GET 下不上报改请求体', () => {
+    // 同步 XHR 即便放行，GET 也不会带请求体，报一条「未应用的改请求体」只会误导
+    expect(resolveSyncXhrSkippedHits([MODIFY_BODY], 'https://x/api', 'GET', 1)).toEqual([]);
+    expect(
+      resolveSyncXhrSkippedHits([MODIFY_BODY], 'https://x/api', 'POST', 1).map((hit) => hit.ruleId),
+    ).toEqual(['modify-body']);
   });
 });
 

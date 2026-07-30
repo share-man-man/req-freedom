@@ -36,7 +36,13 @@ import {
   rulesNeedBody,
   sleep,
 } from '@req-freedom/core';
-import { isPassthroughMock, resolvePagePlan, toSkippedHit, type PagePlan } from '@/utils/page-plan';
+import {
+  isPassthroughMock,
+  resolvePagePlan,
+  resolveSyncXhrSkippedHits,
+  toSkippedHit,
+  type PagePlan,
+} from '@/utils/page-plan';
 import { createAppliedHit } from '@/utils/rule-hit';
 
 /** 动态 Mock 与动态改请求体函数可读取的请求快照。 */
@@ -1072,18 +1078,7 @@ export default defineContentScript({
             '[Req Freedom] 同步 XMLHttpRequest 不支持页面补丁规则，已原样放行：',
             url,
           );
-          // 请求体条件要异步读取，同步路径无从判定，带条件的规则一律不上报，宁可少报不误报
-          const skippedPlan = resolvePagePlan(
-            candidateRules.filter((rule) => rule.bodyMatch === undefined),
-            url,
-            method,
-            Date.now(),
-          );
-          reportRuleHits(
-            [...skippedPlan.hits, ...(skippedPlan.mockHit ? [skippedPlan.mockHit] : [])].map((hit) =>
-              toSkippedHit(hit, RuleHitSkipReason.SyncXhr),
-            ),
-          );
+          reportRuleHits(resolveSyncXhrSkippedHits(candidateRules, url, method, Date.now()));
         }
         return originalSend.call(this, body);
       }

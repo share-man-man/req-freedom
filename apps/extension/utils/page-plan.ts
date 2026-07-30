@@ -120,3 +120,35 @@ export function resolvePagePlan(
 
   return { mock, delay, modifyBody, hits, mockHit: mock && toHit(mock) };
 }
+
+/**
+ * 解析同步 XHR 应上报的「匹配上但未应用」记录。
+ *
+ * 同步 XHR 要求 `send` 返回时响应已就绪，而页面补丁的处理全是异步的，因此一律原样放行；
+ * 规则确实匹配上了，用户需要在 popup 里看到原因，而不是只在控制台看到一行 warn。
+ *
+ * 带请求体条件的规则先被剔除：判定请求体需要异步读取，同步路径上无从确认，宁可少报也
+ * 不误报一条其实没匹配上的规则。
+ * @param rules URL 与方法已命中的页面补丁规则
+ * @param url 绝对化后的请求 URL
+ * @param method 请求方法
+ * @param at 记录时间
+ * @returns 全部标记为 SyncXhr 跳过的命中记录
+ */
+export function resolveSyncXhrSkippedHits(
+  rules: Rule[],
+  url: string,
+  method: string,
+  at: number,
+): RuleHit[] {
+  /** 剔除请求体条件后重新解析出的执行计划。 */
+  const plan = resolvePagePlan(
+    rules.filter((rule) => rule.bodyMatch === undefined),
+    url,
+    method,
+    at,
+  );
+  return [...plan.hits, ...(plan.mockHit ? [plan.mockHit] : [])].map((hit) =>
+    toSkippedHit(hit, RuleHitSkipReason.SyncXhr),
+  );
+}
