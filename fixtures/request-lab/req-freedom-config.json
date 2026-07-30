@@ -169,13 +169,13 @@
         },
         {
           "id": "rule-slow-response",
-          "name": "GET 大响应走 Slow 3G",
+          "name": "GET 大响应限速 150 kB/s",
           "enabled": true,
           "channel": "page-patch",
           "methods": ["GET"],
           "matchType": "contains",
           "pattern": "/api/slow-response.txt",
-          "actions": [{ "type": "delay", "throttlePreset": "slow-3g", "latencyMs": 400, "downloadKbps": 400, "uploadKbps": 400 }]
+          "actions": [{ "type": "delay", "throttlePreset": "custom", "latencyMs": 400, "downloadKbps": 1200, "uploadKbps": 1200 }]
         },
         {
           "id": "rule-slow-upload",

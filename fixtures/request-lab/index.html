@@ -271,12 +271,13 @@ popup：该规则右侧显示红色警告图标，且不计入命中
                 <span class="tag">FETCH</span>
                 <h2>网络限速 / 延迟</h2>
               </div>
-              <p>下载约 512 KB 的文本响应。可用 Slow 3G 或自定义延迟观察 loading、耗时和下载过程。</p>
+              <p>下载约 512 KB 的文本响应。示例规则用自定义档位把上下行都压到 150 kB/s，可观察 loading、耗时与逐段到达的下载过程。</p>
               <code>/api/slow-response.txt</code>
               <details>
                 <summary>限速规则示例</summary>
                 <pre>匹配：contains /api/slow-response.txt
-档位：Slow 3G</pre>
+档位：自定义（延迟 400ms，上下行各 150 kB/s）
+耗时：512 KB 全部到达约需 3.5 秒</pre>
               </details>
               <button class="button" data-action="slow-response" type="button">测试弱网</button>
             </article>
