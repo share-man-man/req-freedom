@@ -14,8 +14,22 @@ const session = vi.hoisted(() => ({
   gate: undefined as { promise: Promise<void>; release: () => void } | undefined,
 }));
 
+/** 由 mock 与用例共享的 tabs 假实现状态。 */
+const tabs = vi.hoisted(() => ({
+  /** 当前存活的标签页；undefined 表示查询将失败。 */
+  live: undefined as { id: number }[] | undefined,
+}));
+
 vi.mock('wxt/browser', () => ({
   browser: {
+    tabs: {
+      query: async (): Promise<{ id: number }[]> => {
+        if (!tabs.live) {
+          throw new Error('tabs.query failed');
+        }
+        return tabs.live;
+      },
+    },
     storage: {
       session: {
         get: async (): Promise<Record<string, unknown>> => {
@@ -97,6 +111,8 @@ async function flushMirror(): Promise<void> {
 beforeEach(() => {
   session.data = {};
   session.gate = undefined;
+  // 用例中出现的标签页默认都存活，孤儿回收只在显式构造的用例里发生。
+  tabs.live = [{ id: 7 }, { id: 8 }];
   vi.useFakeTimers();
 });
 
@@ -199,5 +215,49 @@ describe('冷启动恢复', () => {
 
     expect(store.getHitSummary(7).ruleIds).toEqual([]);
     expect(store.getHitSummary(8).ruleIds).toEqual(['other']);
+  });
+});
+
+describe('孤儿日志回收', () => {
+  it('回收已不存在的标签页日志，并保留存活标签页的日志', async () => {
+    session.data[mirrorKey(7)] = { hits: [hit('gone')], truncated: false };
+    session.data[mirrorKey(8)] = { hits: [hit('alive')], truncated: false };
+    // 标签页 7 在 Service Worker 休眠期间关闭，且它的 onRemoved 没有被投递。
+    tabs.live = [{ id: 8 }];
+    const store = await loadStore();
+
+    await store.restoreHits();
+
+    expect(store.listTabsWithHits()).toEqual([8]);
+    await flushMirror();
+    expect(session.data[mirrorKey(7)]).toBeUndefined();
+    expect(session.data[mirrorKey(8)]).toBeDefined();
+  });
+
+  it('标签查询失败时全量恢复，不误删日志', async () => {
+    session.data[mirrorKey(7)] = { hits: [hit('old')], truncated: false };
+    tabs.live = undefined;
+    const store = await loadStore();
+
+    await store.restoreHits();
+
+    expect(store.getHitSummary(7).ruleIds).toEqual(['old']);
+    await flushMirror();
+    expect(session.data[mirrorKey(7)]).toBeDefined();
+  });
+
+  it('回收不影响恢复期间已被改动的标签页', async () => {
+    session.data[mirrorKey(7)] = { hits: [hit('old')], truncated: false };
+    tabs.live = [{ id: 7 }];
+    const store = await loadStore();
+
+    holdGet();
+    /** 尚未完成的恢复。 */
+    const restoring = store.restoreHits();
+    store.recordHits(7, [hit('fresh')]);
+    releaseGet();
+    await restoring;
+
+    expect(store.getHitSummary(7).ruleIds).toEqual(['fresh']);
   });
 });

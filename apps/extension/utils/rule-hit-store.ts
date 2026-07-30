@@ -8,6 +8,7 @@ import {
   summarizeHits,
   type TabHitLog,
 } from './rule-hit';
+import { queryAllTabs } from './scope';
 
 /** 镜像写回 storage.session 的防抖窗口。 */
 const MIRROR_DEBOUNCE_MS = 1000;
@@ -175,16 +176,42 @@ function hasHits(tabId: number): boolean {
 }
 
 /**
+ * 查询当前存活的标签页 ID，用于回收孤儿日志。
+ *
+ * 查询失败时返回 undefined 表示「本轮无法对账」：宁可留下孤儿，也不能因为一次查询失败
+ * 就删掉正常标签页的日志。
+ * @returns 存活标签页 ID 集合；查询失败时为 undefined
+ */
+async function queryLiveTabIds(): Promise<Set<number> | undefined> {
+  try {
+    /** 当前全部标签页。 */
+    const tabs = await queryAllTabs();
+    return new Set(tabs.flatMap((tab) => (tab.id === undefined ? [] : [tab.id])));
+  } catch (error) {
+    console.error('[req-freedom] 查询存活标签页失败，本轮跳过孤儿日志回收：', error);
+    return undefined;
+  }
+}
+
+/**
  * 从 storage.session 镜像恢复内存日志。
  *
  * 只填充内存中缺失、且恢复期间未被改动过的标签页，避免恢复结果冲掉 Service Worker
  * 重启后已记录的新命中或已经发生的清空。
+ *
+ * 同时回收孤儿日志：标签页关闭通常会唤醒 Service Worker 并派发 tabs.onRemoved，但该事件
+ * 也可能因崩溃或扩展更新的事件真空期而丢失，此后镜像里的那条记录再也等不到自己的
+ * onRemoved。冷启动本就要读镜像，顺带与存活标签页对账即可就地回收；Service Worker 空闲
+ * 30 秒即终止，因此孤儿的实际存活时间很短。
  * @returns 恢复完成后的 Promise
  */
 export async function restoreHits(): Promise<void> {
   try {
-    /** 镜像中的全部条目。 */
-    const stored = await browser.storage.session.get(null);
+    /** 镜像条目与存活标签页并行读取，冷启动只多一次标签查询。 */
+    const [stored, liveTabIds] = await Promise.all([
+      browser.storage.session.get(null),
+      queryLiveTabIds(),
+    ]);
     /** 从镜像键还原出的标签页日志。 */
     const restored: [number, TabHitLog][] = [];
     for (const [key, value] of Object.entries(stored)) {
@@ -196,6 +223,11 @@ export async function restoreHits(): Promise<void> {
       /** 镜像中保存的日志结构。 */
       const log = value as Partial<TabHitLog> | undefined;
       if (!Number.isInteger(tabId) || !Array.isArray(log?.hits)) {
+        continue;
+      }
+      if (liveTabIds && !liveTabIds.has(tabId)) {
+        // 标签页已不存在，它的 onRemoved 永远不会再来；走同一条改动路径就地回收，镜像键随之删除
+        dropTab(tabId);
         continue;
       }
       restored.push([tabId, { hits: log.hits, truncated: Boolean(log.truncated) }]);
