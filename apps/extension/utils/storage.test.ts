@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RuleHitSummary } from '@req-freedom/shared';
-import { RuleActionType, STORAGE_KEY_RULE_HITS } from '@req-freedom/shared';
+import { RuleActionType, RuleHitOutcome, STORAGE_KEY_RULE_HITS } from '@req-freedom/shared';
 
 /** 由 mock 与用例共享的 storage.onChanged 假实现状态。 */
 const storage = vi.hoisted(() => ({
@@ -54,7 +54,14 @@ function mirrorChange(tabId: number, newValue?: unknown): Record<string, { newVa
 }
 
 /** 一条可用于构造镜像日志的命中。 */
-const HIT = { ruleId: 'a', action: RuleActionType.Block, url: 'https://x/api', method: 'GET', at: 1 };
+const HIT = {
+  ruleId: 'a',
+  action: RuleActionType.Block,
+  url: 'https://x/api',
+  method: 'GET',
+  at: 1,
+  outcome: RuleHitOutcome.Applied,
+};
 
 beforeEach(() => {
   storage.listeners.length = 0;
@@ -73,7 +80,7 @@ describe('watchTabHitSummary', () => {
 
     emit(mirrorChange(7, { hits: [HIT, { ...HIT, ruleId: 'b' }], truncated: true }));
 
-    expect(received).toEqual([{ ruleIds: ['a', 'b'], truncated: true }]);
+    expect(received).toEqual([{ ruleIds: ['a', 'b'], skippedRuleIds: {}, truncated: true }]);
   });
 
   it('镜像键被删除时给出空摘要', () => {
@@ -82,7 +89,7 @@ describe('watchTabHitSummary', () => {
 
     emit(mirrorChange(7));
 
-    expect(received).toEqual([{ ruleIds: [], truncated: false }]);
+    expect(received).toEqual([{ ruleIds: [], skippedRuleIds: {}, truncated: false }]);
   });
 
   it('忽略其他标签页与其他存储区的变更', () => {

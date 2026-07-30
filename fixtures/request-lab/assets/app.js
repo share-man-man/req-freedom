@@ -36,6 +36,8 @@ const CARD_TEST_BY_ACTION = {
   'cors-blocked': 'cors',
   'cors-allowed': 'cors',
   'invalid-rule': 'invalid-rule',
+  'opaque-response': 'opaque-response',
+  'sync-xhr': 'sync-xhr',
   'methods-get': 'methods',
   'methods-post': 'methods',
   'methods-delete': 'methods',
@@ -204,6 +206,44 @@ function requestWithXhr() {
     });
     xhr.send();
   });
+}
+
+/**
+ * 通过**同步** XMLHttpRequest 发起请求并记录结果。
+ *
+ * 同步 XHR 要求 send 返回时响应已就绪，容不下页面补丁通道的异步处理（读请求体、执行动态
+ * 函数、发影子请求都要等微任务），因此扩展一律原样放行。这里刻意保留这种已被废弃的用法，
+ * 就是为了验证那条 fail-open 路径：页面读到的应当是服务端的真实响应，而非规则里的 Mock。
+ * @returns {void}
+ */
+function requestWithSyncXhr() {
+  /** 请求开始时刻。 */
+  const startedAt = performance.now();
+  /** 请求目标地址。 */
+  const url = getApiUrl('./api/sync-xhr.json');
+  /** 同步 XHR 实例。 */
+  const xhr = new XMLHttpRequest();
+  try {
+    // 第三个参数为 false 即同步模式；浏览器会在控制台给出弃用警告，属预期
+    xhr.open('GET', url, false);
+    xhr.send();
+    appendLog({
+      name: '同步 XHR 请求',
+      url,
+      status: xhr.status,
+      duration: performance.now() - startedAt,
+      body: xhr.responseText || '(空响应)',
+      error: xhr.status < 200 || xhr.status >= 300,
+    });
+  } catch (error) {
+    appendLog({
+      name: '同步 XHR 请求',
+      url,
+      duration: performance.now() - startedAt,
+      body: error instanceof Error ? error.message : String(error),
+      error: true,
+    });
+  }
 }
 
 /**
@@ -408,6 +448,15 @@ async function runAction(action) {
   if (action === 'cors-blocked') {
     // 预期失败：响应缺少 CORS 头，浏览器会在页面读取前拦下它
     return requestWithFetch('跨域 被拦端点', getCrossOriginUrl('/api/cross-origin/blocked'));
+  }
+  if (action === 'opaque-response') {
+    // no-cors 的跨域请求必然得到不透明响应：状态码 0、响应体不可读
+    return requestWithFetch('不透明响应请求', getCrossOriginUrl('/api/cross-origin/opaque'), {
+      mode: 'no-cors',
+    });
+  }
+  if (action === 'sync-xhr') {
+    return requestWithSyncXhr();
   }
   if (action === 'cors-allowed') {
     return requestWithFetch('跨域 对照端点', getCrossOriginUrl('/api/cross-origin/allowed'));

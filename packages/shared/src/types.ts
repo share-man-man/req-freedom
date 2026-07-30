@@ -13,6 +13,8 @@ import type {
   RequestBodySourceMode,
   RuleActionType,
   RuleExecutionChannel,
+  RuleHitOutcome,
+  RuleHitSkipReason,
   RuleScopeType,
 } from './enums';
 
@@ -266,15 +268,11 @@ export interface RuleGroup {
   rules: Rule[];
 }
 
-/**
- * 一次规则动作的执行记录，DNR 与页面补丁两条通道共用。
- *
- * 命中日志是唯一的原始数据；总数与逐规则计数都是它的投影，不单独维护计数器。
- */
-export interface RuleHit {
+/** 命中记录的公共字段。 */
+interface BaseRuleHit {
   /** 业务规则 ID。 */
   ruleId: string;
-  /** 实际执行的动作类型。 */
+  /** 命中的动作类型。 */
   action: RuleActionType;
   /** 触发命中的请求 URL。 */
   url: string;
@@ -283,6 +281,30 @@ export interface RuleHit {
   /** 记录时间。 */
   at: number;
 }
+
+/** 动作已实际执行的命中记录。 */
+interface AppliedRuleHit extends BaseRuleHit {
+  /** 执行结果。 */
+  outcome: RuleHitOutcome.Applied;
+}
+
+/** 规则匹配上了、但本次请求无法应用的命中记录。 */
+interface SkippedRuleHit extends BaseRuleHit {
+  /** 执行结果。 */
+  outcome: RuleHitOutcome.Skipped;
+  /** 无法应用的原因；跳过必然有原因，因此这里不是可选字段。 */
+  reason: RuleHitSkipReason;
+}
+
+/**
+ * 一次规则动作的记录，DNR 与页面补丁两条通道共用。
+ *
+ * 命中日志是唯一的原始数据；界面上的各种投影都由它派生，不单独维护计数器。
+ *
+ * 刻意用判别联合而不是「outcome 字段 + 可选 reason」：后者允许写出「已执行却带着跳过原因」
+ * 这类自相矛盾的记录，前者在类型上就排除了。
+ */
+export type RuleHit = AppliedRuleHit | SkippedRuleHit;
 
 /**
  * 一条规则在 DNR 注册阶段被浏览器拒绝的记录。
@@ -308,8 +330,15 @@ export type DnrRegistrationIssues = Record<string, DnrRegistrationIssue>;
  * 次数信息仍完整保留在命中日志里，留给后续的请求日志视图。
  */
 export interface RuleHitSummary {
-  /** 本页命中过的业务规则 ID，已按规则去重，保持首次命中顺序。 */
+  /** 本页实际生效过的业务规则 ID，已按规则去重，保持首次命中顺序。 */
   ruleIds: string[];
+  /**
+   * 本页匹配上、但一次都没能应用的规则及其原因。
+   *
+   * 同一规则若也有实际生效的记录则不出现在这里——「生效过」是更重要的事实，
+   * 界面上一条规则只有一个状态位，不需要同时表达两种结果。
+   */
+  skippedRuleIds: Record<string, RuleHitSkipReason>;
   /** 日志是否因超出上限而丢弃过最早的记录。 */
   truncated: boolean;
 }

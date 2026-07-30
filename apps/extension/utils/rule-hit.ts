@@ -1,5 +1,10 @@
 import type { RuleHit, RuleHitSummary } from '@req-freedom/shared';
-import { RuleActionType, STORAGE_KEY_RULE_HITS } from '@req-freedom/shared';
+import {
+  RuleActionType,
+  RuleHitOutcome,
+  RuleHitSkipReason,
+  STORAGE_KEY_RULE_HITS,
+} from '@req-freedom/shared';
 
 /** 单个标签页最多保留的命中条数，超出后丢弃最早的记录。 */
 const MAX_RULE_HITS_PER_TAB = 1000;
@@ -27,6 +32,12 @@ const MAX_METHOD_LENGTH = 16;
 
 /** 合法的业务动作类型集合，用于校验未受信任的上报。 */
 const VALID_ACTION_TYPES = new Set<string>(Object.values(RuleActionType));
+
+/** 合法的执行结果集合，用于校验未受信任的上报。 */
+const VALID_OUTCOMES = new Set<string>(Object.values(RuleHitOutcome));
+
+/** 合法的跳过原因集合，用于校验未受信任的上报。 */
+const VALID_SKIP_REASONS = new Set<string>(Object.values(RuleHitSkipReason));
 
 /**
  * 返回单个标签页镜像使用的 storage.session 键。
@@ -93,27 +104,49 @@ export function getLastHitAt(log: TabHitLog): number {
 }
 
 /**
- * 取出命中日志中出现过的业务规则 ID。
+ * 取出命中日志中实际生效过的业务规则 ID。
  * @param hits 命中记录
  * @returns 按首次命中顺序去重后的规则 ID
  */
 export function collectHitRuleIds(hits: readonly RuleHit[]): string[] {
-  return [...new Set(hits.map((hit) => hit.ruleId))];
+  return [
+    ...new Set(
+      hits
+        .filter((hit) => hit.outcome === RuleHitOutcome.Applied)
+        .map((hit) => hit.ruleId),
+    ),
+  ];
 }
 
 /**
  * 把命中日志投影成 popup 需要的摘要。
+ *
+ * 「生效过」优先于「匹配上但未应用」：同一规则两种记录都有时只算前者——界面上一条规则
+ * 只有一个状态位，而「它确实生效过」是更重要的事实。
  * @param log 标签页命中日志
- * @returns 去重后的命中规则 ID 与截断标记
+ * @returns 生效规则、未能应用的规则及其原因、截断标记
  */
 export function summarizeHits(log: TabHitLog | undefined): RuleHitSummary {
   if (!log) {
-    return { ruleIds: [], truncated: false };
+    return { ruleIds: [], skippedRuleIds: {}, truncated: false };
   }
-  return {
-    ruleIds: collectHitRuleIds(log.hits),
-    truncated: log.truncated,
-  };
+  /** 本页实际生效过的规则。 */
+  const ruleIds = collectHitRuleIds(log.hits);
+  /** 生效过的规则集合，用于把它们从「未应用」里排除。 */
+  const appliedRuleIds = new Set(ruleIds);
+  /** 匹配上却一次都没应用的规则及其首次原因。 */
+  const skippedRuleIds: Record<string, RuleHitSkipReason> = {};
+  for (const hit of log.hits) {
+    if (
+      hit.outcome !== RuleHitOutcome.Skipped ||
+      appliedRuleIds.has(hit.ruleId) ||
+      hit.ruleId in skippedRuleIds
+    ) {
+      continue;
+    }
+    skippedRuleIds[hit.ruleId] = hit.reason;
+  }
+  return { ruleIds, skippedRuleIds, truncated: log.truncated };
 }
 
 /**
@@ -127,12 +160,12 @@ export function parseHits(value: unknown): RuleHit[] {
   if (!Array.isArray(value)) {
     return [];
   }
-  return value.slice(0, MAX_HITS_PER_MESSAGE).flatMap((item) => {
+  return value.slice(0, MAX_HITS_PER_MESSAGE).flatMap((item): RuleHit[] => {
     if (typeof item !== 'object' || item === null) {
       return [];
     }
     /** 待校验的命中字段。 */
-    const { ruleId, action, url, method, at } = item as Record<string, unknown>;
+    const { ruleId, action, url, method, at, outcome, reason } = item as Record<string, unknown>;
     if (
       typeof ruleId !== 'string' ||
       ruleId.length === 0 ||
@@ -143,11 +176,22 @@ export function parseHits(value: unknown): RuleHit[] {
       url.length > MAX_URL_LENGTH ||
       typeof method !== 'string' ||
       method.length > MAX_METHOD_LENGTH ||
-      !Number.isFinite(at)
+      !Number.isFinite(at) ||
+      typeof outcome !== 'string' ||
+      !VALID_OUTCOMES.has(outcome)
     ) {
       return [];
     }
-    return [{ ruleId, action: action as RuleActionType, url, method, at: Number(at) }];
+    /** 命中记录的公共字段。 */
+    const base = { ruleId, action: action as RuleActionType, url, method, at: Number(at) };
+    if (outcome === RuleHitOutcome.Applied) {
+      return [{ ...base, outcome: RuleHitOutcome.Applied }];
+    }
+    // 跳过必须带上合法原因，否则界面无从解释，整条丢弃
+    if (typeof reason !== 'string' || !VALID_SKIP_REASONS.has(reason)) {
+      return [];
+    }
+    return [{ ...base, outcome: RuleHitOutcome.Skipped, reason: reason as RuleHitSkipReason }];
   });
 }
 

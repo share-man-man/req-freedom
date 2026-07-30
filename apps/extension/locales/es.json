@@ -365,6 +365,11 @@
     }
   },
   "popup": {
+    "ruleSkipped": "Una solicitud de esta página coincidió con la regla pero no pudo aplicarse: {{reason}}",
+    "skipReason": {
+      "opaqueResponse": "La respuesta es opaca (no-cors) y no se puede leer su cuerpo",
+      "syncXhr": "Un XMLHttpRequest síncrono no admite procesamiento asíncrono"
+    },
     "ruleNotRegistered": "El navegador rechazó esta regla, por lo que no está en vigor: {{message}}",
     "activeCount": "{{count}} reglas activas",
     "globallyDisabled": "Desactivado globalmente",

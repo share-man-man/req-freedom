@@ -219,6 +219,41 @@
             "responseHeaders": { "X-Mocked-By": "req-freedom" },
             "body": "{\"data\":{\"user\":{\"id\":99,\"name\":\"Mock 用户\",\"role\":\"mocked\"}},\"receivedOperationName\":\"GetUser\",\"mocked\":true}"
           }]
+        },
+        {
+          "id": "rule-mock-opaque",
+          "name": "不透明响应上的 Mock（预期无法应用）",
+          "enabled": true,
+          "channel": "page-patch",
+          "methods": ["GET"],
+          "matchType": "contains",
+          "pattern": "/api/cross-origin/opaque",
+          "actions": [{
+            "type": "mock-response",
+            "mode": "dynamic",
+            "passthrough": true,
+            "statusCode": 200,
+            "statusText": "OK",
+            "body": "",
+            "functionCode": "function mock(req, res) { return { patched: true, original: res.json }; }"
+          }]
+        },
+        {
+          "id": "rule-mock-sync-xhr",
+          "name": "同步 XHR 上的 Mock（预期无法应用）",
+          "enabled": true,
+          "channel": "page-patch",
+          "methods": ["GET"],
+          "matchType": "contains",
+          "pattern": "/api/sync-xhr.json",
+          "actions": [{
+            "type": "mock-response",
+            "mode": "static",
+            "statusCode": 200,
+            "statusText": "OK",
+            "bodyType": "json",
+            "body": "{\"source\":\"mock\",\"note\":\"若读到这段内容，说明同步 XHR 没有被放行\"}"
+          }]
         }
       ]
     },

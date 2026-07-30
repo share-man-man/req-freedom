@@ -365,6 +365,11 @@
     }
   },
   "popup": {
+    "ruleSkipped": "이 페이지의 요청이 이 규칙과 일치했지만 적용하지 못했습니다: {{reason}}",
+    "skipReason": {
+      "opaqueResponse": "응답이 불투명(no-cors)하여 본문을 읽을 수 없습니다",
+      "syncXhr": "동기 XMLHttpRequest에는 비동기 처리를 넣을 수 없습니다"
+    },
     "ruleNotRegistered": "브라우저가 이 규칙을 거부하여 현재 적용되지 않습니다: {{message}}",
     "activeCount": "규칙 {{count}}개 활성화",
     "globallyDisabled": "전체 비활성화됨",

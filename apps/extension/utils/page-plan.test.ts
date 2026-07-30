@@ -8,8 +8,10 @@ import {
   RequestBodySourceMode,
   RuleActionType,
   RuleExecutionChannel,
+  RuleHitOutcome,
+  RuleHitSkipReason,
 } from '@req-freedom/shared';
-import { resolvePagePlan } from './page-plan';
+import { resolvePagePlan, toSkippedHit } from './page-plan';
 
 /**
  * 构造一条页面补丁通道的测试规则。
@@ -68,14 +70,16 @@ describe('resolvePagePlan', () => {
     const plan = resolvePagePlan([PASSTHROUGH_MOCK, MODIFY_BODY], 'https://x/api', 'POST', 1);
 
     expect(plan.modifyBody).toBeDefined();
-    expect(plan.hits.map((hit) => hit.ruleId).sort()).toEqual(['modify-body', 'passthrough']);
+    expect(plan.hits.map((hit) => hit.ruleId)).toEqual(['modify-body']);
+    expect(plan.mockHit?.ruleId).toBe('passthrough');
   });
 
   it('短路 Mock 下改请求体不执行也不记命中', () => {
     const plan = resolvePagePlan([SHORT_CIRCUIT_MOCK, MODIFY_BODY], 'https://x/api', 'POST', 1);
 
     expect(plan.modifyBody).toBeUndefined();
-    expect(plan.hits.map((hit) => hit.ruleId)).toEqual(['mock']);
+    expect(plan.hits).toEqual([]);
+    expect(plan.mockHit?.ruleId).toBe('mock');
   });
 
   it('GET / HEAD 不执行改请求体', () => {
@@ -91,7 +95,8 @@ describe('resolvePagePlan', () => {
     const plan = resolvePagePlan([SHORT_CIRCUIT_MOCK, DELAY], 'https://x/api', 'GET', 1);
 
     expect(plan.delay).toBeDefined();
-    expect(plan.hits.map((hit) => hit.ruleId)).toEqual(['mock', 'delay']);
+    expect(plan.hits.map((hit) => hit.ruleId)).toEqual(['delay']);
+    expect(plan.mockHit?.ruleId).toBe('mock');
   });
 
   it('命中记录带上请求上下文与动作类型', () => {
@@ -104,8 +109,18 @@ describe('resolvePagePlan', () => {
         url: 'https://x/api?q=1',
         method: 'PUT',
         at: 42,
+        outcome: RuleHitOutcome.Applied,
       },
     ]);
+  });
+
+  it('Mock 的命中与计划分开返回，等执行处确认结果后再上报', () => {
+    // 「基于真实响应」的 Mock 遇到不透明响应时读不到 body，只能原样放行；
+    // 若随计划一起上报，就会宣称一次并未发生的改写。
+    const plan = resolvePagePlan([PASSTHROUGH_MOCK], 'https://x/api', 'GET', 1);
+
+    expect(plan.hits).toEqual([]);
+    expect(plan.mockHit?.outcome).toBe(RuleHitOutcome.Applied);
   });
 
   it('无命中规则时计划为空', () => {
@@ -114,6 +129,20 @@ describe('resolvePagePlan', () => {
       delay: undefined,
       modifyBody: undefined,
       hits: [],
+      mockHit: undefined,
+    });
+  });
+});
+
+describe('toSkippedHit', () => {
+  it('保留原记录并改写为带原因的跳过', () => {
+    const plan = resolvePagePlan([DELAY], 'https://x/api', 'GET', 7);
+    const [hit] = plan.hits;
+
+    expect(toSkippedHit(hit!, RuleHitSkipReason.SyncXhr)).toEqual({
+      ...hit,
+      outcome: RuleHitOutcome.Skipped,
+      reason: RuleHitSkipReason.SyncXhr,
     });
   });
 });

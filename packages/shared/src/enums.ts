@@ -216,3 +216,29 @@ export enum HeaderOperation {
   /** 移除 */
   Remove = 'remove',
 }
+
+/**
+ * 一条命中记录的执行结果
+ *
+ * 规则匹配上了不等于动作真的发生了：浏览器的某些限制要到执行时才暴露（不透明响应读不到
+ * 响应体、同步 XHR 无法承载异步处理），此时页面补丁通道一律原样放行。把这类记录与真正
+ * 执行过的记录区分开，界面才能回答「规则明明匹配了，为什么没生效」。
+ */
+export enum RuleHitOutcome {
+  /** 动作已实际执行 */
+  Applied = 'applied',
+  /** 规则匹配上了，但本次请求无法应用，已原样放行 */
+  Skipped = 'skipped',
+}
+
+/**
+ * 动作被跳过的原因
+ *
+ * 都是浏览器限制导致的 fail-open，不是规则本身有问题；逐项对应界面上的一句解释。
+ */
+export enum RuleHitSkipReason {
+  /** 不透明响应（no-cors / opaqueredirect）读不到响应体，无法在其之上改写 */
+  OpaqueResponse = 'opaque-response',
+  /** 同步 XHR 要求 send 返回时响应已就绪，容不下页面补丁的异步处理 */
+  SyncXhr = 'sync-xhr',
+}

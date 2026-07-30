@@ -365,6 +365,11 @@
     }
   },
   "popup": {
+    "ruleSkipped": "本頁有請求匹配了該規則，但未能套用：{{reason}}",
+    "skipReason": {
+      "opaqueResponse": "回應不透明（no-cors），讀不到回應內容",
+      "syncXhr": "同步 XMLHttpRequest 容不下非同步處理"
+    },
     "ruleNotRegistered": "此規則未被瀏覽器接受，目前不會生效：{{message}}",
     "activeCount": "{{count}} 條規則生效中",
     "globallyDisabled": "已全域性停用",

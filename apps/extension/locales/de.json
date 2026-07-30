@@ -365,6 +365,11 @@
     }
   },
   "popup": {
+    "ruleSkipped": "Eine Anfrage dieser Seite passte zur Regel, konnte sie aber nicht anwenden: {{reason}}",
+    "skipReason": {
+      "opaqueResponse": "Die Antwort ist opak (no-cors), ihr Body ist nicht lesbar",
+      "syncXhr": "Ein synchroner XMLHttpRequest lässt keine asynchrone Verarbeitung zu"
+    },
     "ruleNotRegistered": "Der Browser hat diese Regel abgelehnt, sie ist daher nicht aktiv: {{message}}",
     "activeCount": "{{count}} Regeln aktiv",
     "globallyDisabled": "Global deaktiviert",

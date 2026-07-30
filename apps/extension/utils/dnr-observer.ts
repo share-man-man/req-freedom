@@ -1,5 +1,6 @@
 import { browser } from 'wxt/browser';
 import type { RuleHit } from '@req-freedom/shared';
+import { RuleHitOutcome } from '@req-freedom/shared';
 import { findMatchedRules, isRuleScoped } from '@req-freedom/core';
 import { getActiveDnrRules, type ActiveDnrRuleSnapshot } from './active-rules-cache';
 
@@ -53,6 +54,8 @@ export function toRuleHits(
         url: request.url,
         method: request.method,
         at,
+        // DNR 在网络层执行，扩展侧无从观察结果；预测出的命中一律按已执行记录
+        outcome: RuleHitOutcome.Applied,
       }));
   });
 }

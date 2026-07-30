@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RuleActionType } from '@req-freedom/shared';
+import { RuleActionType, RuleHitOutcome, RuleHitSkipReason } from '@req-freedom/shared';
 import type { RuleHit } from '@req-freedom/shared';
 import {
   appendHits,
@@ -12,13 +12,33 @@ import {
 } from './rule-hit';
 
 /**
- * 构造一条测试用命中记录。
+ * 构造一条已执行的命中记录。
  * @param ruleId 业务规则 ID
  * @param action 动作类型
  * @returns 字段完整的命中记录
  */
 function hit(ruleId: string, action: RuleActionType = RuleActionType.Block): RuleHit {
-  return { ruleId, action, url: 'https://example.com/api', method: 'GET', at: 1 };
+  return {
+    ruleId,
+    action,
+    url: 'https://example.com/api',
+    method: 'GET',
+    at: 1,
+    outcome: RuleHitOutcome.Applied,
+  };
+}
+
+/**
+ * 构造一条「匹配上但未应用」的记录。
+ * @param ruleId 业务规则 ID
+ * @param reason 无法应用的原因
+ * @returns 字段完整的命中记录
+ */
+function skipped(
+  ruleId: string,
+  reason: RuleHitSkipReason = RuleHitSkipReason.OpaqueResponse,
+): RuleHit {
+  return { ...hit(ruleId), outcome: RuleHitOutcome.Skipped, reason };
 }
 
 describe('rule-hit', () => {
@@ -44,8 +64,43 @@ describe('rule-hit', () => {
     const log = appendHits(createTabHitLog(), [hit('b'), hit('a'), hit('b')]);
 
     expect(collectHitRuleIds(log.hits)).toEqual(['b', 'a']);
-    expect(summarizeHits(log)).toEqual({ ruleIds: ['b', 'a'], truncated: false });
-    expect(summarizeHits(undefined)).toEqual({ ruleIds: [], truncated: false });
+    expect(summarizeHits(log)).toEqual({
+      ruleIds: ['b', 'a'],
+      skippedRuleIds: {},
+      truncated: false,
+    });
+    expect(summarizeHits(undefined)).toEqual({
+      ruleIds: [],
+      skippedRuleIds: {},
+      truncated: false,
+    });
+  });
+
+  it('未应用的记录不算命中，单列为跳过并带上原因', () => {
+    const log = appendHits(createTabHitLog(), [
+      skipped('a', RuleHitSkipReason.OpaqueResponse),
+      skipped('b', RuleHitSkipReason.SyncXhr),
+    ]);
+
+    expect(summarizeHits(log)).toEqual({
+      ruleIds: [],
+      skippedRuleIds: {
+        a: RuleHitSkipReason.OpaqueResponse,
+        b: RuleHitSkipReason.SyncXhr,
+      },
+      truncated: false,
+    });
+  });
+
+  it('同一规则既生效过又被跳过时只算生效', () => {
+    // 界面上一条规则只有一个状态位，「它确实生效过」是更重要的事实。
+    const log = appendHits(createTabHitLog(), [skipped('a'), hit('a')]);
+
+    expect(summarizeHits(log)).toEqual({
+      ruleIds: ['a'],
+      skippedRuleIds: {},
+      truncated: false,
+    });
   });
 
   it('同一规则的多个动作在摘要中只出现一次', () => {
@@ -59,17 +114,46 @@ describe('rule-hit', () => {
   });
 
   it('拒绝字段非法或动作类型未知的上报', () => {
+    /** 合法的已执行记录，用作对照。 */
+    const valid = {
+      ruleId: 'a',
+      action: RuleActionType.Delay,
+      url: 'https://x/',
+      method: 'POST',
+      at: 5,
+      outcome: RuleHitOutcome.Applied,
+    };
+
     expect(parseHits([
-      { ruleId: 'a', action: RuleActionType.Delay, url: 'https://x/', method: 'POST', at: 5 },
-      { ruleId: '', action: RuleActionType.Block, url: 'https://x/', method: 'GET', at: 1 },
-      { ruleId: 'b', action: 'not-a-real-action', url: 'https://x/', method: 'GET', at: 1 },
-      { ruleId: 'c', action: RuleActionType.Block, url: 'https://x/', method: 'GET', at: 'NaN' },
-      { ruleId: 'd', action: RuleActionType.Block, url: 'x'.repeat(4096), method: 'GET', at: 1 },
+      valid,
+      { ...valid, ruleId: '' },
+      { ...valid, ruleId: 'b', action: 'not-a-real-action' },
+      { ...valid, ruleId: 'c', at: 'NaN' },
+      { ...valid, ruleId: 'd', url: 'x'.repeat(4096) },
+      // 结果字段缺失或取值未知
+      { ruleId: 'e', action: RuleActionType.Block, url: 'https://x/', method: 'GET', at: 1 },
+      { ...valid, ruleId: 'f', outcome: 'not-a-real-outcome' },
+      // 跳过必须带合法原因，否则界面无从解释
+      { ...valid, ruleId: 'g', outcome: RuleHitOutcome.Skipped },
+      { ...valid, ruleId: 'h', outcome: RuleHitOutcome.Skipped, reason: 'not-a-real-reason' },
       'not-an-object',
-    ])).toEqual([
-      { ruleId: 'a', action: RuleActionType.Delay, url: 'https://x/', method: 'POST', at: 5 },
-    ]);
+    ])).toEqual([valid]);
     expect(parseHits('not-an-array')).toEqual([]);
+  });
+
+  it('接受带合法原因的跳过记录', () => {
+    /** 页面上下文上报的跳过记录。 */
+    const reported = {
+      ruleId: 'a',
+      action: RuleActionType.MockResponse,
+      url: 'https://x/',
+      method: 'GET',
+      at: 1,
+      outcome: RuleHitOutcome.Skipped,
+      reason: RuleHitSkipReason.OpaqueResponse,
+    };
+
+    expect(parseHits([reported])).toEqual([reported]);
   });
 
   it('单条消息上报的命中数量受限', () => {
@@ -80,6 +164,7 @@ describe('rule-hit', () => {
       url: 'https://x/',
       method: 'GET',
       at: 1,
+      outcome: RuleHitOutcome.Applied,
     }));
 
     expect(parseHits(flood)).toHaveLength(100);

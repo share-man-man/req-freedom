@@ -20,6 +20,8 @@ import {
   RequestBodySourceMode,
   RuleActionType,
   RuleExecutionChannel,
+  RuleHitOutcome,
+  RuleHitSkipReason,
 } from '@req-freedom/shared';
 import {
   filterActionsByType,
@@ -35,7 +37,7 @@ import {
   rulesNeedBody,
   sleep,
 } from '@req-freedom/core';
-import { isPassthroughMock, resolvePagePlan, type PagePlan } from '@/utils/page-plan';
+import { isPassthroughMock, resolvePagePlan, toSkippedHit, type PagePlan } from '@/utils/page-plan';
 
 /** 动态 Mock 与动态改请求体函数可读取的请求快照。 */
 interface DynamicRequestContext {
@@ -135,6 +137,21 @@ export default defineContentScript({
       bridgePort.postMessage({ type: PAGE_PORT_MSG_RULE_HITS, hits });
     };
 
+    /**
+     * 上报 Mock 的命中记录。
+     *
+     * 与限速、改请求体不同，Mock 能否应用要到执行时才知道，因此不随计划一起上报，
+     * 由各执行分支在确认结果后调用：传入原因即记为「匹配上但未应用」。
+     * @param hit 计划阶段生成的 Mock 命中记录
+     * @param reason 无法应用的原因；省略表示已实际应用
+     */
+    const reportMockHit = (hit: RuleHit | undefined, reason?: RuleHitSkipReason): void => {
+      if (!hit) {
+        return;
+      }
+      reportRuleHits([reason ? toSkippedHit(hit, reason) : hit]);
+    };
+
     // 私有端口只接受 bridge 推送的规则更新，宿主页无法伪造后续动作消息。
     bridgePort.onmessage = (event: MessageEvent) => {
       if (event.data?.type !== PAGE_PORT_MSG_RULES) {
@@ -220,6 +237,7 @@ export default defineContentScript({
               url: window.location.href,
               method: 'GET',
               at: Date.now(),
+              outcome: RuleHitOutcome.Applied,
             },
           ]);
         };
@@ -748,6 +766,7 @@ export default defineContentScript({
       /** 本次请求的执行计划；命中记录与执行动作同源，不再事后推导。 */
       const plan = resolvePagePlan(activeRules, url, method, Date.now());
       const { mock: mockRule, delay: delayRule, modifyBody: modifyBodyRule } = plan;
+      // 限速与改请求体计划成立即执行，可立即上报；Mock 等确认结果后再报
       reportRuleHits(plan.hits);
 
       // 关键步骤：在请求实际发出前模拟网络往返延迟与上行传输时间
@@ -777,6 +796,7 @@ export default defineContentScript({
         );
         // 不透明响应（no-cors / opaqueredirect）读不到 body 也无法重建，原样放行
         if (realResponse.type === 'opaque' || realResponse.type === 'opaqueredirect' || realResponse.status === 0) {
+          reportMockHit(plan.mockHit, RuleHitSkipReason.OpaqueResponse);
           return throttleResponse(realResponse, delayRule);
         }
         /** 真实响应体文本；读取失败时按空串处理，交由动态函数决定如何降级。 */
@@ -803,11 +823,14 @@ export default defineContentScript({
           url: { value: realResponse.url },
           redirected: { value: realResponse.redirected },
         });
+        reportMockHit(plan.mockHit);
         return throttleResponse(response, delayRule);
       }
 
       // 关键步骤：命中 Mock 时直接构造响应，不发起真实请求
       if (mockRule) {
+        // 短路 Mock 必定应用：响应完全由规则构造，没有会失败的执行环节
+        reportMockHit(plan.mockHit);
         await sleep(mockRule.delayMs ?? 0);
         /** 动态模式读取请求快照后生成响应；静态模式使用配置中的 body 并解析其中的动态变量。 */
         const mockBody =
@@ -1052,6 +1075,18 @@ export default defineContentScript({
             '[Req Freedom] 同步 XMLHttpRequest 不支持页面补丁规则，已原样放行：',
             url,
           );
+          // 请求体条件要异步读取，同步路径无从判定，带条件的规则一律不上报，宁可少报不误报
+          const skippedPlan = resolvePagePlan(
+            candidateRules.filter((rule) => rule.bodyMatch === undefined),
+            url,
+            method,
+            Date.now(),
+          );
+          reportRuleHits(
+            [...skippedPlan.hits, ...(skippedPlan.mockHit ? [skippedPlan.mockHit] : [])].map((hit) =>
+              toSkippedHit(hit, RuleHitSkipReason.SyncXhr),
+            ),
+          );
         }
         return originalSend.call(this, body);
       }
@@ -1066,7 +1101,8 @@ export default defineContentScript({
         /** 本次请求的执行计划；命中记录与执行动作同源，不再事后推导。 */
         const plan = resolvePagePlan(activeRules, url, method, Date.now());
         const { mock: mockRule, delay: delayRule, modifyBody: modifyBodyRule } = plan;
-        reportRuleHits(plan.hits);
+        // XHR 无 no-cors 语义，影子请求失败也会照常把响应交给动态函数改写，Mock 必定应用
+        reportRuleHits([...plan.hits, ...(plan.mockHit ? [plan.mockHit] : [])]);
         /** 延迟规则与 Mock 自带延迟的总时长。XHR 不暴露可替换的响应流，因此仅模拟请求前的网络延迟与上行带宽。 */
         const totalDelayMs =
           (delayRule ? getNetworkRequestDelayMs(delayRule, getRequestBodyByteLength(body)) : 0) +

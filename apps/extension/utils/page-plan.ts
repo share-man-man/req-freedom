@@ -4,7 +4,12 @@ import type {
   RuleAction,
   RuleHit,
 } from '@req-freedom/shared';
-import { MockResponseMode, RuleActionType } from '@req-freedom/shared';
+import {
+  MockResponseMode,
+  RuleActionType,
+  RuleHitOutcome,
+  RuleHitSkipReason,
+} from '@req-freedom/shared';
 import { pickActionByType } from '@req-freedom/core';
 
 /** 延迟动作类型别名。 */
@@ -27,8 +32,31 @@ export interface PagePlan {
   delay?: DelayAction;
   /** 本次真正会执行的改请求体动作；不执行时为 undefined。 */
   modifyBody?: ModifyRequestBodyAction;
-  /** 本次执行产生的命中记录。 */
+  /**
+   * 限速与改请求体的命中记录：计划一旦成立这两个动作必定执行，可立即上报。
+   */
   hits: RuleHit[];
+  /**
+   * Mock 的命中记录；命中 Mock 时必定存在，与 `mock` 同生同灭。
+   *
+   * 单独拿出来是因为它的结果要到执行时才知道：「基于真实响应」的 Mock 遇到不透明响应
+   * （no-cors / opaqueredirect）时读不到响应体，只能原样放行——那时这条记录应上报为
+   * 「匹配上但未应用」而不是命中。由执行处在确认结果后上报。
+   */
+  mockHit?: RuleHit;
+}
+
+/**
+ * 把一条命中记录改写为「匹配上但未应用」。
+ *
+ * 记录本身仍要保留：日志是原始数据，「规则匹配了却没能生效」正是排查时最需要的信息，
+ * 只是它不该被算作命中。
+ * @param hit 原命中记录
+ * @param reason 无法应用的原因
+ * @returns 标记为跳过的同一条记录
+ */
+export function toSkippedHit(hit: RuleHit, reason: RuleHitSkipReason): RuleHit {
+  return { ...hit, outcome: RuleHitOutcome.Skipped, reason };
 }
 
 /**
@@ -69,16 +97,27 @@ export function resolvePagePlan(
       ? candidateModifyBody
       : undefined;
 
-  /** 本次真正会执行的动作。 */
-  const appliedActions = [mock, delay, modifyBody].filter(
-    (action): action is NonNullable<typeof action> => action !== undefined,
-  );
-  /** 与执行动作一一对应的命中记录；同一规则的多个动作各记一条。 */
-  const hits = appliedActions.flatMap((action) => {
+  /**
+   * 把一个待执行动作转成命中记录。
+   * @param action 本次会执行的动作
+   * @returns 该动作的命中记录；找不到所属规则时为 undefined
+   */
+  const toHit = (action: RuleAction): RuleHit | undefined => {
     /** 该动作所属的业务规则。 */
     const owner = rules.find((rule) => rule.actions.includes(action));
-    return owner ? [{ ruleId: owner.id, action: action.type, url, method, at }] : [];
-  });
+    return owner
+      ? { ruleId: owner.id, action: action.type, url, method, at, outcome: RuleHitOutcome.Applied }
+      : undefined;
+  };
 
-  return { mock, delay, modifyBody, hits };
+  /** 计划成立即确定会执行的动作的命中记录。 */
+  const hits = [delay, modifyBody]
+    .flatMap((action) => (action === undefined ? [] : [action]))
+    .flatMap((action) => {
+      /** 该动作的命中记录。 */
+      const hit = toHit(action);
+      return hit ? [hit] : [];
+    });
+
+  return { mock, delay, modifyBody, hits, mockHit: mock && toHit(mock) };
 }

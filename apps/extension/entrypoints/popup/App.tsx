@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
-import { AlertTriangle, CheckCircle2, ChevronDown, Settings2, Target } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, CircleSlash, Settings2, Target } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { DnrRegistrationIssues, RuleGroup, RuleHitSummary } from '@req-freedom/shared';
+import { RuleHitSkipReason } from '@req-freedom/shared';
 import {
   RULE_HIGHLIGHT_QUERY_PARAM,
   RUNTIME_MSG_CLEAR_RULE_HITS,
@@ -23,6 +24,12 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { LogoMark } from '@/components/logo-mark';
 
+/** 跳过原因对应的文案键。 */
+const SKIP_REASON_LABEL_KEY: Record<RuleHitSkipReason, string> = {
+  [RuleHitSkipReason.OpaqueResponse]: 'popup.skipReason.opaqueResponse',
+  [RuleHitSkipReason.SyncXhr]: 'popup.skipReason.syncXhr',
+};
+
 /**
  * Popup 主界面：全局开关 + 按分组快速启停
  */
@@ -36,6 +43,8 @@ export default function App() {
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
   /** 当前页面命中过的业务规则 ID，已按规则去重。 */
   const [hitRuleIds, setHitRuleIds] = useState<string[]>([]);
+  /** 本页匹配上、但一次都没能应用的规则及其原因。 */
+  const [skippedRuleIds, setSkippedRuleIds] = useState<Record<string, RuleHitSkipReason>>({});
   /** 命中日志是否已因超出上限丢弃过最早的记录。 */
   const [hitsTruncated, setHitsTruncated] = useState(false);
   /** 点击 popup 时所在的标签页 ID。 */
@@ -68,6 +77,7 @@ export default function App() {
         return;
       }
       setHitRuleIds(summary.ruleIds);
+      setSkippedRuleIds(summary.skippedRuleIds);
       setHitsTruncated(summary.truncated);
       setHitSummaryStatus('ready');
     } catch {
@@ -88,6 +98,7 @@ export default function App() {
     }
     return watchTabHitSummary(activeTabId, (summary) => {
       setHitRuleIds(summary.ruleIds);
+      setSkippedRuleIds(summary.skippedRuleIds);
       setHitsTruncated(summary.truncated);
     });
   }, [activeTabId]);
@@ -125,6 +136,7 @@ export default function App() {
         tabId: activeTabId,
       });
       setHitRuleIds([]);
+      setSkippedRuleIds({});
       setHitsTruncated(false);
     } catch {
       setHitSummaryStatus('error');
@@ -353,12 +365,16 @@ export default function App() {
                       const isMatched = hitRuleIdSet.has(rule.id);
                       /** 当前规则被浏览器拒绝的注册记录；存在时该规则并未真正生效。 */
                       const issue = dnrIssues[rule.id];
+                      /** 当前规则匹配上却一次都没能应用时的原因。 */
+                      const skipReason = skippedRuleIds[rule.id];
                       /** 右侧状态位的说明文本；无状态可表达时为空。 */
                       const statusLabel = issue
                         ? t('popup.ruleNotRegistered', { message: issue.message })
-                        : isMatched
-                          ? t('popup.ruleMatched')
-                          : '';
+                        : skipReason
+                          ? t('popup.ruleSkipped', { reason: t(SKIP_REASON_LABEL_KEY[skipReason]) })
+                          : isMatched
+                            ? t('popup.ruleMatched')
+                            : '';
                       return (
                         <li
                           key={rule.id}
@@ -405,21 +421,28 @@ export default function App() {
                           </div>
                           <div className="flex shrink-0 items-center gap-1">
                             {/*
-                              命中与注册失败共用同一个状态位，只靠颜色与字形区分：两者不会同时
-                              出现（没注册成功的规则不可能有命中），因此不需要谁优先于谁的规则。
+                              三种状态共用同一个状态位，只靠颜色与字形区分，彼此互斥：
+                              注册失败只发生在 DNR 通道、未应用只发生在页面补丁通道，
+                              而「生效过」优先于「未应用」已在摘要投影时决定。
                               行只补一层极淡的底色帮助扫读；描边、内环与浮起角标一并去掉——
                               四层装饰叠在一起，命中多条时整个列表会糊成一片。
                             */}
                             {statusLabel && (
                               <span
                                 className={`flex size-5 shrink-0 items-center justify-center ${
-                                  issue ? 'text-destructive' : 'text-primary'
+                                  issue
+                                    ? 'text-destructive'
+                                    : skipReason
+                                      ? 'text-warning'
+                                      : 'text-primary'
                                 }`}
                                 title={statusLabel}
                                 aria-label={statusLabel}
                               >
                                 {issue ? (
                                   <AlertTriangle className="size-3.5" />
+                                ) : skipReason ? (
+                                  <CircleSlash className="size-3.5" />
                                 ) : (
                                   <Target className="size-3.5" />
                                 )}

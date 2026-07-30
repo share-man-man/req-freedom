@@ -365,6 +365,11 @@
     }
   },
   "popup": {
+    "ruleSkipped": "このページのリクエストはこのルールに一致しましたが、適用できませんでした：{{reason}}",
+    "skipReason": {
+      "opaqueResponse": "レスポンスが不透明（no-cors）でボディを読み取れません",
+      "syncXhr": "同期 XMLHttpRequest では非同期処理を挟めません"
+    },
     "ruleNotRegistered": "このルールはブラウザーに拒否されたため、現在は適用されません：{{message}}",
     "activeCount": "{{count}} 件のルールが有効",
     "globallyDisabled": "全体で無効",

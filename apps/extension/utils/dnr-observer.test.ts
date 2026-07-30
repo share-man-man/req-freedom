@@ -52,6 +52,7 @@ import {
   MatchType,
   RuleActionType,
   RuleExecutionChannel,
+  RuleHitOutcome,
   RuleScopeType,
 } from '@req-freedom/shared';
 import { toRuleHits } from './dnr-observer';
@@ -116,8 +117,23 @@ describe('toRuleHits', () => {
     );
 
     expect(hits).toEqual([
-      { ruleId: 'two', action: RuleActionType.Redirect, url: 'https://x/api/users', method: 'GET', at: 99 },
-      { ruleId: 'two', action: RuleActionType.ModifyHeaders, url: 'https://x/api/users', method: 'GET', at: 99 },
+      {
+        ruleId: 'two',
+        action: RuleActionType.Redirect,
+        url: 'https://x/api/users',
+        method: 'GET',
+        at: 99,
+        // DNR 在网络层执行，扩展侧观察不到结果，预测一律记为已执行
+        outcome: RuleHitOutcome.Applied,
+      },
+      {
+        ruleId: 'two',
+        action: RuleActionType.ModifyHeaders,
+        url: 'https://x/api/users',
+        method: 'GET',
+        at: 99,
+        outcome: RuleHitOutcome.Applied,
+      },
     ]);
   });
 

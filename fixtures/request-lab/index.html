@@ -145,6 +145,40 @@ Access-Control-Allow-Origin = *
               </div>
             </article>
 
+            <article class="card" data-test="opaque-response">
+              <div class="card-heading">
+                <span class="tag">FETCH</span>
+                <h2>不透明响应 / 未能应用</h2>
+              </div>
+              <p>以 <code>mode: 'no-cors'</code> 请求跨域端点，浏览器返回不透明响应（状态码 0、响应体不可读）。「基于真实响应」的 Mock 在其之上无从改写，只能原样放行。</p>
+              <code>no-cors → /api/cross-origin/opaque</code>
+              <details>
+                <summary>预期表现</summary>
+                <pre>规则：基于真实响应的 Mock，匹配 /api/cross-origin/opaque
+请求：正常完成，但日志里状态码为 0、响应体为空
+popup：该规则显示黄色禁止图标，悬停说明「响应不透明，读不到响应体」
+计数：不计入命中——动作确实没有发生</pre>
+              </details>
+              <button class="button" data-action="opaque-response" type="button">发起 no-cors 请求</button>
+            </article>
+
+            <article class="card" data-test="sync-xhr">
+              <div class="card-heading">
+                <span class="tag">XHR</span>
+                <h2>同步 XHR / 未能应用</h2>
+              </div>
+              <p>用已废弃的同步 XHR 发起请求。页面补丁通道的处理全是异步的，插进去只会让页面读到空响应，因此扩展刻意 fail-open 原样放行。</p>
+              <code>/api/sync-xhr.json</code>
+              <details>
+                <summary>预期表现</summary>
+                <pre>规则：返回值 Mock，匹配 /api/sync-xhr.json
+请求：读到服务端真实内容，而不是 Mock 响应体
+popup：该规则显示黄色禁止图标，悬停说明「同步 XHR 容不下异步处理」
+控制台：页面控制台另有一行说明，同时浏览器会给出同步 XHR 的弃用警告</pre>
+              </details>
+              <button class="button" data-action="sync-xhr" type="button">发起同步请求</button>
+            </article>
+
             <article class="card" data-test="invalid-rule">
               <div class="card-heading">
                 <span class="tag">DNR</span>

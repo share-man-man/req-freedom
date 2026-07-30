@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RuleHit } from '@req-freedom/shared';
-import { RuleActionType, STORAGE_KEY_RULE_HITS } from '@req-freedom/shared';
+import { RuleActionType, RuleHitOutcome, STORAGE_KEY_RULE_HITS } from '@req-freedom/shared';
 import { MAX_TRACKED_TABS } from './rule-hit';
 
 /**
@@ -59,7 +59,14 @@ vi.mock('wxt/browser', () => ({
  * @returns 字段完整的命中记录
  */
 function hit(ruleId: string, at = 1): RuleHit {
-  return { ruleId, action: RuleActionType.Block, url: 'https://x/api', method: 'GET', at };
+  return {
+    ruleId,
+    action: RuleActionType.Block,
+    url: 'https://x/api',
+    method: 'GET',
+    at,
+    outcome: RuleHitOutcome.Applied,
+  };
 }
 
 /**
@@ -153,7 +160,7 @@ describe('冷启动恢复', () => {
 
     await store.restoreHits();
 
-    expect(store.getHitSummary(7)).toEqual({ ruleIds: ['old'], truncated: true });
+    expect(store.getHitSummary(7)).toEqual({ ruleIds: ['old'], skippedRuleIds: {}, truncated: true });
     expect(store.listTabsWithHits()).toEqual([7]);
   });
 
