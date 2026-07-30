@@ -1,5 +1,5 @@
 import type { RuleHit, RuleHitSummary } from '@req-freedom/shared';
-import { RuleActionType } from '@req-freedom/shared';
+import { RuleActionType, STORAGE_KEY_RULE_HITS } from '@req-freedom/shared';
 
 /** 单个标签页最多保留的命中条数，超出后丢弃最早的记录。 */
 const MAX_RULE_HITS_PER_TAB = 1000;
@@ -27,6 +27,18 @@ const MAX_METHOD_LENGTH = 16;
 
 /** 合法的业务动作类型集合，用于校验未受信任的上报。 */
 const VALID_ACTION_TYPES = new Set<string>(Object.values(RuleActionType));
+
+/**
+ * 返回单个标签页镜像使用的 storage.session 键。
+ *
+ * 写入方（background 的命中存储）与读取方（popup 的实时刷新）都要用它，因此放在这个不依赖
+ * 浏览器 API 的模块里，避免两处各拼一次键名。
+ * @param tabId 标签页 ID
+ * @returns 该标签页的镜像键
+ */
+export function getRuleHitsMirrorKey(tabId: number): string {
+  return `${STORAGE_KEY_RULE_HITS}:${tabId}`;
+}
 
 /** 单个标签页的命中日志。 */
 export interface TabHitLog {

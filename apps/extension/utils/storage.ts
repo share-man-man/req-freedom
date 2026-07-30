@@ -1,5 +1,6 @@
 import { browser } from 'wxt/browser';
-import type { DnrRegistrationIssues, RuleGroup } from '@req-freedom/shared';
+import type { DnrRegistrationIssues, RuleGroup, RuleHitSummary } from '@req-freedom/shared';
+import { getRuleHitsMirrorKey, summarizeHits, type TabHitLog } from './rule-hit';
 import {
   STORAGE_KEY_DNR_ISSUES,
   STORAGE_KEY_ENABLED,
@@ -88,6 +89,37 @@ export function watchDnrIssues(
       return;
     }
     onChange((changes[STORAGE_KEY_DNR_ISSUES]?.newValue as DnrRegistrationIssues | undefined) ?? {});
+  };
+  browser.storage.onChanged.addListener(listener);
+  return () => browser.storage.onChanged.removeListener(listener);
+}
+
+/**
+ * 订阅某个标签页命中摘要的变化。
+ *
+ * 直接读 background 写往 storage.session 的命中镜像，而不是轮询或让 background 逐条推送：
+ * 镜像本就带 1 秒防抖，天然是合适的刷新节奏，且不会为了刷新界面额外唤醒 Service Worker。
+ * 代价是最多滞后一个防抖窗口，对实时查看命中而言可以接受。
+ * @param tabId 目标标签页
+ * @param onChange 摘要变化时的回调
+ * @returns 取消订阅的函数
+ */
+export function watchTabHitSummary(
+  tabId: number,
+  onChange: (summary: RuleHitSummary) => void,
+): () => void {
+  /** 该标签页命中镜像的存储键。 */
+  const mirrorKey = getRuleHitsMirrorKey(tabId);
+  /** storage 变更监听器。 */
+  const listener = (
+    changes: Record<string, { newValue?: unknown }>,
+    area: string,
+  ): void => {
+    if (area !== 'session' || !(mirrorKey in changes)) {
+      return;
+    }
+    // 日志被清空或标签页关闭时镜像键会被删除，此时 newValue 为 undefined，投影成空摘要
+    onChange(summarizeHits(changes[mirrorKey]?.newValue as TabHitLog | undefined));
   };
   browser.storage.onChanged.addListener(listener);
   return () => browser.storage.onChanged.removeListener(listener);

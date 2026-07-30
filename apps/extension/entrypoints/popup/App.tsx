@@ -16,6 +16,7 @@ import {
   saveGroups,
   setEnabled,
   watchDnrIssues,
+  watchTabHitSummary,
 } from '@/utils/storage';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -79,6 +80,17 @@ export default function App() {
     void getDnrIssues().then(setDnrIssues);
     return watchDnrIssues(setDnrIssues);
   }, []);
+
+  // popup 打开期间页面仍在发请求，订阅命中镜像让展示随之更新，而不是停在打开那一刻
+  useEffect(() => {
+    if (activeTabId === null) {
+      return undefined;
+    }
+    return watchTabHitSummary(activeTabId, (summary) => {
+      setHitRuleIds(summary.ruleIds);
+      setHitsTruncated(summary.truncated);
+    });
+  }, [activeTabId]);
 
   // 初始加载 storage 中的开关与分组
   useEffect(() => {

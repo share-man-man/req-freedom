@@ -5,6 +5,7 @@ import {
   appendHits,
   createTabHitLog,
   getLastHitAt,
+  getRuleHitsMirrorKey,
   MAX_TRACKED_TABS,
   mergeRestoredHits,
   summarizeHits,
@@ -42,15 +43,6 @@ let restoreSettled = false;
 const mutatedTabIds = new Set<number>();
 
 /**
- * 返回单个标签页镜像使用的 storage.session 键。
- * @param tabId 标签页 ID
- * @returns 该标签页的镜像键
- */
-function getMirrorKey(tabId: number): string {
-  return `${STORAGE_KEY_RULE_HITS}:${tabId}`;
-}
-
-/**
  * 把标记为脏的标签页日志写回镜像。
  */
 async function flushMirror(): Promise<void> {
@@ -69,9 +61,9 @@ async function flushMirror(): Promise<void> {
     /** 当前标签页的内存日志。 */
     const log = hitsByTab.get(tabId);
     if (log && log.hits.length > 0) {
-      updates[getMirrorKey(tabId)] = log;
+      updates[getRuleHitsMirrorKey(tabId)] = log;
     } else {
-      removals.push(getMirrorKey(tabId));
+      removals.push(getRuleHitsMirrorKey(tabId));
     }
   }
   try {
