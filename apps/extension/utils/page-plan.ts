@@ -11,6 +11,7 @@ import {
   RuleHitSkipReason,
 } from '@req-freedom/shared';
 import { pickActionByType } from '@req-freedom/core';
+import { createAppliedHit } from './rule-hit';
 
 /** 延迟动作类型别名。 */
 type DelayAction = Extract<RuleAction, { type: RuleActionType.Delay }>;
@@ -105,9 +106,7 @@ export function resolvePagePlan(
   const toHit = (action: RuleAction): RuleHit | undefined => {
     /** 该动作所属的业务规则。 */
     const owner = rules.find((rule) => rule.actions.includes(action));
-    return owner
-      ? { ruleId: owner.id, action: action.type, url, method, at, outcome: RuleHitOutcome.Applied }
-      : undefined;
+    return owner ? createAppliedHit(owner.id, action.type, { url, method, at }) : undefined;
   };
 
   /** 计划成立即确定会执行的动作的命中记录。 */

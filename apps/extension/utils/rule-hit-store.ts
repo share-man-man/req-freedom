@@ -6,6 +6,7 @@ import {
   createTabHitLog,
   getLastHitAt,
   getRuleHitsMirrorKey,
+  hasAppliedHit,
   MAX_TRACKED_TABS,
   mergeRestoredHits,
   summarizeHits,
@@ -154,13 +155,11 @@ function mutateLog(
  * 因此不需要按标签页的串行写队列。
  * @param tabId 命中发生的标签页
  * @param hits 本次产生的命中
- * @returns 记录后该标签页是否已有命中
  */
-export function recordHits(tabId: number, hits: readonly RuleHit[]): boolean {
+export function recordHits(tabId: number, hits: readonly RuleHit[]): void {
   if (tabId >= 0 && hits.length > 0) {
     mutateLog(tabId, (log) => appendHits(log ?? createTabHitLog(), hits));
   }
-  return hasHits(tabId);
 }
 
 /**
@@ -191,12 +190,15 @@ export function getHitSummary(tabId: number): RuleHitSummary {
 }
 
 /**
- * 判断某个标签页当前是否有命中。
+ * 判断某个标签页当前是否有规则实际生效过。
+ *
+ * 徽标据此点亮，因此判据是「有规则生效」而不是「日志非空」：只匹配上、未能应用的记录
+ * 也在日志里（popup 要据此解释原因），但它们不代表有规则生效。
  * @param tabId 标签页 ID
- * @returns 存在至少一条命中时为 true
+ * @returns 存在至少一条已执行的命中时为 true
  */
-function hasHits(tabId: number): boolean {
-  return (hitsByTab.get(tabId)?.hits.length ?? 0) > 0;
+export function hasAppliedHits(tabId: number): boolean {
+  return hasAppliedHit(hitsByTab.get(tabId));
 }
 
 /**
@@ -287,9 +289,11 @@ export async function restoreHits(): Promise<void> {
 }
 
 /**
- * 列出当前内存中有命中的标签页。
+ * 列出当前内存中有规则生效过的标签页。
+ *
+ * 冷启动恢复后据此补回徽标，判据与 recordHits 之后的刷新保持一致。
  * @returns 标签页 ID 列表
  */
-export function listTabsWithHits(): number[] {
-  return [...hitsByTab.keys()].filter((tabId) => hasHits(tabId));
+export function listTabsWithAppliedHits(): number[] {
+  return [...hitsByTab.keys()].filter((tabId) => hasAppliedHits(tabId));
 }

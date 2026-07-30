@@ -20,7 +20,6 @@ import {
   RequestBodySourceMode,
   RuleActionType,
   RuleExecutionChannel,
-  RuleHitOutcome,
   RuleHitSkipReason,
 } from '@req-freedom/shared';
 import {
@@ -38,6 +37,7 @@ import {
   sleep,
 } from '@req-freedom/core';
 import { isPassthroughMock, resolvePagePlan, toSkippedHit, type PagePlan } from '@/utils/page-plan';
+import { createAppliedHit } from '@/utils/rule-hit';
 
 /** 动态 Mock 与动态改请求体函数可读取的请求快照。 */
 interface DynamicRequestContext {
@@ -231,14 +231,11 @@ export default defineContentScript({
         const injectAndReport = (): void => {
           injectCode(action);
           reportRuleHits([
-            {
-              ruleId: ownerRule.id,
-              action: action.type,
+            createAppliedHit(ownerRule.id, action.type, {
               url: window.location.href,
               method: 'GET',
               at: Date.now(),
-              outcome: RuleHitOutcome.Applied,
-            },
+            }),
           ]);
         };
         if (action.timing === InsertScriptTiming.DocumentEnd && document.readyState === 'loading') {

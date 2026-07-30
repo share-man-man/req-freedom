@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RuleHit } from '@req-freedom/shared';
-import { RuleActionType, RuleHitOutcome, STORAGE_KEY_RULE_HITS } from '@req-freedom/shared';
+import {
+  RuleActionType,
+  RuleHitOutcome,
+  RuleHitSkipReason,
+  STORAGE_KEY_RULE_HITS,
+} from '@req-freedom/shared';
 import { MAX_TRACKED_TABS } from './rule-hit';
 
 /**
@@ -70,6 +75,20 @@ function hit(ruleId: string, at = 1): RuleHit {
 }
 
 /**
+ * 构造一条「匹配上但未应用」的记录。
+ * @param ruleId 业务规则 ID
+ * @param at 记录时间
+ * @returns 带跳过原因的命中记录
+ */
+function skippedHit(ruleId: string, at = 1): RuleHit {
+  return {
+    ...hit(ruleId, at),
+    outcome: RuleHitOutcome.Skipped,
+    reason: RuleHitSkipReason.SyncXhr,
+  };
+}
+
+/**
  * 返回某个标签页的镜像键。
  * @param tabId 标签页 ID
  * @returns storage.session 中的镜像键
@@ -133,7 +152,7 @@ describe('命中存储的镜像同步', () => {
   it('命中经防抖写回镜像', async () => {
     const store = await loadStore();
 
-    expect(store.recordHits(7, [hit('a')])).toBe(true);
+    store.recordHits(7, [hit('a')]);
     expect(session.data[mirrorKey(7)]).toBeUndefined();
 
     await flushMirror();
@@ -161,7 +180,7 @@ describe('冷启动恢复', () => {
     await store.restoreHits();
 
     expect(store.getHitSummary(7)).toEqual({ ruleIds: ['old'], skippedRuleIds: {}, truncated: true });
-    expect(store.listTabsWithHits()).toEqual([7]);
+    expect(store.listTabsWithAppliedHits()).toEqual([7]);
   });
 
   it('不覆盖重启后已记录的新命中', async () => {
@@ -191,7 +210,7 @@ describe('冷启动恢复', () => {
     await restoring;
 
     expect(store.getHitSummary(7).ruleIds).toEqual([]);
-    expect(store.listTabsWithHits()).toEqual([]);
+    expect(store.listTabsWithAppliedHits()).toEqual([]);
     await flushMirror();
     expect(session.data[mirrorKey(7)]).toBeUndefined();
   });
@@ -207,7 +226,7 @@ describe('冷启动恢复', () => {
     releaseGet();
     await restoring;
 
-    expect(store.listTabsWithHits()).toEqual([]);
+    expect(store.listTabsWithAppliedHits()).toEqual([]);
   });
 
   it('只跳过被改动过的标签页，其余照常恢复', async () => {
@@ -237,7 +256,7 @@ describe('孤儿日志回收', () => {
 
     await store.restoreHits();
 
-    expect(store.listTabsWithHits()).toEqual([8]);
+    expect(store.listTabsWithAppliedHits()).toEqual([8]);
     await flushMirror();
     expect(session.data[mirrorKey(7)]).toBeUndefined();
     expect(session.data[mirrorKey(8)]).toBeDefined();
@@ -279,7 +298,7 @@ describe('标签页数量上限', () => {
       store.recordHits(tabId, [hit('r')]);
     }
 
-    expect(store.listTabsWithHits()).toHaveLength(MAX_TRACKED_TABS);
+    expect(store.listTabsWithAppliedHits()).toHaveLength(MAX_TRACKED_TABS);
     expect(store.getHitSummary(1).ruleIds).toEqual([]);
     expect(store.getHitSummary(MAX_TRACKED_TABS + 1).ruleIds).toEqual(['r']);
     await flushMirror();
@@ -315,10 +334,52 @@ describe('标签页数量上限', () => {
 
     await store.restoreHits();
 
-    expect(store.listTabsWithHits()).toHaveLength(MAX_TRACKED_TABS);
+    expect(store.listTabsWithAppliedHits()).toHaveLength(MAX_TRACKED_TABS);
     expect(store.getHitSummary(1).ruleIds).toEqual(['r']);
     expect(store.getHitSummary(2).ruleIds).toEqual(['r']);
     expect(store.getHitSummary(MAX_TRACKED_TABS + 1).ruleIds).toEqual([]);
     expect(store.getHitSummary(MAX_TRACKED_TABS + 2).ruleIds).toEqual([]);
+  });
+});
+
+describe('徽标判据', () => {
+  it('只匹配上却未应用的记录不算有规则生效', async () => {
+    const store = await loadStore();
+
+    store.recordHits(7, [skippedHit('a')]);
+
+    // 记录仍要留在日志里供 popup 解释原因，但徽标不该点亮
+    expect(store.getHitSummary(7).skippedRuleIds).toEqual({ a: RuleHitSkipReason.SyncXhr });
+    expect(store.hasAppliedHits(7)).toBe(false);
+    expect(store.listTabsWithAppliedHits()).toEqual([]);
+  });
+
+  it('同一标签页出现已执行的命中后即算生效', async () => {
+    const store = await loadStore();
+
+    store.recordHits(7, [skippedHit('a')]);
+    store.recordHits(7, [hit('b')]);
+
+    expect(store.hasAppliedHits(7)).toBe(true);
+    expect(store.listTabsWithAppliedHits()).toEqual([7]);
+  });
+
+  it('清空后不再算有规则生效', async () => {
+    const store = await loadStore();
+
+    store.recordHits(7, [hit('a')]);
+    store.clearHits(7);
+
+    expect(store.hasAppliedHits(7)).toBe(false);
+  });
+
+  it('冷启动恢复出的日志同样按已执行的命中判定', async () => {
+    session.data[mirrorKey(7)] = { hits: [skippedHit('a')], truncated: false };
+    session.data[mirrorKey(8)] = { hits: [hit('b')], truncated: false };
+    const store = await loadStore();
+
+    await store.restoreHits();
+
+    expect(store.listTabsWithAppliedHits()).toEqual([8]);
   });
 });

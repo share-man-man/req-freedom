@@ -93,6 +93,36 @@ export function appendHits(
 }
 
 /**
+ * 构造一条「已执行」的命中记录。
+ *
+ * 两条通道的执行处都要生成这种记录，字面量各写一份容易漏字段（`outcome` 就是后加的），
+ * 因此统一由此构造。
+ * @param ruleId 业务规则 ID
+ * @param action 实际执行的动作类型
+ * @param request 触发命中的请求上下文
+ * @returns 标记为已执行的命中记录
+ */
+export function createAppliedHit(
+  ruleId: string,
+  action: RuleActionType,
+  request: { url: string; method: string; at: number },
+): RuleHit {
+  return { ruleId, action, ...request, outcome: RuleHitOutcome.Applied };
+}
+
+/**
+ * 判断日志中是否存在实际生效过的命中。
+ *
+ * 「有记录」不等于「有规则生效」：匹配上却未能应用的记录同样留在日志里供界面解释原因，
+ * 但它们不该点亮徽标。
+ * @param log 标签页命中日志
+ * @returns 存在至少一条已执行的命中时为 true
+ */
+export function hasAppliedHit(log: TabHitLog | undefined): boolean {
+  return log?.hits.some((hit) => hit.outcome === RuleHitOutcome.Applied) ?? false;
+}
+
+/**
  * 取出日志中最后一条命中的时间，用作该标签页的活跃度。
  *
  * 镜像不单独记录活跃度：最后一条命中的时间已经在日志里，冷启动据此还原淘汰顺序即可。
