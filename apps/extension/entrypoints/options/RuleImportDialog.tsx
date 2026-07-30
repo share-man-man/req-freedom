@@ -17,7 +17,6 @@ import {
   RULE_IMPORT_WARNING,
 } from '@req-freedom/core';
 import type {
-  CurlRuleTarget,
   RuleImportCandidate,
   RuleImportWarningCode,
 } from '@req-freedom/core';
@@ -69,8 +68,6 @@ export function CurlImportDialog({ onCancel, onContinue }: CurlImportDialogProps
   const { t } = useTranslation();
   /** cURL 文本。 */
   const [content, setContent] = useState('');
-  /** 要生成的动作类型。 */
-  const [target, setTarget] = useState<CurlRuleTarget>(RuleActionType.MockResponse);
   /** 解析错误代码。 */
   const [error, setError] = useState<string | null>(null);
 
@@ -81,8 +78,10 @@ export function CurlImportDialog({ onCancel, onContinue }: CurlImportDialogProps
     try {
       /** 解析出的 HTTP 请求。 */
       const request = parseCurlRequest(content);
-      /** 根据用户选择生成的规则草稿。 */
-      const rule = createRuleFromCurl(request, target);
+      // cURL 的价值是「拿到一个真实请求」，落到 Mock 才能立刻改响应；
+      // 需要重定向的话在编辑器里换动作即可，不必在导入阶段先做选择。
+      /** 固定按返回值 Mock 生成的规则草稿。 */
+      const rule = createRuleFromCurl(request, RuleActionType.MockResponse);
       onContinue(rule);
     } catch (cause) {
       /** core 返回的稳定错误代码。 */
@@ -98,23 +97,6 @@ export function CurlImportDialog({ onCancel, onContinue }: CurlImportDialogProps
       </DialogHeader>
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5">
         <p className="text-sm text-muted-foreground">{t('ruleImport.curl.hint')}</p>
-        <div className="space-y-2">
-          <Label>{t('ruleImport.curl.action')}</Label>
-          <Select
-            value={target}
-            onValueChange={(value) => setTarget(value as CurlRuleTarget)}
-          >
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value={RuleActionType.MockResponse}>
-                {t('ruleImport.curl.mock')}
-              </SelectItem>
-              <SelectItem value={RuleActionType.Redirect}>
-                {t('ruleImport.curl.redirect')}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
         <div className="space-y-2">
           <Label htmlFor="curl-import-content">{t('ruleImport.curl.command')}</Label>
           <textarea

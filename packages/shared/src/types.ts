@@ -13,6 +13,8 @@ import type {
   RequestBodySourceMode,
   RuleActionType,
   RuleExecutionChannel,
+  RuleHitOutcome,
+  RuleHitSkipReason,
   RuleScopeType,
 } from './enums';
 
@@ -266,22 +268,79 @@ export interface RuleGroup {
   rules: Rule[];
 }
 
-/** 单条业务规则在当前页面产生的原生动作计数。 */
-export interface RuleMatchCount {
+/** 命中记录的公共字段。 */
+interface BaseRuleHit {
   /** 业务规则 ID。 */
   ruleId: string;
-  /** 该业务规则累计执行的动作数量。 */
-  count: number;
+  /** 命中的动作类型。 */
+  action: RuleActionType;
+  /** 触发命中的请求 URL。 */
+  url: string;
+  /** 触发命中的请求方法。 */
+  method: string;
+  /** 记录时间。 */
+  at: number;
 }
 
-/** 当前标签页的规则动作摘要，供 popup 展示原生动作总数与逐规则计数。 */
-export interface RuleMatchSummary {
-  /** DNR 原生动作与页面补丁实际动作合并后的累计数量。 */
-  count: number;
-  /** 按业务规则归并的动作数量。 */
-  ruleCounts: RuleMatchCount[];
-  /** 无法还原到业务规则的旧版本或已删除 DNR 动作数量。 */
-  unmappedCount: number;
+/** 动作已实际执行的命中记录。 */
+interface AppliedRuleHit extends BaseRuleHit {
+  /** 执行结果。 */
+  outcome: RuleHitOutcome.Applied;
+}
+
+/** 规则匹配上了、但本次请求无法应用的命中记录。 */
+interface SkippedRuleHit extends BaseRuleHit {
+  /** 执行结果。 */
+  outcome: RuleHitOutcome.Skipped;
+  /** 无法应用的原因；跳过必然有原因，因此这里不是可选字段。 */
+  reason: RuleHitSkipReason;
+}
+
+/**
+ * 一次规则动作的记录，DNR 与页面补丁两条通道共用。
+ *
+ * 命中日志是唯一的原始数据；界面上的各种投影都由它派生，不单独维护计数器。
+ *
+ * 刻意用判别联合而不是「outcome 字段 + 可选 reason」：后者允许写出「已执行却带着跳过原因」
+ * 这类自相矛盾的记录，前者在类型上就排除了。
+ */
+export type RuleHit = AppliedRuleHit | SkippedRuleHit;
+
+/**
+ * 一条规则在 DNR 注册阶段被浏览器拒绝的记录。
+ *
+ * DNR 规则由浏览器校验，非法规则会被拒绝且**不会生效**。而命中统计是用同一份业务规则
+ * 重新判定出来的「预测」，若不知道哪些规则实际没注册成功，就会把它们照常算作命中——
+ * 规则明明没生效、界面却显示它命中了，会把排查引向错误方向。
+ */
+export interface DnrRegistrationIssue {
+  /** 注册失败的动作类型；一条规则的多个动作各自独立注册，可能只有部分失败。 */
+  actions: RuleActionType[];
+  /** 浏览器返回的原始错误信息，用于定位具体哪里不合法。 */
+  message: string;
+}
+
+/** 按业务规则 ID 索引的 DNR 注册失败记录。 */
+export type DnrRegistrationIssues = Record<string, DnrRegistrationIssue>;
+
+/**
+ * 当前标签页的命中摘要，供 popup 展示命中规则数与逐规则标记。
+ *
+ * 只给出去重后的规则 ID：popup 关心的是「哪些规则生效了」，而不是各触发了多少次；
+ * 次数信息仍完整保留在命中日志里，留给后续的请求日志视图。
+ */
+export interface RuleHitSummary {
+  /** 本页实际生效过的业务规则 ID，已按规则去重，保持首次命中顺序。 */
+  ruleIds: string[];
+  /**
+   * 本页匹配上、但一次都没能应用的规则及其原因。
+   *
+   * 同一规则若也有实际生效的记录则不出现在这里——「生效过」是更重要的事实，
+   * 界面上一条规则只有一个状态位，不需要同时表达两种结果。
+   */
+  skippedRuleIds: Record<string, RuleHitSkipReason>;
+  /** 日志是否因超出上限而丢弃过最早的记录。 */
+  truncated: boolean;
 }
 
 /**

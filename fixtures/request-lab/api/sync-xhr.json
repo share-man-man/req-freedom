@@ -1,0 +1,5 @@
+{
+  "source": "request-lab",
+  "endpoint": "sync-xhr",
+  "note": "本响应由服务端返回。若读到的是这段内容而不是规则里的 Mock 响应体，说明同步 XHR 确实原样放行了。"
+}

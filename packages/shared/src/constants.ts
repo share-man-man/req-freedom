@@ -30,26 +30,28 @@ export const PAGE_MESSAGE_CHANNEL_REQUEST_SOURCE = 'req-freedom:page-channel-req
 /** bridge 通过私有 MessagePort 向 MAIN world 推送规则的消息类型。 */
 export const PAGE_PORT_MSG_RULES = 'req-freedom:page-rules';
 
-/** MAIN world 通过私有 MessagePort 上报页面补丁动作的消息类型。 */
-export const PAGE_PORT_MSG_RULE_ACTIONS = 'req-freedom:page-rule-actions';
+/** MAIN world 通过私有 MessagePort 上报页面补丁命中的消息类型。 */
+export const PAGE_PORT_MSG_RULE_HITS = 'req-freedom:page-rule-hits';
 
-/** 桥接脚本通知 background 累加当前标签页页面补丁动作数的消息类型。 */
-export const RUNTIME_MSG_RULE_MATCHED = 'req-freedom:rule-matched';
-
-/** bridge 通知 background 当前顶层 Document 已启动的消息类型。 */
-export const RUNTIME_MSG_RULE_MATCH_DOCUMENT_STARTED = 'req-freedom:rule-match-document-started';
+/** 桥接脚本把页面补丁命中转交 background 的消息类型。 */
+export const RUNTIME_MSG_RULE_HIT = 'req-freedom:rule-hit';
 
 /** popup 向 background 查询当前标签页命中摘要的消息类型。 */
-export const RUNTIME_MSG_GET_RULE_MATCH_SUMMARY = 'req-freedom:get-rule-match-summary';
+export const RUNTIME_MSG_GET_RULE_HIT_SUMMARY = 'req-freedom:get-rule-hit-summary';
 
-/** popup 通知 background 清空当前标签页命中记录的消息类型。 */
-export const RUNTIME_MSG_CLEAR_RULE_MATCHES = 'req-freedom:clear-rule-matches';
+/** popup 通知 background 清空当前标签页命中日志的消息类型。 */
+export const RUNTIME_MSG_CLEAR_RULE_HITS = 'req-freedom:clear-rule-hits';
 
-/** storage.session 中按标签页保存动作统计窗口与页面补丁逐规则计数的键名。 */
-export const STORAGE_KEY_RULE_MATCH_STATE = 'req-freedom:rule-match-state';
+/** storage.session 中按标签页镜像命中日志的键名前缀。 */
+export const STORAGE_KEY_RULE_HITS = 'req-freedom:rule-hits';
 
-/** storage.local 中持久化 DNR 业务动作到原生数字 ID 注册表的键名。 */
-export const STORAGE_KEY_DNR_RULE_ID_REGISTRY = 'req-freedom:dnr-rule-id-registry';
+/**
+ * storage.session 中记录 DNR 注册失败规则的键名。
+ *
+ * 放在 session 而非 local：注册结果随浏览器会话有效，且扩展页面可直接订阅
+ * storage.onChanged 拿到更新，无需额外的消息往返。
+ */
+export const STORAGE_KEY_DNR_ISSUES = 'req-freedom:dnr-issues';
 
 /** options 页面用于定位并高亮规则的查询参数名。 */
 export const RULE_HIGHLIGHT_QUERY_PARAM = 'highlightRuleId';

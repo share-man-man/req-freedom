@@ -2,6 +2,10 @@
 
 把「规则命中统计」从「双计数器对账」重构为「单一命中日志 + 投影」。本文是动手前的完整依据，包含已拍板的决策、目标设计、模块拆分、迁移顺序与测试计划。
 
+> **状态：已实施**（分支 `refactor/rule-hit`）。第五节的阶段划分保留作为实施记录；第一至四、七节的设计与取舍仍然是现行实现的依据。
+>
+> 实施中发现的一处既有问题见 [Wildcard 匹配语义不一致](#附录--wildcard-匹配语义不一致)。
+
 ---
 
 ## 一、为什么要重构
@@ -373,6 +377,21 @@ chrome.webRequest.onBeforeRequest.addListener(
 **不再保留**：按标签页的串行写入队列。它存在的原因是 `storage.session` 作为权威存储时的异步 read-modify-write 会交错；权威存储换成内存 Map 后 `record()` 全同步，单线程即保证原子性，队列失去意义。详见第三节存储分层第 1 条。
 
 ---
+
+## 附录 · Wildcard 匹配语义不一致
+
+实施一致性测试（`apps/extension/utils/dnr-match-parity.test.ts`）时发现的**既有**问题，与本次重构无关，但重构后影响面变大了。
+
+`core.matchUrl` 对 `MatchType.Wildcard` 使用**首尾锚定**的正则（`^...$`），而 `toCondition` 把它编译成 `urlFilter: pattern`——DNR 的 `urlFilter` 是**子串**匹配。两者不等价：
+
+| 规则 | 请求 URL | core 判定 | DNR 实际行为 |
+|---|---|---|---|
+| Wildcard `https://a.com/api/*` | `https://evil.com/?next=https://a.com/api/x` | 不命中 | **命中** |
+| Wildcard `https://a.com/api` | `https://a.com/api/sub` | 不命中 | **命中** |
+
+即 **DNR 实际拦截的范围比规则作者预期的更宽**。重构前这只影响拦截行为本身；重构后统计也用 `core.matchUrl` 判定，于是这类请求会被拦截却不计入命中——**少报，但不会错误归因到其他规则**。
+
+修正它意味着改变规则的实际拦截行为（例如把 Wildcard 编译成 `|` 锚定的 urlFilter），属于规则语义变更，超出本次重构范围，故只在测试中钉住现状。**建议单独立项处理。**
 
 ## 附录 · 调研依据
 

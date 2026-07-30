@@ -4,7 +4,7 @@ import type {
   InsertScriptAction,
   MockResponseAction,
   Rule,
-  RuleMatchCount,
+  RuleHit,
 } from '@req-freedom/shared';
 import {
   DEFAULT_MOCK_BODY_TYPE,
@@ -14,12 +14,13 @@ import {
   MOCK_BODY_TYPE_CONTENT_TYPES,
   MockResponseMode,
   PAGE_MESSAGE_CHANNEL_REQUEST_SOURCE,
-  PAGE_PORT_MSG_RULE_ACTIONS,
+  PAGE_PORT_MSG_RULE_HITS,
   PAGE_PORT_MSG_RULES,
   RequestBodyMode,
   RequestBodySourceMode,
   RuleActionType,
   RuleExecutionChannel,
+  RuleHitSkipReason,
 } from '@req-freedom/shared';
 import {
   filterActionsByType,
@@ -30,13 +31,19 @@ import {
   getNetworkThrottleSettings,
   getTransferDurationMs,
   modifyRequestBody,
-  pickActionByType,
   resolveDynamicVariables,
   resolveDynamicVariablesInRecord,
   rulesNeedBody,
   sleep,
 } from '@req-freedom/core';
-import { countRuleActions } from '@/utils/rule-match-counts';
+import {
+  isPassthroughMock,
+  resolvePagePlan,
+  resolveSyncXhrSkippedHits,
+  toSkippedHit,
+  type PagePlan,
+} from '@/utils/page-plan';
+import { createAppliedHit } from '@/utils/rule-hit';
 
 /** 动态 Mock 与动态改请求体函数可读取的请求快照。 */
 interface DynamicRequestContext {
@@ -126,14 +133,29 @@ export default defineContentScript({
     const bridgePort = bridgeChannel.port1;
 
     /**
-     * 通知桥接脚本当前页面实际执行的动作数量。
-     * @param ruleCounts 按业务规则归并的实际动作计数
+     * 通知桥接脚本当前页面实际执行的动作。
+     * @param hits 本次执行产生的命中记录
      */
-    const reportRuleMatch = (ruleCounts: RuleMatchCount[]): void => {
-      if (ruleCounts.length === 0) {
+    const reportRuleHits = (hits: RuleHit[]): void => {
+      if (hits.length === 0) {
         return;
       }
-      bridgePort.postMessage({ type: PAGE_PORT_MSG_RULE_ACTIONS, ruleCounts });
+      bridgePort.postMessage({ type: PAGE_PORT_MSG_RULE_HITS, hits });
+    };
+
+    /**
+     * 上报 Mock 的命中记录。
+     *
+     * 与限速、改请求体不同，Mock 能否应用要到执行时才知道，因此不随计划一起上报，
+     * 由各执行分支在确认结果后调用：传入原因即记为「匹配上但未应用」。
+     * @param hit 计划阶段生成的 Mock 命中记录
+     * @param reason 无法应用的原因；省略表示已实际应用
+     */
+    const reportMockHit = (hit: RuleHit | undefined, reason?: RuleHitSkipReason): void => {
+      if (!hit) {
+        return;
+      }
+      reportRuleHits([reason ? toSkippedHit(hit, reason) : hit]);
     };
 
     // 私有端口只接受 bridge 推送的规则更新，宿主页无法伪造后续动作消息。
@@ -209,18 +231,23 @@ export default defineContentScript({
         }
         // 立即标记，避免重推时重复注入或重复挂载 DOMContentLoaded 监听
         injectedRuleIds.add(actionId);
-        if (action.timing === InsertScriptTiming.DocumentEnd && document.readyState === 'loading') {
-          document.addEventListener(
-            'DOMContentLoaded',
-            () => {
-              injectCode(action);
-              reportRuleMatch([{ ruleId: ownerRule.id, count: 1 }]);
-            },
-            { once: true },
-          );
-        } else {
+        /**
+         * 注入完成后上报一条命中；注入本身就是执行，无需二次推导。
+         */
+        const injectAndReport = (): void => {
           injectCode(action);
-          reportRuleMatch([{ ruleId: ownerRule.id, count: 1 }]);
+          reportRuleHits([
+            createAppliedHit(ownerRule.id, action.type, {
+              url: window.location.href,
+              method: 'GET',
+              at: Date.now(),
+            }),
+          ]);
+        };
+        if (action.timing === InsertScriptTiming.DocumentEnd && document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', injectAndReport, { once: true });
+        } else {
+          injectAndReport();
         }
       }
     };
@@ -242,46 +269,6 @@ export default defineContentScript({
         findMatchedRules(url, method, state.rules),
         RuleExecutionChannel.PagePatch,
       );
-    };
-
-    /**
-     * 从（已完成请求体二次过滤的）规则集中挑出 Mock / 延迟 / 改请求体动作
-     * @param rules 已命中的页面补丁规则
-     * @returns Mock 规则、延迟规则与改请求体规则（可能均为 undefined）
-     */
-    const pickPageActions = (rules: Rule[]) => ({
-      mockRule: pickActionByType(rules, RuleActionType.MockResponse),
-      delayRule: pickActionByType(rules, RuleActionType.Delay),
-      modifyBodyRule: pickActionByType(rules, RuleActionType.ModifyRequestBody),
-    });
-
-    /**
-     * 找出本次请求真正采用的页面补丁动作所属规则。
-     *
-     * 同类动作仍遵循 pickActionByType 的「首条生效」语义，只记录实际被采用的规则；
-     * GET / HEAD 不执行请求体改写，因此也不应把对应规则标为命中。
-     * @param rules 已完成 URL、方法与请求体过滤的规则
-     * @param method 当前请求方法
-     * @returns 按业务规则归并的实际动作计数
-     */
-    const getAppliedRuleCounts = (rules: Rule[], method: string): RuleMatchCount[] => {
-      const { mockRule, delayRule, modifyBodyRule } = pickPageActions(rules);
-      /** 改请求体仅在真实请求会发出且方法允许携带请求体时执行。 */
-      const appliesRequestBody =
-        method !== 'GET' &&
-        method !== 'HEAD' &&
-        (mockRule === undefined || isPassthroughMock(mockRule));
-      /** 当前请求真正采用的动作引用。 */
-      const appliedActions = [
-        mockRule,
-        delayRule,
-        appliesRequestBody ? modifyBodyRule : undefined,
-      ].filter((action) => action !== undefined);
-      /** 每个实际采用动作所属的业务规则 ID；同一规则的多个动作保留重复项。 */
-      const appliedRuleIds = appliedActions
-        .map((action) => rules.find((rule) => rule.actions.includes(action))?.id)
-        .filter((ruleId): ruleId is string => typeof ruleId === 'string');
-      return countRuleActions(appliedRuleIds);
     };
 
     /**
@@ -510,14 +497,6 @@ export default defineContentScript({
         : resolveDynamicVariables(rule.body);
 
     /**
-     * 判断 Mock 动作是否为「基于真实响应」模式。
-     * @param rule 命中的 Mock 动作
-     * @returns 需要先发真实请求、再把响应交给动态函数改写时为 true
-     */
-    const isPassthroughMock = (rule: MockResponseAction): boolean =>
-      rule.passthrough === true && rule.mode === MockResponseMode.Dynamic;
-
-    /**
      * 构造传给动态函数的响应快照。
      * @param url 真实响应的最终 URL
      * @param status HTTP 状态码
@@ -741,7 +720,7 @@ export default defineContentScript({
      * @returns 可直接传给原始 fetch 的初始化参数
      */
     const resolveFetchInit = async (
-      modifyBodyRule: ReturnType<typeof pickPageActions>['modifyBodyRule'],
+      modifyBodyRule: PagePlan['modifyBody'],
       input: RequestInfo | URL,
       init: RequestInit | undefined,
       url: string,
@@ -787,12 +766,11 @@ export default defineContentScript({
       const activeRules = rulesNeedBody(candidateRules)
         ? filterRulesByBody(candidateRules, await readFetchBodyText(input, init))
         : candidateRules;
-      const { mockRule, delayRule, modifyBodyRule } = pickPageActions(activeRules);
-      /** 本次请求真正执行、按业务规则归并的动作计数。 */
-      const appliedRuleCounts = getAppliedRuleCounts(activeRules, method);
-      if (appliedRuleCounts.length > 0) {
-        reportRuleMatch(appliedRuleCounts);
-      }
+      /** 本次请求的执行计划；命中记录与执行动作同源，不再事后推导。 */
+      const plan = resolvePagePlan(activeRules, url, method, Date.now());
+      const { mock: mockRule, delay: delayRule, modifyBody: modifyBodyRule } = plan;
+      // 限速与改请求体计划成立即执行，可立即上报；Mock 等确认结果后再报
+      reportRuleHits(plan.hits);
 
       // 关键步骤：在请求实际发出前模拟网络往返延迟与上行传输时间
       if (delayRule) {
@@ -821,6 +799,7 @@ export default defineContentScript({
         );
         // 不透明响应（no-cors / opaqueredirect）读不到 body 也无法重建，原样放行
         if (realResponse.type === 'opaque' || realResponse.type === 'opaqueredirect' || realResponse.status === 0) {
+          reportMockHit(plan.mockHit, RuleHitSkipReason.OpaqueResponse);
           return throttleResponse(realResponse, delayRule);
         }
         /** 真实响应体文本；读取失败时按空串处理，交由动态函数决定如何降级。 */
@@ -847,11 +826,14 @@ export default defineContentScript({
           url: { value: realResponse.url },
           redirected: { value: realResponse.redirected },
         });
+        reportMockHit(plan.mockHit);
         return throttleResponse(response, delayRule);
       }
 
       // 关键步骤：命中 Mock 时直接构造响应，不发起真实请求
       if (mockRule) {
+        // 短路 Mock 必定应用：响应完全由规则构造，没有会失败的执行环节
+        reportMockHit(plan.mockHit);
         await sleep(mockRule.delayMs ?? 0);
         /** 动态模式读取请求快照后生成响应；静态模式使用配置中的 body 并解析其中的动态变量。 */
         const mockBody =
@@ -919,7 +901,7 @@ export default defineContentScript({
      * @returns 可直接传给原始 send 的请求体
      */
     const resolveXhrRequestBody = async (
-      modifyBodyRule: ReturnType<typeof pickPageActions>['modifyBodyRule'],
+      modifyBodyRule: PagePlan['modifyBody'],
       body: Document | XMLHttpRequestBodyInit | null | undefined,
       metadata: XhrRequestMetadata | undefined,
       url: string,
@@ -1096,6 +1078,7 @@ export default defineContentScript({
             '[Req Freedom] 同步 XMLHttpRequest 不支持页面补丁规则，已原样放行：',
             url,
           );
+          reportRuleHits(resolveSyncXhrSkippedHits(candidateRules, url, method, Date.now()));
         }
         return originalSend.call(this, body);
       }
@@ -1107,12 +1090,11 @@ export default defineContentScript({
        * @param activeRules 请求体条件也已命中的规则集
        */
       const proceed = (activeRules: Rule[]): void => {
-        const { mockRule, delayRule, modifyBodyRule } = pickPageActions(activeRules);
-        /** 本次请求真正执行、按业务规则归并的动作计数。 */
-        const appliedRuleCounts = getAppliedRuleCounts(activeRules, method);
-        if (appliedRuleCounts.length > 0) {
-          reportRuleMatch(appliedRuleCounts);
-        }
+        /** 本次请求的执行计划；命中记录与执行动作同源，不再事后推导。 */
+        const plan = resolvePagePlan(activeRules, url, method, Date.now());
+        const { mock: mockRule, delay: delayRule, modifyBody: modifyBodyRule } = plan;
+        // XHR 无 no-cors 语义，影子请求失败也会照常把响应交给动态函数改写，Mock 必定应用
+        reportRuleHits([...plan.hits, ...(plan.mockHit ? [plan.mockHit] : [])]);
         /** 延迟规则与 Mock 自带延迟的总时长。XHR 不暴露可替换的响应流，因此仅模拟请求前的网络延迟与上行带宽。 */
         const totalDelayMs =
           (delayRule ? getNetworkRequestDelayMs(delayRule, getRequestBodyByteLength(body)) : 0) +

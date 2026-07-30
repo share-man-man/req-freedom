@@ -100,6 +100,16 @@
           "matchType": "contains",
           "pattern": "/api/methods",
           "actions": [{ "type": "block" }]
+        },
+        {
+          "id": "rule-invalid-regex",
+          "name": "非法正则（浏览器会拒绝注册）",
+          "enabled": true,
+          "channel": "dnr",
+          "methods": ["GET"],
+          "matchType": "regex",
+          "pattern": "/api/registration-probe(?=\\.json)",
+          "actions": [{ "type": "block" }]
         }
       ]
     },
@@ -159,13 +169,13 @@
         },
         {
           "id": "rule-slow-response",
-          "name": "GET 大响应走 Slow 3G",
+          "name": "GET 大响应限速 150 kB/s",
           "enabled": true,
           "channel": "page-patch",
           "methods": ["GET"],
           "matchType": "contains",
           "pattern": "/api/slow-response.txt",
-          "actions": [{ "type": "delay", "throttlePreset": "slow-3g", "latencyMs": 400, "downloadKbps": 400, "uploadKbps": 400 }]
+          "actions": [{ "type": "delay", "throttlePreset": "custom", "latencyMs": 400, "downloadKbps": 1200, "uploadKbps": 1200 }]
         },
         {
           "id": "rule-slow-upload",
@@ -208,6 +218,41 @@
             "statusCode": 200,
             "responseHeaders": { "X-Mocked-By": "req-freedom" },
             "body": "{\"data\":{\"user\":{\"id\":99,\"name\":\"Mock 用户\",\"role\":\"mocked\"}},\"receivedOperationName\":\"GetUser\",\"mocked\":true}"
+          }]
+        },
+        {
+          "id": "rule-mock-opaque",
+          "name": "不透明响应上的 Mock（预期无法应用）",
+          "enabled": true,
+          "channel": "page-patch",
+          "methods": ["GET"],
+          "matchType": "contains",
+          "pattern": "/api/cross-origin/opaque",
+          "actions": [{
+            "type": "mock-response",
+            "mode": "dynamic",
+            "passthrough": true,
+            "statusCode": 200,
+            "statusText": "OK",
+            "body": "",
+            "functionCode": "function mock(req, res) { return { patched: true, original: res.json }; }"
+          }]
+        },
+        {
+          "id": "rule-mock-sync-xhr",
+          "name": "同步 XHR 上的 Mock（预期无法应用）",
+          "enabled": true,
+          "channel": "page-patch",
+          "methods": ["GET"],
+          "matchType": "contains",
+          "pattern": "/api/sync-xhr.json",
+          "actions": [{
+            "type": "mock-response",
+            "mode": "static",
+            "statusCode": 200,
+            "statusText": "OK",
+            "bodyType": "json",
+            "body": "{\"source\":\"mock\",\"note\":\"若读到这段内容，说明同步 XHR 没有被放行\"}"
           }]
         }
       ]

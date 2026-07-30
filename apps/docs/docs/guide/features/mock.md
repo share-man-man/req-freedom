@@ -6,7 +6,7 @@
 
 `declarativeNetRequest` 无法构造响应体，因此 Mock 走**页面补丁通道**：MAIN world 内容脚本改写页面的 `fetch` 与 `XMLHttpRequest`，命中规则时直接构造响应返回。
 
-> 注意：仅对页面脚本发起的 fetch / XHR 生效；页面导航、静态资源加载不在 Mock 范围内。同步 XHR（`open(..., false)`）会原样放行，规则不生效，详见[已知限制](../architecture.md#已知限制)。
+> 注意：仅对**顶层文档**中页面脚本发起的 fetch / XHR 生效；iframe 内部的请求、页面导航与静态资源加载都不在 Mock 范围内。同步 XHR（`open(..., false)`）会原样放行，规则不生效，详见[已知限制](../architecture.md#已知限制)。
 
 ## 规则字段
 

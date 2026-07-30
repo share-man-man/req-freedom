@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, FolderPlus, GripVertical, LayoutTemplate, Pencil, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, ChevronDown, FolderPlus, GripVertical, LayoutTemplate, Pencil, Plus, Terminal, Trash2 } from 'lucide-react';
 import type { ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
@@ -28,8 +28,20 @@ import {
   RuleActionType,
   RuleExecutionChannel,
 } from '@req-freedom/shared';
-import type { Rule, RuleGroup } from '@req-freedom/shared';
-import { getEnabled, getGroups, saveConfiguration, saveGroups } from '@/utils/storage';
+import type {
+  DnrRegistrationIssue,
+  DnrRegistrationIssues,
+  Rule,
+  RuleGroup,
+} from '@req-freedom/shared';
+import {
+  getDnrIssues,
+  getEnabled,
+  getGroups,
+  saveConfiguration,
+  saveGroups,
+  watchDnrIssues,
+} from '@/utils/storage';
 import {
   createConfigurationExport,
   getConfigurationExportFileName,
@@ -104,6 +116,13 @@ const ACTION_BADGE_CLASS: Record<RuleActionType, string> = {
   [RuleActionType.InsertScript]: 'bg-emerald-500/15 text-[var(--accent-emerald)]',
   [RuleActionType.ModifyRequestBody]: 'bg-pink-500/15 text-[var(--accent-pink)]',
 };
+
+/**
+ * 被浏览器拒绝注册的动作徽标样式：与 ACTION_BADGE_CLASS 同一层级，用于覆盖动作本身的配色。
+ *
+ * 刻意脱离动作色系改用警示色——此时「这个动作是什么」已不重要，重要的是它当前根本不生效。
+ */
+const REJECTED_ACTION_BADGE_CLASS = 'gap-1 bg-destructive/10 text-destructive';
 
 /**
  * 作用域徽标：规则限定了生效范围（非全部标签页）时展示，提示这条规则只在部分标签生效。
@@ -250,6 +269,8 @@ function GroupNameInput({ value, onCommit }: GroupNameInputProps) {
 interface SortableRuleRowProps {
   /** 行对应的规则 */
   rule: Rule;
+  /** 该规则的 DNR 注册失败记录；未失败时为 undefined */
+  issue?: DnrRegistrationIssue;
   /** 切换启用状态回调 */
   onToggle: (id: string) => void;
   /** 进入编辑回调 */
@@ -265,6 +286,7 @@ interface SortableRuleRowProps {
  */
 function SortableRuleRow({
   rule,
+  issue,
   onToggle,
   onEdit,
   onDelete,
@@ -310,15 +332,24 @@ function SortableRuleRow({
         {rule.channel === RuleExecutionChannel.Dnr ? 'DNR' : t('templateLibrary.channelPagePatch')}
       </Badge>
       <div className="flex min-w-0 flex-wrap items-center gap-1 justify-self-start">
-        {rule.actions.map((action) => (
-          <Badge
-            key={action.type}
-            variant="secondary"
-            className={`whitespace-nowrap border-transparent ${ACTION_BADGE_CLASS[action.type]}`}
-          >
-            {labels.RULE_ACTION_TYPE_LABELS[action.type]}
-          </Badge>
-        ))}
+        {rule.actions.map((action) => {
+          /** 该动作是否被浏览器拒绝、当前不会生效。 */
+          const rejected = issue?.actions.includes(action.type) ?? false;
+          return (
+            <Badge
+              key={action.type}
+              variant="secondary"
+              className={`whitespace-nowrap border-transparent ${
+                rejected ? REJECTED_ACTION_BADGE_CLASS : ACTION_BADGE_CLASS[action.type]
+              }`}
+              // 浏览器的原始报错通常能直接指出哪里不合法，原样带在提示里
+              title={rejected ? t('app.dnrRejected', { message: issue?.message ?? '' }) : undefined}
+            >
+              {rejected && <AlertTriangle className="size-3" />}
+              {labels.RULE_ACTION_TYPE_LABELS[action.type]}
+            </Badge>
+          );
+        })}
       </div>
       <code
         className="min-w-0 max-w-full justify-self-start truncate rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
@@ -363,6 +394,8 @@ interface SortableGroupCardProps {
   onAddRule: (groupId: string) => void;
   /** 为该分组打开模板库（选用模板后规则落到本组） */
   onOpenTemplates: (groupId: string) => void;
+  /** 为该分组打开 cURL 导入（解析出的规则落到本组） */
+  onImportCurl: (groupId: string) => void;
   /** 切换组内单条规则启用状态 */
   onToggleRule: (ruleId: string) => void;
   /** 编辑组内规则 */
@@ -377,6 +410,8 @@ interface SortableGroupCardProps {
   onToggleCollapse: (groupId: string) => void;
   /** popup 跳转后需要强调的目标规则 ID。 */
   highlightedRuleId: string | null;
+  /** 各规则的 DNR 注册失败记录 */
+  dnrIssues: DnrRegistrationIssues;
 }
 
 /**
@@ -392,6 +427,7 @@ function SortableGroupCard({
   onDeleteGroup,
   onAddRule,
   onOpenTemplates,
+  onImportCurl,
   onToggleRule,
   onEditRule,
   onDeleteRule,
@@ -399,6 +435,7 @@ function SortableGroupCard({
   collapsed,
   onToggleCollapse,
   highlightedRuleId,
+  dnrIssues,
 }: SortableGroupCardProps) {
   const { t } = useTranslation();
   /** dnd-kit 排序钩子：作用于整张分组卡片（仅由标题栏的拖拽句柄触发） */
@@ -490,6 +527,7 @@ function SortableGroupCard({
           label={t('app.addRule')}
           onBlank={() => onAddRule(group.id)}
           onTemplate={() => onOpenTemplates(group.id)}
+          onCurl={() => onImportCurl(group.id)}
         />
         <Button
           variant="ghost"
@@ -530,6 +568,7 @@ function SortableGroupCard({
                   <SortableRuleRow
                     key={rule.id}
                     rule={rule}
+                    issue={dnrIssues[rule.id]}
                     onToggle={onToggleRule}
                     onEdit={onEditRule}
                     onDelete={onDeleteRule}
@@ -654,16 +693,18 @@ interface AddRuleMenuProps {
   onBlank: () => void;
   /** 选择「从模板库」的回调。 */
   onTemplate: () => void;
+  /** 选择「从 cURL 创建」的回调。 */
+  onCurl: () => void;
 }
 
 /**
- * 新建规则入口：主按钮展开下拉，二选一——空白规则 / 从模板库。
+ * 新建规则入口：主按钮展开下拉——空白规则 / 从模板库 / 从 cURL。
  *
  * 用与 MatchTester 一致的「点击外部 + Esc 收起」轻量气泡，不引入额外下拉依赖；
  * 菜单经 Portal 挂到 body 并以 fixed 定位，绕开分组卡片的 overflow-hidden 裁剪（折叠 / 空分组时尤为关键）。
  * @param props 文案与两种创建方式的回调
  */
-function AddRuleMenu({ label, onBlank, onTemplate }: AddRuleMenuProps) {
+function AddRuleMenu({ label, onBlank, onTemplate, onCurl }: AddRuleMenuProps) {
   const { t } = useTranslation();
   /** 下拉是否展开。 */
   const [open, setOpen] = useState(false);
@@ -756,6 +797,15 @@ function AddRuleMenu({ label, onBlank, onTemplate }: AddRuleMenuProps) {
             <LayoutTemplate className="size-4 text-muted-foreground" />
             {t('app.addRuleMenu.fromTemplate')}
           </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => choose(onCurl)}
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+          >
+            <Terminal className="size-4 text-muted-foreground" />
+            {t('ruleImport.menu.curl')}
+          </button>
         </div>,
         document.body,
       )}
@@ -776,6 +826,8 @@ export default function App() {
   const [templateTargetGroupId, setTemplateTargetGroupId] = useState<string | null>(null);
   /** cURL 单条导入或 HAR 批量导入对话框。 */
   const [ruleImportDialog, setRuleImportDialog] = useState<'curl' | 'har' | null>(null);
+  /** cURL 导入的目标分组；从头部「导入规则」进入时为 null，表示沿用首个分组。 */
+  const [curlTargetGroupId, setCurlTargetGroupId] = useState<string | null>(null);
   /** 当前正在拖拽的分组 ID，用于渲染外层分组 DragOverlay 预览 */
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   /** 已折叠的分组 ID 集合（纯视图状态，不写入 storage，避免无谓触发规则重同步） */
@@ -795,9 +847,18 @@ export default function App() {
     new URLSearchParams(window.location.search).get(RULE_HIGHLIGHT_QUERY_PARAM),
   );
 
+  /** 各规则的 DNR 注册失败记录，用于在规则行上标出不会生效的动作。 */
+  const [dnrIssues, setDnrIssues] = useState<DnrRegistrationIssues>({});
+
   // 初始加载分组
   useEffect(() => {
     void getGroups().then(setGroups);
+  }, []);
+
+  // 注册失败记录由 background 每轮同步后写入 storage.session，这里读取一次并订阅后续变化
+  useEffect(() => {
+    void getDnrIssues().then(setDnrIssues);
+    return watchDnrIssues(setDnrIssues);
   }, []);
 
   // popup 带规则 ID 跳转时，清除会隐藏目标的筛选、展开所属分组，再滚动并高亮目标行。
@@ -912,12 +973,21 @@ export default function App() {
   };
 
   /**
+   * 打开 cURL 导入弹窗并记录目标分组。
+   * @param groupId 解析结果要落入的分组；null 表示沿用首个分组
+   */
+  const handleOpenCurlImport = (groupId: string | null): void => {
+    setCurlTargetGroupId(groupId);
+    setRuleImportDialog('curl');
+  };
+
+  /**
    * cURL 解析完成后复用原有单条新建规则编辑器。
    * @param rule 解析生成的规则草稿
    */
   const handleContinueCurlImport = (rule: Rule): void => {
-    /** 优先使用首个现有分组；无分组时使用保存阶段才创建的默认分组占位。 */
-    const groupId = groups[0]?.id ?? DEFAULT_GROUP_SENTINEL;
+    /** 从某分组的「添加规则」进入时落到该组；从头部导入进入时退回首个分组。 */
+    const groupId = curlTargetGroupId ?? groups[0]?.id ?? DEFAULT_GROUP_SENTINEL;
     setRuleImportDialog(null);
     setRuleDialog({ groupId, rule, isNew: true });
   };
@@ -1296,7 +1366,7 @@ export default function App() {
       />
       <OptionsPageHeader
         onImportConfig={handleImportClick}
-        onImportCurl={() => setRuleImportDialog('curl')}
+        onImportCurl={() => handleOpenCurlImport(null)}
         onImportHar={() => setRuleImportDialog('har')}
         onExport={() => void handleExport()}
       />
@@ -1342,6 +1412,7 @@ export default function App() {
                 label={t('app.newRule')}
                 onBlank={handleAddFirstRule}
                 onTemplate={() => handleOpenTemplates(DEFAULT_GROUP_SENTINEL)}
+                onCurl={() => handleOpenCurlImport(DEFAULT_GROUP_SENTINEL)}
               />
               <Button variant="outline" size="sm" onClick={handleAddGroup}>
                 <FolderPlus />
@@ -1380,6 +1451,7 @@ export default function App() {
                     onDeleteGroup={handleDeleteGroup}
                     onAddRule={handleAddRule}
                     onOpenTemplates={handleOpenTemplates}
+                    onImportCurl={handleOpenCurlImport}
                     onToggleRule={handleToggleRule}
                     onEditRule={handleEditRule}
                     onDeleteRule={handleDeleteRule}
@@ -1387,6 +1459,7 @@ export default function App() {
                     collapsed={collapsedGroupIds.has(group.id)}
                     onToggleCollapse={handleToggleCollapse}
                     highlightedRuleId={highlightedRuleId}
+                    dnrIssues={dnrIssues}
                   />
                 ))}
               </div>

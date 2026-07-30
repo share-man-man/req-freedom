@@ -29,13 +29,34 @@
     }
   },
   "dynamicVariable": {
-    "uuid": { "label": "UUID", "description": "随机 UUID v4" },
-    "timestamp": { "label": "时间戳（秒）", "description": "当前秒级 Unix 时间戳" },
-    "timestampMs": { "label": "时间戳（毫秒）", "description": "当前毫秒级 Unix 时间戳" },
-    "isoTime": { "label": "ISO 时间", "description": "当前时间的 ISO 8601 字符串" },
-    "randomFloat": { "label": "随机小数", "description": "[0, 1) 区间的随机浮点数" },
-    "randomInt": { "label": "随机整数", "description": "随机整数，参数指定闭区间 [min, max]，缺省 0-100" },
-    "randomString": { "label": "随机字符串", "description": "随机字母数字串，参数指定长度，缺省 8 位" }
+    "uuid": {
+      "label": "UUID",
+      "description": "随机 UUID v4"
+    },
+    "timestamp": {
+      "label": "时间戳（秒）",
+      "description": "当前秒级 Unix 时间戳"
+    },
+    "timestampMs": {
+      "label": "时间戳（毫秒）",
+      "description": "当前毫秒级 Unix 时间戳"
+    },
+    "isoTime": {
+      "label": "ISO 时间",
+      "description": "当前时间的 ISO 8601 字符串"
+    },
+    "randomFloat": {
+      "label": "随机小数",
+      "description": "[0, 1) 区间的随机浮点数"
+    },
+    "randomInt": {
+      "label": "随机整数",
+      "description": "随机整数，参数指定闭区间 [min, max]，缺省 0-100"
+    },
+    "randomString": {
+      "label": "随机字符串",
+      "description": "随机字母数字串，参数指定长度，缺省 8 位"
+    }
   },
   "configTransfer": {
     "invalidJson": "文件不是有效的 JSON。",
@@ -227,6 +248,7 @@
     }
   },
   "app": {
+    "dnrRejected": "该动作未被浏览器接受，当前不会生效：{{message}}",
     "scopeBadge": {
       "title": "{{scopeLabel}} · {{count}} 个对象"
     },
@@ -291,10 +313,7 @@
     },
     "curl": {
       "title": "从 cURL 创建规则",
-      "hint": "将提取请求 URL 和方法，随后进入原有规则编辑器补齐 Mock 响应或重定向地址。",
-      "action": "创建为",
-      "mock": "返回值 Mock",
-      "redirect": "重定向",
+      "hint": "将提取请求 URL 和方法，并按「返回值 Mock」生成规则草稿，随后进入规则编辑器；需要重定向等其他动作时在编辑器中直接切换即可。",
       "command": "cURL 命令",
       "continue": "继续编辑"
     },
@@ -346,6 +365,12 @@
     }
   },
   "popup": {
+    "ruleSkipped": "本页有请求匹配了该规则，但未能应用：{{reason}}",
+    "skipReason": {
+      "opaqueResponse": "响应不透明（no-cors），读不到响应体",
+      "syncXhr": "同步 XMLHttpRequest 容不下异步处理"
+    },
+    "ruleNotRegistered": "该规则未被浏览器接受，当前不会生效：{{message}}",
     "activeCount": "{{count}} 条规则生效中",
     "globallyDisabled": "已全局停用",
     "noRules": "暂无规则",
@@ -354,13 +379,12 @@
     "collapseGroup": "折叠分组",
     "ruleCount": "{{count}} 条",
     "manageRules": "管理规则",
-    "matchedCount": "当前页面规则动作：{{count}}",
-    "clearMatchedCount": "清空",
+    "hitTotal": "当前页面规则命中：{{count}}",
+    "clearHits": "清空",
     "jumpToRule": "跳转到规则",
-    "ruleActionCount": "该规则动作数：{{count}}",
-    "unmappedActionCount": "其中 {{count}} 个历史动作无法关联到当前规则",
-    "clearMatchedCountFailed": "清空动作计数失败，请重试。",
-    "matchSummaryUnavailable": "规则动作统计加载失败。",
+    "ruleMatched": "该规则在本页命中过",
+    "hitsTruncated": "仅显示最近的命中记录，更早的已丢弃。",
+    "hitSummaryUnavailable": "规则命中统计加载失败。",
     "retry": "重试"
   },
   "dynamicVariableHint": {

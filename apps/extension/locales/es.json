@@ -29,13 +29,34 @@
     }
   },
   "dynamicVariable": {
-    "uuid": { "label": "UUID", "description": "UUID v4 aleatorio" },
-    "timestamp": { "label": "Marca de tiempo (segundos)", "description": "Marca de tiempo Unix actual en segundos" },
-    "timestampMs": { "label": "Marca de tiempo (ms)", "description": "Marca de tiempo Unix actual en milisegundos" },
-    "isoTime": { "label": "Hora ISO", "description": "Hora actual como cadena ISO 8601" },
-    "randomFloat": { "label": "Decimal aleatorio", "description": "Número decimal aleatorio en el intervalo [0, 1)" },
-    "randomInt": { "label": "Entero aleatorio", "description": "Entero aleatorio; el argumento define el intervalo inclusivo [min, max], 0-100 de forma predeterminada" },
-    "randomString": { "label": "Cadena aleatoria", "description": "Cadena alfanumérica aleatoria; el argumento define la longitud, 8 de forma predeterminada" }
+    "uuid": {
+      "label": "UUID",
+      "description": "UUID v4 aleatorio"
+    },
+    "timestamp": {
+      "label": "Marca de tiempo (segundos)",
+      "description": "Marca de tiempo Unix actual en segundos"
+    },
+    "timestampMs": {
+      "label": "Marca de tiempo (ms)",
+      "description": "Marca de tiempo Unix actual en milisegundos"
+    },
+    "isoTime": {
+      "label": "Hora ISO",
+      "description": "Hora actual como cadena ISO 8601"
+    },
+    "randomFloat": {
+      "label": "Decimal aleatorio",
+      "description": "Número decimal aleatorio en el intervalo [0, 1)"
+    },
+    "randomInt": {
+      "label": "Entero aleatorio",
+      "description": "Entero aleatorio; el argumento define el intervalo inclusivo [min, max], 0-100 de forma predeterminada"
+    },
+    "randomString": {
+      "label": "Cadena aleatoria",
+      "description": "Cadena alfanumérica aleatoria; el argumento define la longitud, 8 de forma predeterminada"
+    }
   },
   "configTransfer": {
     "invalidJson": "El archivo no contiene JSON válido.",
@@ -227,6 +248,7 @@
     }
   },
   "app": {
+    "dnrRejected": "El navegador rechazó esta acción, por lo que no está en vigor: {{message}}",
     "scopeBadge": {
       "title": "{{scopeLabel}} · {{count}} objetos"
     },
@@ -291,10 +313,7 @@
     },
     "curl": {
       "title": "Create rule from cURL",
-      "hint": "The request URL and method will be extracted, then you can finish the generated rule in the existing editor.",
-      "action": "Create as",
-      "mock": "Mock response",
-      "redirect": "Redirect",
+      "hint": "Se extraen la URL y el método; luego se abre el editor de reglas con una regla de mock de respuesta. Puedes cambiar la acción allí en cualquier momento.",
       "command": "cURL command",
       "continue": "Continue editing"
     },
@@ -346,6 +365,12 @@
     }
   },
   "popup": {
+    "ruleSkipped": "Una solicitud de esta página coincidió con la regla pero no pudo aplicarse: {{reason}}",
+    "skipReason": {
+      "opaqueResponse": "La respuesta es opaca (no-cors) y no se puede leer su cuerpo",
+      "syncXhr": "Un XMLHttpRequest síncrono no admite procesamiento asíncrono"
+    },
+    "ruleNotRegistered": "El navegador rechazó esta regla, por lo que no está en vigor: {{message}}",
     "activeCount": "{{count}} reglas activas",
     "globallyDisabled": "Desactivado globalmente",
     "noRules": "Aún no hay reglas",
@@ -354,13 +379,12 @@
     "collapseGroup": "Contraer grupo",
     "ruleCount": "{{count}} reglas",
     "manageRules": "Administrar reglas",
-    "matchedCount": "Acciones de reglas en esta página: {{count}}",
-    "clearMatchedCount": "Borrar",
+    "hitTotal": "Reglas aplicadas en esta página: {{count}}",
+    "clearHits": "Borrar",
     "jumpToRule": "Ir a la regla",
-    "ruleActionCount": "Acciones de esta regla: {{count}}",
-    "unmappedActionCount": "{{count}} acciones históricas no se pueden vincular a una regla actual",
-    "clearMatchedCountFailed": "No se pudo borrar el contador de acciones. Inténtalo de nuevo.",
-    "matchSummaryUnavailable": "No se pudieron cargar las estadísticas de acciones de reglas.",
+    "ruleMatched": "Esta regla se aplicó en esta página",
+    "hitsTruncated": "Solo se muestran las coincidencias más recientes; las anteriores se descartaron.",
+    "hitSummaryUnavailable": "No se pudieron cargar las estadísticas de coincidencias.",
     "retry": "Reintentar"
   },
   "dynamicVariableHint": {

@@ -248,6 +248,7 @@
     }
   },
   "app": {
+    "dnrRejected": "Der Browser hat diese Aktion abgelehnt, sie ist daher nicht aktiv: {{message}}",
     "scopeBadge": {
       "title": "{{scopeLabel}} · {{count}} Objekte"
     },
@@ -312,10 +313,7 @@
     },
     "curl": {
       "title": "Create rule from cURL",
-      "hint": "The request URL and method will be extracted, then you can finish the generated rule in the existing editor.",
-      "action": "Create as",
-      "mock": "Mock response",
-      "redirect": "Redirect",
+      "hint": "URL und Methode werden übernommen; anschließend öffnet sich der Regeleditor mit einer Antwort-Mock-Regel. Die Aktion lässt sich dort jederzeit ändern.",
       "command": "cURL command",
       "continue": "Continue editing"
     },
@@ -367,6 +365,12 @@
     }
   },
   "popup": {
+    "ruleSkipped": "Eine Anfrage dieser Seite passte zur Regel, konnte sie aber nicht anwenden: {{reason}}",
+    "skipReason": {
+      "opaqueResponse": "Die Antwort ist opak (no-cors), ihr Body ist nicht lesbar",
+      "syncXhr": "Ein synchroner XMLHttpRequest lässt keine asynchrone Verarbeitung zu"
+    },
+    "ruleNotRegistered": "Der Browser hat diese Regel abgelehnt, sie ist daher nicht aktiv: {{message}}",
     "activeCount": "{{count}} Regeln aktiv",
     "globallyDisabled": "Global deaktiviert",
     "noRules": "Noch keine Regeln",
@@ -375,13 +379,12 @@
     "collapseGroup": "Gruppe zuklappen",
     "ruleCount": "{{count}} Regeln",
     "manageRules": "Regeln verwalten",
-    "matchedCount": "Regelaktionen auf dieser Seite: {{count}}",
-    "clearMatchedCount": "Leeren",
+    "hitTotal": "Ausgelöste Regeln auf dieser Seite: {{count}}",
+    "clearHits": "Leeren",
     "jumpToRule": "Zur Regel",
-    "ruleActionCount": "Aktionen dieser Regel: {{count}}",
-    "unmappedActionCount": "{{count}} historische Aktionen können keiner aktuellen Regel zugeordnet werden",
-    "clearMatchedCountFailed": "Der Aktionszähler konnte nicht geleert werden. Versuche es erneut.",
-    "matchSummaryUnavailable": "Die Regelaktionsstatistik konnte nicht geladen werden.",
+    "ruleMatched": "Diese Regel wurde auf dieser Seite ausgelöst",
+    "hitsTruncated": "Nur die neuesten Treffer werden angezeigt; ältere wurden verworfen.",
+    "hitSummaryUnavailable": "Die Trefferstatistik konnte nicht geladen werden.",
     "retry": "Erneut versuchen"
   },
   "dynamicVariableHint": {

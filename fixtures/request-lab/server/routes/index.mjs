@@ -1,10 +1,15 @@
 import { sendJson } from '../http.mjs';
 import { handleCookies } from './cookies.mjs';
-import { handleCrossOriginAllowed, handleCrossOriginBlocked } from './cross-origin.mjs';
+import {
+  handleCrossOriginAllowed,
+  handleCrossOriginBlocked,
+  handleCrossOriginOpaque,
+} from './cross-origin.mjs';
 import { handleEcho } from './echo.mjs';
 import { handleGraphql } from './graphql.mjs';
 import { handleMethods } from './methods.mjs';
 import { handleStatus } from './status.mjs';
+import { handleUploadProbe } from './upload-probe.mjs';
 
 /**
  * 构建主站点（默认 4317）的路由表。
@@ -42,6 +47,12 @@ export function createLabRoutes({ crossOriginBaseUrl }) {
       handler: handleGraphql,
     },
     {
+      method: '*',
+      path: '/api/upload-probe',
+      description: '读完请求体后回报字节数，用于上行带宽测试',
+      handler: handleUploadProbe,
+    },
+    {
       method: 'GET',
       path: '/api/cookies',
       description: '回显 Cookie 请求头并下发 Set-Cookie',
@@ -75,6 +86,12 @@ export function createCrossOriginRoutes() {
       path: '/api/cross-origin/allowed',
       description: '主动放行 CORS 的对照端点',
       handler: handleCrossOriginAllowed,
+    },
+    {
+      method: 'GET',
+      path: '/api/cross-origin/opaque',
+      description: '供 no-cors 请求取得不透明响应',
+      handler: handleCrossOriginOpaque,
     },
   ];
 }

@@ -248,6 +248,7 @@
     }
   },
   "app": {
+    "dnrRejected": "Le navigateur a rejeté cette action, elle n'est donc pas appliquée : {{message}}",
     "scopeBadge": {
       "title": "{{scopeLabel}} · {{count}} objets"
     },
@@ -312,10 +313,7 @@
     },
     "curl": {
       "title": "Create rule from cURL",
-      "hint": "The request URL and method will be extracted, then you can finish the generated rule in the existing editor.",
-      "action": "Create as",
-      "mock": "Mock response",
-      "redirect": "Redirect",
+      "hint": "L’URL et la méthode sont extraites, puis l’éditeur de règles s’ouvre avec une règle de mock de réponse. Vous pouvez y changer l’action à tout moment.",
       "command": "cURL command",
       "continue": "Continue editing"
     },
@@ -367,6 +365,12 @@
     }
   },
   "popup": {
+    "ruleSkipped": "Une requête de cette page correspondait à cette règle mais n'a pas pu l'appliquer : {{reason}}",
+    "skipReason": {
+      "opaqueResponse": "La réponse est opaque (no-cors), son corps est illisible",
+      "syncXhr": "Un XMLHttpRequest synchrone ne laisse pas place au traitement asynchrone"
+    },
+    "ruleNotRegistered": "Le navigateur a rejeté cette règle, elle n'est donc pas appliquée : {{message}}",
     "activeCount": "{{count}} règles actives",
     "globallyDisabled": "Désactivé globalement",
     "noRules": "Aucune règle pour le moment",
@@ -375,13 +379,12 @@
     "collapseGroup": "Réduire le groupe",
     "ruleCount": "{{count}} règles",
     "manageRules": "Gérer les règles",
-    "matchedCount": "Actions de règles sur cette page : {{count}}",
-    "clearMatchedCount": "Effacer",
+    "hitTotal": "Règles déclenchées sur cette page : {{count}}",
+    "clearHits": "Effacer",
     "jumpToRule": "Accéder à la règle",
-    "ruleActionCount": "Actions de cette règle : {{count}}",
-    "unmappedActionCount": "{{count}} actions historiques ne peuvent pas être liées à une règle actuelle",
-    "clearMatchedCountFailed": "Impossible d’effacer le compteur d’actions. Réessayez.",
-    "matchSummaryUnavailable": "Impossible de charger les statistiques d’actions des règles.",
+    "ruleMatched": "Cette règle s’est déclenchée sur cette page",
+    "hitsTruncated": "Seuls les déclenchements les plus récents sont affichés ; les plus anciens ont été supprimés.",
+    "hitSummaryUnavailable": "Impossible de charger les statistiques de déclenchements.",
     "retry": "Réessayer"
   },
   "dynamicVariableHint": {

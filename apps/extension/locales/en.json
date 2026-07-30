@@ -29,13 +29,34 @@
     }
   },
   "dynamicVariable": {
-    "uuid": { "label": "UUID", "description": "Random UUID v4" },
-    "timestamp": { "label": "Timestamp (seconds)", "description": "Current Unix timestamp in seconds" },
-    "timestampMs": { "label": "Timestamp (ms)", "description": "Current Unix timestamp in milliseconds" },
-    "isoTime": { "label": "ISO time", "description": "Current time as an ISO 8601 string" },
-    "randomFloat": { "label": "Random float", "description": "Random float in the range [0, 1)" },
-    "randomInt": { "label": "Random integer", "description": "Random integer; argument sets the inclusive range [min, max], defaults to 0-100" },
-    "randomString": { "label": "Random string", "description": "Random alphanumeric string; argument sets the length, defaults to 8" }
+    "uuid": {
+      "label": "UUID",
+      "description": "Random UUID v4"
+    },
+    "timestamp": {
+      "label": "Timestamp (seconds)",
+      "description": "Current Unix timestamp in seconds"
+    },
+    "timestampMs": {
+      "label": "Timestamp (ms)",
+      "description": "Current Unix timestamp in milliseconds"
+    },
+    "isoTime": {
+      "label": "ISO time",
+      "description": "Current time as an ISO 8601 string"
+    },
+    "randomFloat": {
+      "label": "Random float",
+      "description": "Random float in the range [0, 1)"
+    },
+    "randomInt": {
+      "label": "Random integer",
+      "description": "Random integer; argument sets the inclusive range [min, max], defaults to 0-100"
+    },
+    "randomString": {
+      "label": "Random string",
+      "description": "Random alphanumeric string; argument sets the length, defaults to 8"
+    }
   },
   "configTransfer": {
     "invalidJson": "The file is not valid JSON.",
@@ -227,6 +248,7 @@
     }
   },
   "app": {
+    "dnrRejected": "The browser rejected this action, so it is not in effect: {{message}}",
     "scopeBadge": {
       "title": "{{scopeLabel}} · {{count}} objects"
     },
@@ -291,10 +313,7 @@
     },
     "curl": {
       "title": "Create rule from cURL",
-      "hint": "The request URL and method will be extracted, then you can finish the generated rule in the existing editor.",
-      "action": "Create as",
-      "mock": "Mock response",
-      "redirect": "Redirect",
+      "hint": "The request URL and method are extracted, then the rule editor opens with a response mock rule. You can switch the action there at any time.",
       "command": "cURL command",
       "continue": "Continue editing"
     },
@@ -346,6 +365,12 @@
     }
   },
   "popup": {
+    "ruleSkipped": "A request on this page matched this rule but could not apply it: {{reason}}",
+    "skipReason": {
+      "opaqueResponse": "The response is opaque (no-cors), so its body cannot be read",
+      "syncXhr": "A synchronous XMLHttpRequest leaves no room for async handling"
+    },
+    "ruleNotRegistered": "The browser rejected this rule, so it is not in effect: {{message}}",
     "activeCount": "{{count}} rules active",
     "globallyDisabled": "Globally disabled",
     "noRules": "No rules yet",
@@ -354,13 +379,12 @@
     "collapseGroup": "Collapse group",
     "ruleCount": "{{count}} rules",
     "manageRules": "Manage rules",
-    "matchedCount": "Rule actions on this page: {{count}}",
-    "clearMatchedCount": "Clear",
+    "hitTotal": "Rules matched on this page: {{count}}",
+    "clearHits": "Clear",
     "jumpToRule": "Go to rule",
-    "ruleActionCount": "Actions from this rule: {{count}}",
-    "unmappedActionCount": "{{count}} historical actions cannot be linked to a current rule",
-    "clearMatchedCountFailed": "Could not clear the action count. Try again.",
-    "matchSummaryUnavailable": "Could not load rule action statistics.",
+    "ruleMatched": "This rule matched on this page",
+    "hitsTruncated": "Only the most recent hits are shown; older ones were dropped.",
+    "hitSummaryUnavailable": "Could not load rule hit statistics.",
     "retry": "Retry"
   },
   "dynamicVariableHint": {

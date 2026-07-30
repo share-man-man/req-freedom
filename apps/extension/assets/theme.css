@@ -101,6 +101,25 @@
   }
 }
 
+/**
+ * 命中行底色：同一层「淡主色」在明暗两套下需要不同的透明度才等效——
+ * 浅底上 6% 已足够，深底上同样的比例几乎看不见。
+ *
+ * 刻意用 light-dark() 而非 dark: 变体：dark: 由根节点的 .dark 类驱动，而主题模式为
+ * 「跟随系统」时根节点上两个类都没有（暗色令牌来自 prefers-color-scheme 媒体查询），
+ * 那种情况下 dark: 不会命中。light-dark() 跟随 color-scheme，三种模式下都正确。
+ */
+:root {
+  --hit-surface: light-dark(
+    color-mix(in oklab, var(--primary) 7%, transparent),
+    color-mix(in oklab, var(--primary) 20%, transparent)
+  );
+  --hit-surface-hover: light-dark(
+    color-mix(in oklab, var(--primary) 12%, transparent),
+    color-mix(in oklab, var(--primary) 28%, transparent)
+  );
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

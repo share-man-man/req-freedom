@@ -1,0 +1,5 @@
+{
+  "source": "request-lab",
+  "endpoint": "registration-probe",
+  "note": "这条请求只被一条「浏览器会拒绝注册」的规则匹配。能读到本内容，说明那条规则确实没有生效。"
+}

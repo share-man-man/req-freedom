@@ -29,13 +29,34 @@
     }
   },
   "dynamicVariable": {
-    "uuid": { "label": "UUID", "description": "隨機 UUID v4" },
-    "timestamp": { "label": "時間戳（秒）", "description": "當前秒級 Unix 時間戳" },
-    "timestampMs": { "label": "時間戳（毫秒）", "description": "當前毫秒級 Unix 時間戳" },
-    "isoTime": { "label": "ISO 時間", "description": "當前時間的 ISO 8601 字串" },
-    "randomFloat": { "label": "隨機小數", "description": "[0, 1) 區間的隨機浮點數" },
-    "randomInt": { "label": "隨機整數", "description": "隨機整數，引數指定閉區間 [min, max]，預設 0-100" },
-    "randomString": { "label": "隨機字串", "description": "隨機字母數字串，引數指定長度，預設 8 位" }
+    "uuid": {
+      "label": "UUID",
+      "description": "隨機 UUID v4"
+    },
+    "timestamp": {
+      "label": "時間戳（秒）",
+      "description": "當前秒級 Unix 時間戳"
+    },
+    "timestampMs": {
+      "label": "時間戳（毫秒）",
+      "description": "當前毫秒級 Unix 時間戳"
+    },
+    "isoTime": {
+      "label": "ISO 時間",
+      "description": "當前時間的 ISO 8601 字串"
+    },
+    "randomFloat": {
+      "label": "隨機小數",
+      "description": "[0, 1) 區間的隨機浮點數"
+    },
+    "randomInt": {
+      "label": "隨機整數",
+      "description": "隨機整數，引數指定閉區間 [min, max]，預設 0-100"
+    },
+    "randomString": {
+      "label": "隨機字串",
+      "description": "隨機字母數字串，引數指定長度，預設 8 位"
+    }
   },
   "configTransfer": {
     "invalidJson": "檔案不是有效的 JSON。",
@@ -227,6 +248,7 @@
     }
   },
   "app": {
+    "dnrRejected": "此動作未被瀏覽器接受，目前不會生效：{{message}}",
     "scopeBadge": {
       "title": "{{scopeLabel}} · {{count}} 個物件"
     },
@@ -291,10 +313,7 @@
     },
     "curl": {
       "title": "從 cURL 建立規則",
-      "hint": "將擷取請求 URL 和方法，接著進入原有規則編輯器補齊 Mock 回應或重新導向位址。",
-      "action": "建立為",
-      "mock": "回應 Mock",
-      "redirect": "重新導向",
+      "hint": "將擷取請求 URL 和方法，並以「回應值 Mock」產生規則草稿，隨後進入規則編輯器；需要重新導向等其他動作時在編輯器中直接切換即可。",
       "command": "cURL 命令",
       "continue": "繼續編輯"
     },
@@ -346,6 +365,12 @@
     }
   },
   "popup": {
+    "ruleSkipped": "本頁有請求匹配了該規則，但未能套用：{{reason}}",
+    "skipReason": {
+      "opaqueResponse": "回應不透明（no-cors），讀不到回應內容",
+      "syncXhr": "同步 XMLHttpRequest 容不下非同步處理"
+    },
+    "ruleNotRegistered": "此規則未被瀏覽器接受，目前不會生效：{{message}}",
     "activeCount": "{{count}} 條規則生效中",
     "globallyDisabled": "已全域性停用",
     "noRules": "暫無規則",
@@ -354,13 +379,12 @@
     "collapseGroup": "摺疊分組",
     "ruleCount": "{{count}} 條",
     "manageRules": "管理規則",
-    "matchedCount": "目前頁面規則動作：{{count}}",
-    "clearMatchedCount": "清空",
+    "hitTotal": "目前頁面規則命中：{{count}}",
+    "clearHits": "清空",
     "jumpToRule": "跳至規則",
-    "ruleActionCount": "該規則動作數：{{count}}",
-    "unmappedActionCount": "其中 {{count}} 個歷史動作無法關聯到目前規則",
-    "clearMatchedCountFailed": "清空動作計數失敗，請重試。",
-    "matchSummaryUnavailable": "規則動作統計載入失敗。",
+    "ruleMatched": "該規則在本頁命中過",
+    "hitsTruncated": "僅顯示最近的命中記錄，更早的已捨棄。",
+    "hitSummaryUnavailable": "規則命中統計載入失敗。",
     "retry": "重試"
   },
   "dynamicVariableHint": {

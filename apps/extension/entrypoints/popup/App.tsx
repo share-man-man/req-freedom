@@ -1,28 +1,34 @@
 import { useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
-import { CheckCircle2, ChevronDown, Settings2, Target } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, CircleSlash, Settings2, Target } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { RuleGroup, RuleMatchCount, RuleMatchSummary } from '@req-freedom/shared';
+import type { DnrRegistrationIssues, RuleGroup, RuleHitSummary } from '@req-freedom/shared';
+import { RuleHitSkipReason } from '@req-freedom/shared';
 import {
   RULE_HIGHLIGHT_QUERY_PARAM,
-  RUNTIME_MSG_CLEAR_RULE_MATCHES,
-  RUNTIME_MSG_GET_RULE_MATCH_SUMMARY,
+  RUNTIME_MSG_CLEAR_RULE_HITS,
+  RUNTIME_MSG_GET_RULE_HIT_SUMMARY,
 } from '@req-freedom/shared';
 import { collectActiveRules } from '@req-freedom/core';
-import { getEnabled, getGroups, saveGroups, setEnabled } from '@/utils/storage';
+import {
+  getDnrIssues,
+  getEnabled,
+  getGroups,
+  saveGroups,
+  setEnabled,
+  watchDnrIssues,
+  watchTabHitSummary,
+} from '@/utils/storage';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { LogoMark } from '@/components/logo-mark';
 
-/**
- * 把逐规则动作计数格式化为适合角标展示的短文本。
- * @param count 规则累计动作数
- * @returns 最大四字符的角标文本
- */
-function formatRuleMatchCount(count: number): string {
-  return count > 999 ? '999+' : String(count);
-}
+/** 跳过原因对应的文案键。 */
+const SKIP_REASON_LABEL_KEY: Record<RuleHitSkipReason, string> = {
+  [RuleHitSkipReason.OpaqueResponse]: 'popup.skipReason.opaqueResponse',
+  [RuleHitSkipReason.SyncXhr]: 'popup.skipReason.syncXhr',
+};
 
 /**
  * Popup 主界面：全局开关 + 按分组快速启停
@@ -35,50 +41,67 @@ export default function App() {
   const [groups, setGroups] = useState<RuleGroup[]>([]);
   /** 已折叠的分组 ID 集合，仅保留在当前弹窗会话中 */
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
-  /** 当前页面累计原生动作数；由扩展图标徽标统一承载两条执行通道的计数。 */
-  const [matchedCount, setMatchedCount] = useState(0);
-  /** 当前页面按业务规则归并的动作计数。 */
-  const [matchedRuleCounts, setMatchedRuleCounts] = useState<RuleMatchCount[]>([]);
-  /** 暂时无法还原到业务规则的历史 DNR 动作数。 */
-  const [unmappedCount, setUnmappedCount] = useState(0);
+  /** 当前页面命中过的业务规则 ID，已按规则去重。 */
+  const [hitRuleIds, setHitRuleIds] = useState<string[]>([]);
+  /** 本页匹配上、但一次都没能应用的规则及其原因。 */
+  const [skippedRuleIds, setSkippedRuleIds] = useState<Record<string, RuleHitSkipReason>>({});
+  /** 命中日志是否已因超出上限丢弃过最早的记录。 */
+  const [hitsTruncated, setHitsTruncated] = useState(false);
   /** 点击 popup 时所在的标签页 ID。 */
   const [activeTabId, setActiveTabId] = useState<number | null>(null);
-  /** 动作摘要的加载状态，用于区分“零动作”和“读取失败”。 */
-  const [matchSummaryStatus, setMatchSummaryStatus] = useState<'loading' | 'ready' | 'error'>('loading');
-  /** 最近一次清空动作是否失败。 */
-  const [clearMatchedCountFailed, setClearMatchedCountFailed] = useState(false);
+  /** 各规则的 DNR 注册失败记录，用于标出「规则没生效」而非「没命中」。 */
+  const [dnrIssues, setDnrIssues] = useState<DnrRegistrationIssues>({});
+  /** 命中摘要的加载状态，用于区分“零命中”和“读取失败”。 */
+  const [hitSummaryStatus, setHitSummaryStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
   /**
-   * 读取当前活动标签页的动作摘要。
+   * 读取当前活动标签页的命中摘要。
    */
-  const loadRuleMatchSummary = async (): Promise<void> => {
-    setMatchSummaryStatus('loading');
+  const loadRuleHitSummary = async (): Promise<void> => {
+    setHitSummaryStatus('loading');
     try {
       /** popup 当前关联的活动标签页。 */
       const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true });
       if (activeTab?.id === undefined) {
-        setMatchSummaryStatus('error');
+        setHitSummaryStatus('error');
         return;
       }
       setActiveTabId(activeTab.id);
-      /** background 合并后的 DNR 与页面补丁动作摘要。 */
+      /** background 合并后的两条通道命中摘要。 */
       const summary = (await browser.runtime.sendMessage({
-        type: RUNTIME_MSG_GET_RULE_MATCH_SUMMARY,
+        type: RUNTIME_MSG_GET_RULE_HIT_SUMMARY,
         tabId: activeTab.id,
-      })) as RuleMatchSummary | undefined;
+      })) as RuleHitSummary | undefined;
       if (!summary) {
-        setMatchSummaryStatus('error');
+        setHitSummaryStatus('error');
         return;
       }
-      setMatchedCount(summary.count);
-      setMatchedRuleCounts(summary.ruleCounts);
-      setUnmappedCount(summary.unmappedCount);
-      setClearMatchedCountFailed(false);
-      setMatchSummaryStatus('ready');
+      setHitRuleIds(summary.ruleIds);
+      setSkippedRuleIds(summary.skippedRuleIds);
+      setHitsTruncated(summary.truncated);
+      setHitSummaryStatus('ready');
     } catch {
-      setMatchSummaryStatus('error');
+      setHitSummaryStatus('error');
     }
   };
+
+  // 注册失败记录由 background 每轮同步后写入 storage.session，这里读取一次并订阅后续变化
+  useEffect(() => {
+    void getDnrIssues().then(setDnrIssues);
+    return watchDnrIssues(setDnrIssues);
+  }, []);
+
+  // popup 打开期间页面仍在发请求，订阅命中镜像让展示随之更新，而不是停在打开那一刻
+  useEffect(() => {
+    if (activeTabId === null) {
+      return undefined;
+    }
+    return watchTabHitSummary(activeTabId, (summary) => {
+      setHitRuleIds(summary.ruleIds);
+      setSkippedRuleIds(summary.skippedRuleIds);
+      setHitsTruncated(summary.truncated);
+    });
+  }, [activeTabId]);
 
   // 初始加载 storage 中的开关与分组
   useEffect(() => {
@@ -87,7 +110,7 @@ export default function App() {
       const [nextEnabled, nextGroups] = await Promise.all([getEnabled(), getGroups()]);
       setEnabledState(nextEnabled);
       setGroups(nextGroups);
-      await loadRuleMatchSummary();
+      await loadRuleHitSummary();
     })();
   }, []);
 
@@ -101,27 +124,22 @@ export default function App() {
   };
 
   /**
-   * 清空当前标签页累计的规则动作数。
+   * 清空当前标签页累计的命中日志。
    */
-  const handleClearMatchedCount = async (): Promise<void> => {
+  const handleClearHits = async (): Promise<void> => {
+    if (activeTabId === null) {
+      return;
+    }
     try {
-      if (activeTabId === null) {
-        return;
-      }
-      /** background 完成原生计数与明细清空后返回的零值摘要。 */
-      const summary = (await browser.runtime.sendMessage({
-        type: RUNTIME_MSG_CLEAR_RULE_MATCHES,
+      await browser.runtime.sendMessage({
+        type: RUNTIME_MSG_CLEAR_RULE_HITS,
         tabId: activeTabId,
-      })) as RuleMatchSummary | undefined;
-      if (!summary || summary.count !== 0) {
-        throw new Error('规则动作统计未完成清空');
-      }
-      setMatchedCount(0);
-      setMatchedRuleCounts([]);
-      setUnmappedCount(0);
-      setClearMatchedCountFailed(false);
+      });
+      setHitRuleIds([]);
+      setSkippedRuleIds({});
+      setHitsTruncated(false);
     } catch {
-      setClearMatchedCountFailed(true);
+      setHitSummaryStatus('error');
     }
   };
 
@@ -214,10 +232,20 @@ export default function App() {
   const activeCount = enabled ? collectActiveRules(groups).length : 0;
   /** 是否已存在任意规则 */
   const hasRules = groups.some((group) => group.rules.length > 0);
-  /** 便于规则列表读取角标与高亮状态的逐规则动作计数。 */
-  const matchedRuleCountMap = new Map(
-    matchedRuleCounts.map((item) => [item.ruleId, item.count]),
-  );
+  /** 便于规则列表判断命中状态的集合。 */
+  const hitRuleIdSet = new Set(hitRuleIds);
+  /** 当前仍存在的规则 ID。 */
+  const knownRuleIds = new Set(groups.flatMap((group) => group.rules.map((rule) => rule.id)));
+  /**
+   * 顶部计数只统计列表里还找得到的规则。
+   *
+   * 命中日志按规则 ID 记录，规则删除后它的命中仍留在日志里；照单全收会让顶部数字大于
+   * 下方可见的标记数，而多出来的那几条没有任何行可以对应，用户无从解释差额。
+   * 过滤后为零时整张卡片隐藏，与其他零命中的页面一视同仁——日志里残留什么是内部细节，
+   * 不需要向用户解释。
+   */
+  const visibleHitCount = hitRuleIds.filter((ruleId) => knownRuleIds.has(ruleId)).length;
+
 
   return (
     <div className="flex flex-col">
@@ -237,22 +265,17 @@ export default function App() {
         <Switch checked={enabled} onCheckedChange={handleToggleGlobal} />
       </header>
 
-      {/* 当前页面命中提示：计数同时包含 DNR 与页面补丁通道。 */}
-      {matchedCount > 0 && (
+      {/* 当前页面命中提示：总数同时包含 DNR 与页面补丁通道。 */}
+      {visibleHitCount > 0 && (
         <div className="mx-3 mt-3 flex items-start gap-2 rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-primary">
-          <CheckCircle2 className="size-4 shrink-0" />
+          <CheckCircle2 className="mt-px size-4 shrink-0" />
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium">
-              {t('popup.matchedCount', { count: matchedCount })}
+            <p className="text-xs font-medium leading-4">
+              {t('popup.hitTotal', { count: visibleHitCount })}
             </p>
-            {unmappedCount > 0 && (
+            {hitsTruncated && (
               <p className="mt-0.5 text-[11px] text-primary/80">
-                {t('popup.unmappedActionCount', { count: unmappedCount })}
-              </p>
-            )}
-            {clearMatchedCountFailed && (
-              <p className="mt-0.5 text-[11px] text-destructive">
-                {t('popup.clearMatchedCountFailed')}
+                {t('popup.hitsTruncated')}
               </p>
             )}
           </div>
@@ -260,25 +283,25 @@ export default function App() {
             type="button"
             variant="ghost"
             size="sm"
-            className="h-6 shrink-0 px-2 text-xs text-primary hover:bg-primary/10 hover:text-primary"
-            onClick={() => void handleClearMatchedCount()}
+            className="h-4 shrink-0 px-1.5 text-xs leading-4 text-primary hover:bg-primary/10 hover:text-primary"
+            onClick={() => void handleClearHits()}
           >
-            {t('popup.clearMatchedCount')}
+            {t('popup.clearHits')}
           </Button>
         </div>
       )}
 
-      {matchSummaryStatus === 'error' && (
+      {hitSummaryStatus === 'error' && (
         <div className="mx-3 mt-3 flex items-center gap-2 rounded-lg border border-destructive/25 bg-destructive/10 px-3 py-2 text-destructive">
           <p className="min-w-0 flex-1 text-xs font-medium">
-            {t('popup.matchSummaryUnavailable')}
+            {t('popup.hitSummaryUnavailable')}
           </p>
           <Button
             type="button"
             variant="ghost"
             size="sm"
             className="h-6 shrink-0 px-2 text-xs"
-            onClick={() => void loadRuleMatchSummary()}
+            onClick={() => void loadRuleHitSummary()}
           >
             {t('popup.retry')}
           </Button>
@@ -338,35 +361,57 @@ export default function App() {
                     }`}
                   >
                     {group.rules.map((rule) => {
-                      /** 当前规则在本页面累计执行的动作数。 */
-                      const ruleMatchCount = matchedRuleCountMap.get(rule.id) ?? 0;
-                      /** 当前规则是否在本页面至少执行过一个动作。 */
-                      const isMatched = ruleMatchCount > 0;
+                      /** 当前规则是否在本页面命中过。 */
+                      const isMatched = hitRuleIdSet.has(rule.id);
+                      /** 当前规则被浏览器拒绝的注册记录；存在时该规则并未真正生效。 */
+                      const issue = dnrIssues[rule.id];
+                      /** 当前规则匹配上却一次都没能应用时的原因。 */
+                      const skipReason = skippedRuleIds[rule.id];
+                      /** 右侧状态位的说明文本；无状态可表达时为空。 */
+                      const statusLabel = issue
+                        ? t('popup.ruleNotRegistered', { message: issue.message })
+                        : skipReason
+                          ? t('popup.ruleSkipped', { reason: t(SKIP_REASON_LABEL_KEY[skipReason]) })
+                          : isMatched
+                            ? t('popup.ruleMatched')
+                            : '';
                       return (
                         <li
                           key={rule.id}
-                          className={`relative flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 transition-colors ${
+                          role="button"
+                          tabIndex={0}
+                          title={t('popup.jumpToRule')}
+                          aria-label={t('popup.jumpToRule')}
+                          onClick={() => handleJumpToRule(rule.id)}
+                          onKeyDown={(event) => {
+                            // 焦点在 Switch 等子控件上时按键交给它自己处理，避免误跳转
+                            if (event.target !== event.currentTarget) {
+                              return;
+                            }
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              handleJumpToRule(rule.id);
+                            }
+                          }}
+                          className={`flex cursor-pointer items-center justify-between gap-2 rounded-md border border-transparent px-2 py-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
                             isMatched
-                              ? 'border-primary/40 bg-primary/10 ring-1 ring-inset ring-primary/20'
-                              : 'border-transparent hover:bg-muted/60'
+                              ? 'bg-[var(--hit-surface)] hover:bg-[var(--hit-surface-hover)]'
+                              : 'hover:bg-muted/60'
                           }`}
                         >
-                          {isMatched && (
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            {/* 开关自成一体：拦下冒泡，避免切换启停时误触发整卡片的跳转 */}
                             <span
-                              className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-[18px] text-primary-foreground shadow-sm"
-                              title={t('popup.ruleActionCount', { count: ruleMatchCount })}
-                              aria-label={t('popup.ruleActionCount', { count: ruleMatchCount })}
+                              className="contents"
+                              onClick={(event) => event.stopPropagation()}
                             >
-                              {formatRuleMatchCount(ruleMatchCount)}
+                              <Switch
+                                checked={rule.enabled}
+                                onCheckedChange={() => handleToggleRule(rule.id)}
+                              />
                             </span>
-                          )}
-                          <div className="flex min-w-0 items-center gap-2">
-                            <Switch
-                              checked={rule.enabled}
-                              onCheckedChange={() => handleToggleRule(rule.id)}
-                            />
                             <span
-                              className={`truncate text-sm ${
+                              className={`min-w-0 flex-1 truncate text-sm ${
                                 rule.enabled ? 'text-foreground' : 'text-muted-foreground'
                               }`}
                               title={rule.name}
@@ -375,24 +420,39 @@ export default function App() {
                             </span>
                           </div>
                           <div className="flex shrink-0 items-center gap-1">
+                            {/*
+                              三种状态共用同一个状态位，只靠颜色与字形区分，彼此互斥：
+                              注册失败只发生在 DNR 通道、未应用只发生在页面补丁通道，
+                              而「生效过」优先于「未应用」已在摘要投影时决定。
+                              行只补一层极淡的底色帮助扫读；描边、内环与浮起角标一并去掉——
+                              四层装饰叠在一起，命中多条时整个列表会糊成一片。
+                            */}
+                            {statusLabel && (
+                              <span
+                                className={`flex size-5 shrink-0 items-center justify-center ${
+                                  issue
+                                    ? 'text-destructive'
+                                    : skipReason
+                                      ? 'text-warning'
+                                      : 'text-primary'
+                                }`}
+                                title={statusLabel}
+                                aria-label={statusLabel}
+                              >
+                                {issue ? (
+                                  <AlertTriangle className="size-3.5" />
+                                ) : skipReason ? (
+                                  <CircleSlash className="size-3.5" />
+                                ) : (
+                                  <Target className="size-3.5" />
+                                )}
+                              </span>
+                            )}
                             <Badge variant={rule.enabled ? 'default' : 'muted'} className="shrink-0">
                               {rule.channel === 'dnr'
                                 ? 'DNR'
                                 : t('templateLibrary.channelPagePatch')}
                             </Badge>
-                            {isMatched && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="size-7 text-primary hover:bg-primary/10 hover:text-primary"
-                                title={t('popup.jumpToRule')}
-                                aria-label={t('popup.jumpToRule')}
-                                onClick={() => handleJumpToRule(rule.id)}
-                              >
-                                <Target className="size-3.5" />
-                              </Button>
-                            )}
                           </div>
                         </li>
                       );
