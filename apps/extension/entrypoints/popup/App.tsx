@@ -342,10 +342,12 @@ export default function App() {
                       const isMatched = hitRuleIdSet.has(rule.id);
                       /** 当前规则被浏览器拒绝的注册记录；存在时该规则并未真正生效。 */
                       const issue = dnrIssues[rule.id];
-                      /** 右上角标记的说明文本，注册失败时改为说明规则未生效。 */
-                      const markerLabel = issue
+                      /** 右侧状态位的说明文本；无状态可表达时为空。 */
+                      const statusLabel = issue
                         ? t('popup.ruleNotRegistered', { message: issue.message })
-                        : t('popup.ruleMatched');
+                        : isMatched
+                          ? t('popup.ruleMatched')
+                          : '';
                       return (
                         <li
                           key={rule.id}
@@ -364,30 +366,12 @@ export default function App() {
                               handleJumpToRule(rule.id);
                             }
                           }}
-                          className={`relative flex cursor-pointer items-center justify-between gap-2 rounded-md border px-2 py-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
+                          className={`flex cursor-pointer items-center justify-between gap-2 rounded-md border border-transparent px-2 py-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
                             isMatched
-                              ? 'border-primary/40 bg-primary/10 ring-1 ring-inset ring-primary/20 hover:bg-primary/20'
-                              : 'border-transparent hover:bg-muted/60'
+                              ? 'bg-[var(--hit-surface)] hover:bg-[var(--hit-surface-hover)]'
+                              : 'hover:bg-muted/60'
                           }`}
                         >
-                          {/*
-                            右上角只有一个标记位：注册失败优先于命中占用它。
-                            规则没注册成功就不可能有命中，两者不会同时出现；而「未生效」比
-                            「没命中」信息量大得多——后者是前者的必然结果，不该抢占同一个位置。
-                          */}
-                          {(issue || isMatched) && (
-                            <span
-                              className={`absolute -right-1 -top-1 flex size-[18px] items-center justify-center rounded-full shadow-sm ${
-                                issue
-                                  ? 'bg-destructive text-destructive-foreground'
-                                  : 'bg-primary text-primary-foreground'
-                              }`}
-                              title={markerLabel}
-                              aria-label={markerLabel}
-                            >
-                              {issue ? <AlertTriangle className="size-3" /> : <Target className="size-3" />}
-                            </span>
-                          )}
                           <div className="flex min-w-0 flex-1 items-center gap-2">
                             {/* 开关自成一体：拦下冒泡，避免切换启停时误触发整卡片的跳转 */}
                             <span
@@ -409,6 +393,27 @@ export default function App() {
                             </span>
                           </div>
                           <div className="flex shrink-0 items-center gap-1">
+                            {/*
+                              命中与注册失败共用同一个状态位，只靠颜色与字形区分：两者不会同时
+                              出现（没注册成功的规则不可能有命中），因此不需要谁优先于谁的规则。
+                              行只补一层极淡的底色帮助扫读；描边、内环与浮起角标一并去掉——
+                              四层装饰叠在一起，命中多条时整个列表会糊成一片。
+                            */}
+                            {statusLabel && (
+                              <span
+                                className={`flex size-5 shrink-0 items-center justify-center ${
+                                  issue ? 'text-destructive' : 'text-primary'
+                                }`}
+                                title={statusLabel}
+                                aria-label={statusLabel}
+                              >
+                                {issue ? (
+                                  <AlertTriangle className="size-3.5" />
+                                ) : (
+                                  <Target className="size-3.5" />
+                                )}
+                              </span>
+                            )}
                             <Badge variant={rule.enabled ? 'default' : 'muted'} className="shrink-0">
                               {rule.channel === 'dnr'
                                 ? 'DNR'
