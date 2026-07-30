@@ -10,6 +10,7 @@ import {
   RUNTIME_MSG_GET_RULE_HIT_SUMMARY,
 } from '@req-freedom/shared';
 import { collectActiveRules } from '@req-freedom/core';
+import { getLabels } from '@/utils/labels';
 import {
   getDnrIssues,
   getEnabled,
@@ -24,17 +25,13 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { LogoMark } from '@/components/logo-mark';
 
-/** 跳过原因对应的文案键。 */
-const SKIP_REASON_LABEL_KEY: Record<RuleHitSkipReason, string> = {
-  [RuleHitSkipReason.OpaqueResponse]: 'popup.skipReason.opaqueResponse',
-  [RuleHitSkipReason.SyncXhr]: 'popup.skipReason.syncXhr',
-};
-
 /**
  * Popup 主界面：全局开关 + 按分组快速启停
  */
 export default function App() {
   const { t } = useTranslation();
+  /** 各枚举展示名映射。 */
+  const labels = getLabels(t);
   /** 全局开关状态 */
   const [enabled, setEnabledState] = useState(true);
   /** 规则分组列表 */
@@ -371,7 +368,9 @@ export default function App() {
                       const statusLabel = issue
                         ? t('popup.ruleNotRegistered', { message: issue.message })
                         : skipReason
-                          ? t('popup.ruleSkipped', { reason: t(SKIP_REASON_LABEL_KEY[skipReason]) })
+                          ? t('popup.ruleSkipped', {
+                              reason: labels.RULE_HIT_SKIP_REASON_LABELS[skipReason],
+                            })
                           : isMatched
                             ? t('popup.ruleMatched')
                             : '';

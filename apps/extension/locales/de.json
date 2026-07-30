@@ -366,10 +366,6 @@
   },
   "popup": {
     "ruleSkipped": "Eine Anfrage dieser Seite passte zur Regel, konnte sie aber nicht anwenden: {{reason}}",
-    "skipReason": {
-      "opaqueResponse": "Die Antwort ist opak (no-cors), ihr Body ist nicht lesbar",
-      "syncXhr": "Ein synchroner XMLHttpRequest lässt keine asynchrone Verarbeitung zu"
-    },
     "ruleNotRegistered": "Der Browser hat diese Regel abgelehnt, sie ist daher nicht aktiv: {{message}}",
     "activeCount": "{{count}} Regeln aktiv",
     "globallyDisabled": "Global deaktiviert",
@@ -424,7 +420,10 @@
       "groupSuffix": "Gruppen",
       "ruleLabel": "Regeln",
       "ruleSuffix": "Regeln",
-      "enabledLabel": "Aktiviert"
+      "enabledLabel": "Aktiviert",
+      "hitLabel": "Treffer",
+      "hitSuffix": "Einträge",
+      "hitAction": "Protokoll ansehen"
     },
     "toolbar": {
       "ariaLabel": "Regelfilter",
@@ -536,6 +535,48 @@
       "set": "Setzen",
       "append": "Anhängen",
       "remove": "Entfernen"
+    },
+    "ruleHitSkipReason": {
+      "opaqueResponse": "Die Antwort ist opak (no-cors), ihr Body ist nicht lesbar",
+      "syncXhr": "Ein synchroner XMLHttpRequest lässt keine asynchrone Verarbeitung zu"
     }
+  },
+  "requestLog": {
+    "title": "Anfrageprotokoll",
+    "tabSelectorLabel": "Untersuchter Tab",
+    "tabSelectorPlaceholder": "Tab auswählen",
+    "tabOption": "{{label}} · {{count}} Einträge",
+    "tabFallback": "Tab #{{tabId}}",
+    "searchPlaceholder": "Nach URL, Methode oder Regelname filtern",
+    "actionFilterLabel": "Aktion",
+    "actionAll": "Alle Aktionen",
+    "outcomeFilterLabel": "Ergebnis",
+    "outcomeAll": "Alle Ergebnisse",
+    "outcomeApplied": "Angewendet",
+    "outcomeSkipped": "Nicht angewendet",
+    "resetFilter": "Filter zurücksetzen",
+    "clear": "Protokoll leeren",
+    "statsLabel": "Nach Regel:",
+    "appliedOf": "{{applied}} von {{total}} Einträgen wurden tatsächlich angewendet",
+    "deletedRule": "Gelöschte Regel",
+    "jumpToRule": "Zur Regel (Gruppe: {{groupName}})",
+    "columnTime": "Zeit",
+    "columnMethod": "Methode",
+    "columnUrl": "Anfrage-URL",
+    "columnRule": "Regel",
+    "columnAction": "Aktion",
+    "columnOutcome": "Ergebnis",
+    "truncated": "Es werden nur die neuesten Einträge dieses Tabs behalten; ältere wurden verworfen.",
+    "loadFailed": "Das Anfrageprotokoll konnte nicht geladen werden.",
+    "retry": "Erneut versuchen",
+    "emptyNoTabs": "Noch keine Treffer aufgezeichnet",
+    "emptyNoTabsHint": "Aktiviere eine Regel und öffne eine passende Seite – Treffer erscheinen automatisch hier.",
+    "emptyTab": "Keine Treffer in diesem Tab",
+    "emptyTabHint": "Das Protokoll wird bei jeder Navigation der obersten Ebene geleert.",
+    "emptyFiltered": "Keine passenden Einträge",
+    "emptyFilteredHint": "Lockere die Filter oben.",
+    "loading": "Anfrageprotokoll wird geladen …",
+    "backToRules": "Zurück zu den Regeln",
+    "clearConfirm": "Alle {{count}} Einträge dieses Tabs löschen? Das lässt sich nicht rückgängig machen."
   }
 }

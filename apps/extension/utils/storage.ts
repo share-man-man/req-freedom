@@ -1,10 +1,16 @@
 import { browser } from 'wxt/browser';
-import type { DnrRegistrationIssues, RuleGroup, RuleHitSummary } from '@req-freedom/shared';
+import type {
+  DnrRegistrationIssues,
+  RuleGroup,
+  RuleHitLog,
+  RuleHitSummary,
+} from '@req-freedom/shared';
 import { getRuleHitsMirrorKey, summarizeHits, type TabHitLog } from './rule-hit';
 import {
   STORAGE_KEY_DNR_ISSUES,
   STORAGE_KEY_ENABLED,
   STORAGE_KEY_GROUPS,
+  STORAGE_KEY_RULE_HITS,
 } from '@req-freedom/shared';
 
 /**
@@ -108,6 +114,61 @@ export function watchTabHitSummary(
   tabId: number,
   onChange: (summary: RuleHitSummary) => void,
 ): () => void {
+  return watchTabHitMirror(tabId, (log) => onChange(summarizeHits(log)));
+}
+
+/**
+ * 订阅某个标签页完整命中日志的变化。
+ *
+ * 与 watchTabHitSummary 同源，只是不做摘要投影：请求日志视图要逐条展示命中，
+ * 需要镜像里的原始记录。
+ * @param tabId 目标标签页
+ * @param onChange 日志变化时的回调；日志被清空时收到空日志
+ * @returns 取消订阅的函数
+ */
+export function watchTabHitLog(
+  tabId: number,
+  onChange: (log: RuleHitLog) => void,
+): () => void {
+  return watchTabHitMirror(tabId, (log) => onChange(log ?? { hits: [], truncated: false }));
+}
+
+/**
+ * 订阅任意标签页命中镜像的写入，用于刷新「有日志的标签页」列表。
+ *
+ * 只通知发生了变化，不携带内容：列表本身要向 background 重新查询内存中的权威数据，
+ * 镜像在这里只当作「有新命中了」的信号。
+ * @param onChange 任一标签页镜像发生变化时的回调
+ * @returns 取消订阅的函数
+ */
+export function watchHitTabsChanged(onChange: () => void): () => void {
+  /** storage 变更监听器。 */
+  const listener = (changes: Record<string, unknown>, area: string): void => {
+    if (area !== 'session') {
+      return;
+    }
+    if (Object.keys(changes).some((key) => key.startsWith(`${STORAGE_KEY_RULE_HITS}:`))) {
+      onChange();
+    }
+  };
+  browser.storage.onChanged.addListener(listener);
+  return () => browser.storage.onChanged.removeListener(listener);
+}
+
+/**
+ * 订阅某个标签页命中镜像的原始变化。
+ *
+ * 直接读 background 写往 storage.session 的命中镜像，而不是轮询或让 background 逐条推送：
+ * 镜像本就带 1 秒防抖，天然是合适的刷新节奏，且不会为了刷新界面额外唤醒 Service Worker。
+ * 代价是最多滞后一个防抖窗口，对实时查看命中而言可以接受。
+ * @param tabId 目标标签页
+ * @param onChange 镜像变化时的回调；日志被清空或标签页关闭时收到 undefined
+ * @returns 取消订阅的函数
+ */
+function watchTabHitMirror(
+  tabId: number,
+  onChange: (log: TabHitLog | undefined) => void,
+): () => void {
   /** 该标签页命中镜像的存储键。 */
   const mirrorKey = getRuleHitsMirrorKey(tabId);
   /** storage 变更监听器。 */
@@ -118,8 +179,8 @@ export function watchTabHitSummary(
     if (area !== 'session' || !(mirrorKey in changes)) {
       return;
     }
-    // 日志被清空或标签页关闭时镜像键会被删除，此时 newValue 为 undefined，投影成空摘要
-    onChange(summarizeHits(changes[mirrorKey]?.newValue as TabHitLog | undefined));
+    // 日志被清空或标签页关闭时镜像键会被删除，此时 newValue 为 undefined
+    onChange(changes[mirrorKey]?.newValue as TabHitLog | undefined);
   };
   browser.storage.onChanged.addListener(listener);
   return () => browser.storage.onChanged.removeListener(listener);

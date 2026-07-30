@@ -1,4 +1,4 @@
-import type { RuleHit, RuleHitSummary } from '@req-freedom/shared';
+import type { RuleHit, RuleHitLog, RuleHitSummary } from '@req-freedom/shared';
 import {
   RuleActionType,
   RuleHitOutcome,
@@ -51,13 +51,13 @@ export function getRuleHitsMirrorKey(tabId: number): string {
   return `${STORAGE_KEY_RULE_HITS}:${tabId}`;
 }
 
-/** 单个标签页的命中日志。 */
-export interface TabHitLog {
-  /** 按记录顺序保存的命中。 */
-  hits: RuleHit[];
-  /** 是否已因超出上限丢弃过最早的记录。 */
-  truncated: boolean;
-}
+/**
+ * 单个标签页的命中日志。
+ *
+ * 与协议层的 `RuleHitLog` 是同一结构：它既是 background 的内存权威存储，也原样出现在
+ * storage.session 镜像与跨上下文消息里，因此不另立一份定义。
+ */
+export type TabHitLog = RuleHitLog;
 
 /**
  * 创建空的标签页命中日志。

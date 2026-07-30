@@ -366,10 +366,6 @@
   },
   "popup": {
     "ruleSkipped": "このページのリクエストはこのルールに一致しましたが、適用できませんでした：{{reason}}",
-    "skipReason": {
-      "opaqueResponse": "レスポンスが不透明（no-cors）でボディを読み取れません",
-      "syncXhr": "同期 XMLHttpRequest では非同期処理を挟めません"
-    },
     "ruleNotRegistered": "このルールはブラウザーに拒否されたため、現在は適用されません：{{message}}",
     "activeCount": "{{count}} 件のルールが有効",
     "globallyDisabled": "全体で無効",
@@ -424,7 +420,10 @@
       "groupSuffix": "グループ",
       "ruleLabel": "ルール",
       "ruleSuffix": "ルール",
-      "enabledLabel": "有効"
+      "enabledLabel": "有効",
+      "hitLabel": "ヒット記録",
+      "hitSuffix": "件",
+      "hitAction": "ログを見る"
     },
     "toolbar": {
       "ariaLabel": "ルールフィルター",
@@ -536,6 +535,48 @@
       "set": "設定",
       "append": "追加",
       "remove": "削除"
+    },
+    "ruleHitSkipReason": {
+      "opaqueResponse": "レスポンスが不透明（no-cors）でボディを読み取れません",
+      "syncXhr": "同期 XMLHttpRequest では非同期処理を挟めません"
     }
+  },
+  "requestLog": {
+    "title": "リクエストログ",
+    "tabSelectorLabel": "表示するタブ",
+    "tabSelectorPlaceholder": "タブを選択",
+    "tabOption": "{{label}} · {{count}} 件",
+    "tabFallback": "タブ #{{tabId}}",
+    "searchPlaceholder": "URL・メソッド・ルール名で絞り込み",
+    "actionFilterLabel": "アクション",
+    "actionAll": "すべてのアクション",
+    "outcomeFilterLabel": "実行結果",
+    "outcomeAll": "すべての結果",
+    "outcomeApplied": "適用済み",
+    "outcomeSkipped": "未適用",
+    "resetFilter": "絞り込みをリセット",
+    "clear": "ログをクリア",
+    "statsLabel": "ルール別:",
+    "appliedOf": "{{total}} 件のうち {{applied}} 件が実際に適用されました",
+    "deletedRule": "削除されたルール",
+    "jumpToRule": "ルールへ移動（グループ: {{groupName}}）",
+    "columnTime": "時刻",
+    "columnMethod": "メソッド",
+    "columnUrl": "リクエスト URL",
+    "columnRule": "一致したルール",
+    "columnAction": "アクション",
+    "columnOutcome": "実行結果",
+    "truncated": "このタブの最新の記録のみ保持しています。古い記録は破棄されました。",
+    "loadFailed": "リクエストログを読み込めませんでした。",
+    "retry": "再試行",
+    "emptyNoTabs": "まだヒット記録がありません",
+    "emptyNoTabsHint": "ルールを有効にして対象ページを開くと、ここに自動で記録されます。",
+    "emptyTab": "このタブにはヒット記録がありません",
+    "emptyTabHint": "ログはトップレベルのナビゲーションごとにクリアされます。",
+    "emptyFiltered": "条件に一致する記録がありません",
+    "emptyFilteredHint": "上の絞り込み条件を緩めてください。",
+    "loading": "リクエストログを読み込み中…",
+    "backToRules": "ルール管理に戻る",
+    "clearConfirm": "このタブの {{count}} 件の記録をすべて消去しますか？この操作は元に戻せません。"
   }
 }

@@ -307,6 +307,34 @@ interface SkippedRuleHit extends BaseRuleHit {
 export type RuleHit = AppliedRuleHit | SkippedRuleHit;
 
 /**
+ * 单个标签页的完整命中日志。
+ *
+ * 命中日志是唯一的原始数据：徽标、popup 摘要与请求日志视图都是它的投影。
+ * 结构同时用于 background 的内存权威存储、storage.session 镜像与跨上下文消息。
+ */
+export interface RuleHitLog {
+  /** 按记录顺序保存的命中。 */
+  hits: RuleHit[];
+  /** 是否已因超出上限丢弃过最早的记录。 */
+  truncated: boolean;
+}
+
+/**
+ * 一个仍保有命中日志的标签页概览，供请求日志视图的标签页选择器展示。
+ *
+ * 只给出数量与活跃时间，标签页标题 / URL 由调用方自行向浏览器查询——它们随时会变，
+ * 存在命中日志里只会过期。
+ */
+export interface RuleHitTabSummary {
+  /** 标签页 ID。 */
+  tabId: number;
+  /** 该标签页当前保留的命中条数。 */
+  total: number;
+  /** 最后一条命中的时间；用于按活跃度排序。 */
+  lastHitAt: number;
+}
+
+/**
  * 一条规则在 DNR 注册阶段被浏览器拒绝的记录。
  *
  * DNR 规则由浏览器校验，非法规则会被拒绝且**不会生效**。而命中统计是用同一份业务规则

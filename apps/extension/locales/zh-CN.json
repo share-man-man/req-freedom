@@ -366,10 +366,6 @@
   },
   "popup": {
     "ruleSkipped": "本页有请求匹配了该规则，但未能应用：{{reason}}",
-    "skipReason": {
-      "opaqueResponse": "响应不透明（no-cors），读不到响应体",
-      "syncXhr": "同步 XMLHttpRequest 容不下异步处理"
-    },
     "ruleNotRegistered": "该规则未被浏览器接受，当前不会生效：{{message}}",
     "activeCount": "{{count}} 条规则生效中",
     "globallyDisabled": "已全局停用",
@@ -424,7 +420,10 @@
       "groupSuffix": "个分组",
       "ruleLabel": "规则",
       "ruleSuffix": "条规则",
-      "enabledLabel": "已启用"
+      "enabledLabel": "已启用",
+      "hitLabel": "命中记录",
+      "hitSuffix": "条记录",
+      "hitAction": "查看日志"
     },
     "toolbar": {
       "ariaLabel": "规则筛选",
@@ -536,6 +535,48 @@
       "set": "设置",
       "append": "追加",
       "remove": "移除"
+    },
+    "ruleHitSkipReason": {
+      "opaqueResponse": "响应不透明（no-cors），读不到响应体",
+      "syncXhr": "同步 XMLHttpRequest 容不下异步处理"
     }
+  },
+  "requestLog": {
+    "title": "请求日志",
+    "tabSelectorLabel": "查看的标签页",
+    "tabSelectorPlaceholder": "选择标签页",
+    "tabOption": "{{label}} · {{count}} 条",
+    "tabFallback": "标签页 #{{tabId}}",
+    "searchPlaceholder": "按 URL、方法或规则名筛选",
+    "actionFilterLabel": "动作",
+    "actionAll": "全部动作",
+    "outcomeFilterLabel": "执行结果",
+    "outcomeAll": "全部结果",
+    "outcomeApplied": "已生效",
+    "outcomeSkipped": "未应用",
+    "resetFilter": "重置筛选",
+    "clear": "清空日志",
+    "statsLabel": "按规则：",
+    "appliedOf": "{{total}} 条记录中有 {{applied}} 条实际生效",
+    "deletedRule": "已删除的规则",
+    "jumpToRule": "跳转到规则（分组：{{groupName}}）",
+    "columnTime": "时间",
+    "columnMethod": "方法",
+    "columnUrl": "请求 URL",
+    "columnRule": "命中规则",
+    "columnAction": "动作",
+    "columnOutcome": "执行结果",
+    "truncated": "仅保留该标签页最近的命中记录，更早的已丢弃。",
+    "loadFailed": "读取请求日志失败。",
+    "retry": "重试",
+    "emptyNoTabs": "还没有任何命中记录",
+    "emptyNoTabsHint": "启用规则后访问目标页面，命中会自动记录到这里。",
+    "emptyTab": "该标签页还没有命中记录",
+    "emptyTabHint": "命中日志会在每次顶层导航时清空。",
+    "emptyFiltered": "没有符合筛选条件的记录",
+    "emptyFilteredHint": "试试放宽上方的筛选条件。",
+    "loading": "正在读取请求日志…",
+    "backToRules": "返回规则管理",
+    "clearConfirm": "确定清空该标签页的 {{count}} 条记录吗？此操作不可撤销。"
   }
 }

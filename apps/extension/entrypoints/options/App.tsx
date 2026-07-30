@@ -23,11 +23,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import {
-  RULE_HIGHLIGHT_QUERY_PARAM,
-  RuleActionType,
-  RuleExecutionChannel,
-} from '@req-freedom/shared';
+import { RULE_HIGHLIGHT_QUERY_PARAM, RuleExecutionChannel } from '@req-freedom/shared';
 import type {
   DnrRegistrationIssue,
   DnrRegistrationIssues,
@@ -41,7 +37,9 @@ import {
   saveConfiguration,
   saveGroups,
   watchDnrIssues,
+  watchHitTabsChanged,
 } from '@/utils/storage';
+import { fetchHitTabSummaries, sumHitRecords } from '@/utils/rule-hit-client';
 import {
   createConfigurationExport,
   getConfigurationExportFileName,
@@ -56,7 +54,9 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import RequestLogPanel from './RequestLogPanel';
 import RuleEditor from './RuleEditor';
+import { ACTION_BADGE_CLASS, CHANNEL_BADGE_CLASS } from './rule-badges';
 import {
   CurlImportDialog,
   HAR_IMPORT_NEW_GROUP,
@@ -65,12 +65,13 @@ import {
 } from './RuleImportDialog';
 import TemplateLibrary from './TemplateLibrary';
 import {
+  OPTIONS_VIEW,
   RULE_STATUS_FILTER,
   ManagementStatistics,
   OptionsPageHeader,
   RuleManagementToolbar,
 } from './ManagementDashboard';
-import type { RuleStatusFilter } from './ManagementDashboard';
+import type { OptionsView, RuleStatusFilter } from './ManagementDashboard';
 
 /**
  * 规则「表头」与「数据行」共用的网格列模板，保证列对齐。
@@ -92,30 +93,6 @@ const RULE_ROW_GRID =
  * 中途取消则不产生空的默认分组。
  */
 const DEFAULT_GROUP_SENTINEL = '__req-freedom:default-group__';
-
-/**
- * 执行通道对应的中性灰标签：与右侧彩色动作徽标区分开，避免同色误读。
- * 两档用不同深浅的前景灰底表达差异，具体是哪个通道由徽标文字（DNR / 页面补丁）说明。
- */
-const CHANNEL_BADGE_CLASS: Record<RuleExecutionChannel, string> = {
-  [RuleExecutionChannel.Dnr]: 'bg-foreground/10 text-muted-foreground',
-  [RuleExecutionChannel.PagePatch]: 'bg-foreground/[0.04] text-muted-foreground',
-};
-
-/**
- * 各动作类型对应的柔和标签颜色：15% 色底 + 随明暗翻转的强调文字（--accent-* 见 style.css），
- * 浅色/深色两套下都保证对比度与扫读性。一条规则可含多个动作，列表按此逐个上色以便快速扫读。
- */
-const ACTION_BADGE_CLASS: Record<RuleActionType, string> = {
-  [RuleActionType.Block]: 'bg-rose-500/15 text-[var(--accent-rose)]',
-  [RuleActionType.Redirect]: 'bg-amber-500/15 text-[var(--accent-amber)]',
-  [RuleActionType.InjectParams]: 'bg-indigo-500/15 text-[var(--accent-indigo)]',
-  [RuleActionType.ModifyHeaders]: 'bg-cyan-500/15 text-[var(--accent-cyan)]',
-  [RuleActionType.MockResponse]: 'bg-violet-500/15 text-[var(--accent-violet)]',
-  [RuleActionType.Delay]: 'bg-orange-500/15 text-[var(--accent-orange)]',
-  [RuleActionType.InsertScript]: 'bg-emerald-500/15 text-[var(--accent-emerald)]',
-  [RuleActionType.ModifyRequestBody]: 'bg-pink-500/15 text-[var(--accent-pink)]',
-};
 
 /**
  * 被浏览器拒绝注册的动作徽标样式：与 ACTION_BADGE_CLASS 同一层级，用于覆盖动作本身的配色。
@@ -846,9 +823,13 @@ export default function App() {
   const [highlightedRuleId, setHighlightedRuleId] = useState<string | null>(() =>
     new URLSearchParams(window.location.search).get(RULE_HIGHLIGHT_QUERY_PARAM),
   );
+  /** 当前展示的主视图；请求日志从顶栏「更多」菜单进入。 */
+  const [view, setView] = useState<OptionsView>(OPTIONS_VIEW.Rules);
 
   /** 各规则的 DNR 注册失败记录，用于在规则行上标出不会生效的动作。 */
   const [dnrIssues, setDnrIssues] = useState<DnrRegistrationIssues>({});
+  /** 各标签页合计的命中记录条数，统计卡片据此展示并作为请求日志入口。 */
+  const [hitRecordCount, setHitRecordCount] = useState(0);
 
   // 初始加载分组
   useEffect(() => {
@@ -859,6 +840,18 @@ export default function App() {
   useEffect(() => {
     void getDnrIssues().then(setDnrIssues);
     return watchDnrIssues(setDnrIssues);
+  }, []);
+
+  // 命中条数读一次后订阅命中镜像：统计卡片随页面的新请求增长，无需手动刷新管理页
+  useEffect(() => {
+    /** 重新汇总各标签页的命中条数；读取失败时保留上一次的数字，卡片不为此报错。 */
+    const refresh = (): void => {
+      void fetchHitTabSummaries()
+        .then((summaries) => setHitRecordCount(sumHitRecords(summaries ?? [])))
+        .catch(() => undefined);
+    };
+    refresh();
+    return watchHitTabsChanged(refresh);
   }, []);
 
   // popup 带规则 ID 跳转时，清除会隐藏目标的筛选、展开所属分组，再滚动并高亮目标行。
@@ -925,6 +918,17 @@ export default function App() {
     );
     setGroups(groupsWithUpdatedAt);
     await saveGroups(groupsWithUpdatedAt);
+  };
+
+  /**
+   * 从请求日志跳回规则视图并定位该规则。
+   *
+   * 复用既有的高亮流程：设置目标规则 ID 后，负责清筛选、展开分组与滚动的副作用会自行接管。
+   * @param ruleId 要定位的业务规则 ID
+   */
+  const handleJumpToRule = (ruleId: string): void => {
+    setView(OPTIONS_VIEW.Rules);
+    setHighlightedRuleId(ruleId);
   };
 
   // ---------- 分组操作 ----------
@@ -1372,12 +1376,22 @@ export default function App() {
       />
 
       <main className="mx-auto max-w-[1440px] space-y-5 px-6 py-6">
+        {view === OPTIONS_VIEW.Logs ? (
+          <RequestLogPanel
+            groups={groups}
+            onBack={() => setView(OPTIONS_VIEW.Rules)}
+            onJumpToRule={handleJumpToRule}
+          />
+        ) : (
+          <>
         {groups.length > 0 && (
           <>
             <ManagementStatistics
               groupCount={groups.length}
               ruleCount={totalRuleCount}
               enabledRuleCount={enabledRuleCount}
+              hitRecordCount={hitRecordCount}
+              onOpenRequestLog={() => setView(OPTIONS_VIEW.Logs)}
             />
             <RuleManagementToolbar
               searchQuery={searchQuery}
@@ -1475,6 +1489,8 @@ export default function App() {
             <FolderPlus />
             {t('app.newGroup')}
           </Button>
+        )}
+          </>
         )}
       </main>
 

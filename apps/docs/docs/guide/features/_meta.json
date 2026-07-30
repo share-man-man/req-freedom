@@ -9,6 +9,7 @@
   "modify-request-body",
   "request-body-match",
   "scope-filter",
+  "request-log",
   "dynamic-variables",
   "template-library"
 ]
