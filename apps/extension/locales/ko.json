@@ -412,7 +412,8 @@
     },
     "moreMenu": {
       "trigger": "더 보기",
-      "language": "언어"
+      "language": "언어",
+      "about": "정보"
     },
     "statistics": {
       "ariaLabel": "규칙 통계",

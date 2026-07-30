@@ -412,7 +412,8 @@
     },
     "moreMenu": {
       "trigger": "Ещё",
-      "language": "Язык"
+      "language": "Язык",
+      "about": "О расширении"
     },
     "statistics": {
       "ariaLabel": "Статистика правил",

@@ -412,7 +412,8 @@
     },
     "moreMenu": {
       "trigger": "More",
-      "language": "Language"
+      "language": "Language",
+      "about": "About"
     },
     "statistics": {
       "ariaLabel": "Rule statistics",

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronLeft, ChevronRight, Download, FileJson, FolderPlus, Languages, ListChecks, Monitor, Moon, MoreHorizontal, ScrollText, Search, Sun, Terminal, ToggleRight, Upload } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Download, FileJson, FolderPlus, Info, Languages, ListChecks, Monitor, Moon, MoreHorizontal, ScrollText, Search, Sun, Terminal, ToggleRight, Upload } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { browser } from 'wxt/browser';
 import { RuleExecutionChannel, ThemeMode } from '@req-freedom/shared';
 import { LogoMark } from '@/components/logo-mark';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,9 @@ import {
 } from '@/components/ui/select';
 import { changeLocale, SUPPORTED_LOCALES, type SupportedLocale } from '@/utils/i18n';
 import { getThemeMode, setTheme } from '@/utils/theme';
+
+/** GitHub Pages 上的在线文档站地址，「关于」菜单项指向这里。 */
+const DOCS_SITE_URL = 'https://share-man-man.github.io/req-freedom/';
 
 /** 各受支持语言的自称展示名（用当前语言书写，不随界面语言翻译）。 */
 const LOCALE_DISPLAY_NAMES: Record<SupportedLocale, string> = {
@@ -147,6 +151,11 @@ function MoreMenu({
   const chooseTheme = (nextTheme: ThemeMode): void => {
     setThemeState(nextTheme);
     choose(() => void setTheme(nextTheme));
+  };
+
+  /** 在新标签页打开在线文档站，并收起菜单。 */
+  const openDocs = (): void => {
+    choose(() => void browser.tabs.create({ url: DOCS_SITE_URL }));
   };
 
   /** 当前主题对应的菜单图标。 */
@@ -312,6 +321,16 @@ function MoreMenu({
               </div>
             )}
           </div>
+          <div className="my-1 border-t border-border" />
+          <button
+            type="button"
+            role="menuitem"
+            onClick={openDocs}
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+          >
+            <Info className="size-4 text-muted-foreground" />
+            {t('dashboard.moreMenu.about')}
+          </button>
         </div>,
         document.body,
       )}

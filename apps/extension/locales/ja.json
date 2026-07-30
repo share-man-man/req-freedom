@@ -412,7 +412,8 @@
     },
     "moreMenu": {
       "trigger": "その他",
-      "language": "表示言語"
+      "language": "表示言語",
+      "about": "このツールについて"
     },
     "statistics": {
       "ariaLabel": "ルール統計",

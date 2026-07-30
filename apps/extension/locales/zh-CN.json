@@ -412,7 +412,8 @@
     },
     "moreMenu": {
       "trigger": "更多",
-      "language": "界面语言"
+      "language": "界面语言",
+      "about": "关于"
     },
     "statistics": {
       "ariaLabel": "规则统计",
