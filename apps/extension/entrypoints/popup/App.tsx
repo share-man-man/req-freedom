@@ -222,6 +222,17 @@ export default function App() {
   const hasRules = groups.some((group) => group.rules.length > 0);
   /** 便于规则列表判断命中状态的集合。 */
   const hitRuleIdSet = new Set(hitRuleIds);
+  /** 当前仍存在的规则 ID。 */
+  const knownRuleIds = new Set(groups.flatMap((group) => group.rules.map((rule) => rule.id)));
+  /**
+   * 顶部计数只统计列表里还找得到的规则。
+   *
+   * 命中日志按规则 ID 记录，规则删除后它的命中仍留在日志里；照单全收会让顶部数字大于
+   * 下方可见的标记数，而多出来的那几条没有任何行可以对应，用户无从解释差额。
+   * 过滤后为零时整张卡片隐藏，与其他零命中的页面一视同仁——日志里残留什么是内部细节，
+   * 不需要向用户解释。
+   */
+  const visibleHitCount = hitRuleIds.filter((ruleId) => knownRuleIds.has(ruleId)).length;
 
 
   return (
@@ -243,12 +254,12 @@ export default function App() {
       </header>
 
       {/* 当前页面命中提示：总数同时包含 DNR 与页面补丁通道。 */}
-      {hitRuleIds.length > 0 && (
+      {visibleHitCount > 0 && (
         <div className="mx-3 mt-3 flex items-start gap-2 rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-primary">
           <CheckCircle2 className="mt-px size-4 shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-medium leading-4">
-              {t('popup.hitTotal', { count: hitRuleIds.length })}
+              {t('popup.hitTotal', { count: visibleHitCount })}
             </p>
             {hitsTruncated && (
               <p className="mt-0.5 text-[11px] text-primary/80">
