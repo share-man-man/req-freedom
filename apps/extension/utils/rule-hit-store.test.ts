@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RuleHit } from '@req-freedom/shared';
 import { RuleActionType, STORAGE_KEY_RULE_HITS } from '@req-freedom/shared';
+import { MAX_TRACKED_TABS } from './rule-hit';
 
 /**
  * 由 mock 与用例共享的 storage.session 假实现。
@@ -54,10 +55,11 @@ vi.mock('wxt/browser', () => ({
 /**
  * 构造一条命中记录。
  * @param ruleId 业务规则 ID
+ * @param at 记录时间，用于构造标签页之间的活跃度差异
  * @returns 字段完整的命中记录
  */
-function hit(ruleId: string): RuleHit {
-  return { ruleId, action: RuleActionType.Block, url: 'https://x/api', method: 'GET', at: 1 };
+function hit(ruleId: string, at = 1): RuleHit {
+  return { ruleId, action: RuleActionType.Block, url: 'https://x/api', method: 'GET', at };
 }
 
 /**
@@ -259,5 +261,57 @@ describe('孤儿日志回收', () => {
     await restoring;
 
     expect(store.getHitSummary(7).ruleIds).toEqual(['fresh']);
+  });
+});
+
+describe('标签页数量上限', () => {
+  it('超出上限时淘汰最久未更新的标签页', async () => {
+    const store = await loadStore();
+
+    for (let tabId = 1; tabId <= MAX_TRACKED_TABS + 1; tabId += 1) {
+      store.recordHits(tabId, [hit('r')]);
+    }
+
+    expect(store.listTabsWithHits()).toHaveLength(MAX_TRACKED_TABS);
+    expect(store.getHitSummary(1).ruleIds).toEqual([]);
+    expect(store.getHitSummary(MAX_TRACKED_TABS + 1).ruleIds).toEqual(['r']);
+    await flushMirror();
+    expect(session.data[mirrorKey(1)]).toBeUndefined();
+    expect(session.data[mirrorKey(MAX_TRACKED_TABS + 1)]).toBeDefined();
+  });
+
+  it('再次记录会刷新活跃度，改由次久未更新的标签页被淘汰', async () => {
+    const store = await loadStore();
+
+    for (let tabId = 1; tabId <= MAX_TRACKED_TABS; tabId += 1) {
+      store.recordHits(tabId, [hit('r')]);
+    }
+    // 标签页 1 重新活跃，此时最久未更新的是标签页 2。
+    store.recordHits(1, [hit('again')]);
+    store.recordHits(MAX_TRACKED_TABS + 1, [hit('newest')]);
+
+    expect(store.getHitSummary(1).ruleIds).toEqual(['r', 'again']);
+    expect(store.getHitSummary(2).ruleIds).toEqual([]);
+  });
+
+  it('恢复超额时按最后命中时间保留较活跃的标签页', async () => {
+    // 刻意让镜像的读取顺序与活跃度相反：tabId 越小越活跃。若恢复后不按活跃度重排，
+    // 淘汰会从读取顺序的队首开始，正好把最活跃的标签页丢掉。
+    for (let tabId = 1; tabId <= MAX_TRACKED_TABS + 2; tabId += 1) {
+      session.data[mirrorKey(tabId)] = {
+        hits: [hit('r', MAX_TRACKED_TABS + 3 - tabId)],
+        truncated: false,
+      };
+    }
+    tabs.live = Array.from({ length: MAX_TRACKED_TABS + 2 }, (_, index) => ({ id: index + 1 }));
+    const store = await loadStore();
+
+    await store.restoreHits();
+
+    expect(store.listTabsWithHits()).toHaveLength(MAX_TRACKED_TABS);
+    expect(store.getHitSummary(1).ruleIds).toEqual(['r']);
+    expect(store.getHitSummary(2).ruleIds).toEqual(['r']);
+    expect(store.getHitSummary(MAX_TRACKED_TABS + 1).ruleIds).toEqual([]);
+    expect(store.getHitSummary(MAX_TRACKED_TABS + 2).ruleIds).toEqual([]);
   });
 });

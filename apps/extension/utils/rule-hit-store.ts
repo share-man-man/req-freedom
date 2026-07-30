@@ -4,6 +4,8 @@ import { STORAGE_KEY_RULE_HITS } from '@req-freedom/shared';
 import {
   appendHits,
   createTabHitLog,
+  getLastHitAt,
+  MAX_TRACKED_TABS,
   mergeRestoredHits,
   summarizeHits,
   type TabHitLog,
@@ -98,11 +100,42 @@ function scheduleMirror(tabId: number): void {
 }
 
 /**
- * 修改某个标签页的命中日志，并同步维护镜像与恢复登记。
+ * 登记标签页在冷启动恢复完成前被改动过。
+ * @param tabId 被改动的标签页
+ */
+function markMutated(tabId: number): void {
+  if (!restoreSettled) {
+    mutatedTabIds.add(tabId);
+  }
+}
+
+/**
+ * 丢弃最久未更新的标签页日志，直到标签页数量不超过上限。
+ *
+ * 按整个标签页淘汰，而不是跨标签页削减条数：popup 只读当前标签页，整体丢弃是可解释的
+ * （那个标签页的统计被回收了），跨标签页削减则会让某个标签页的数字变成静默的半截。
+ * hitsByTab 的迭代顺序即插入顺序，而每次改动都会重新插入，因此队首就是最久未更新的标签页。
+ */
+function evictOverflow(): void {
+  while (hitsByTab.size > MAX_TRACKED_TABS) {
+    /** 当前最久未更新的标签页。 */
+    const oldest = hitsByTab.keys().next();
+    if (oldest.done) {
+      return;
+    }
+    hitsByTab.delete(oldest.value);
+    markMutated(oldest.value);
+    scheduleMirror(oldest.value);
+  }
+}
+
+/**
+ * 修改某个标签页的命中日志，并同步维护镜像、恢复登记与标签页数量上限。
  *
  * 所有改动内存的路径都必须经由此函数。内存是权威、镜像是副本，二者的同步此前依赖
  * 每个调用点自己记得调用 scheduleMirror，`clearHits` 就曾因少了这一步而在 Service Worker
- * 冷启动窗口内清空失效。这里把「改内存」「打脏标记」「登记已改动」绑成一个不可分割的动作。
+ * 冷启动窗口内清空失效。这里把「改内存」「打脏标记」「登记已改动」「超额淘汰」绑成一个
+ * 不可分割的动作。
  * @param tabId 目标标签页
  * @param nextLog 依据当前日志算出的新日志；返回 undefined 表示删除该标签页的日志
  */
@@ -112,15 +145,14 @@ function mutateLog(
 ): void {
   /** 改动后的日志；undefined 代表该标签页不再有日志。 */
   const next = nextLog(hitsByTab.get(tabId));
+  // 先删后插：Map 的迭代顺序即插入顺序，重新插入使其等价于「最近改动顺序」，超额淘汰据此取队首。
+  hitsByTab.delete(tabId);
   if (next) {
     hitsByTab.set(tabId, next);
-  } else {
-    hitsByTab.delete(tabId);
   }
-  if (!restoreSettled) {
-    mutatedTabIds.add(tabId);
-  }
+  markMutated(tabId);
   scheduleMirror(tabId);
+  evictOverflow();
 }
 
 /**
@@ -173,6 +205,23 @@ export function getHitSummary(tabId: number): RuleHitSummary {
  */
 function hasHits(tabId: number): boolean {
   return (hitsByTab.get(tabId)?.hits.length ?? 0) > 0;
+}
+
+/**
+ * 按最后一条命中的时间重排内存日志，使迭代顺序恢复为「最近改动顺序」。
+ *
+ * 仅在冷启动恢复后调用：此时 Map 里混着镜像读回的条目与重启后已记录的新命中，
+ * 两者的插入顺序都不代表活跃度。
+ */
+function reorderByRecency(): void {
+  /** 按活跃度升序排列的全部条目。 */
+  const ordered = [...hitsByTab.entries()].sort(
+    ([, left], [, right]) => getLastHitAt(left) - getLastHitAt(right),
+  );
+  hitsByTab.clear();
+  for (const [tabId, log] of ordered) {
+    hitsByTab.set(tabId, log);
+  }
 }
 
 /**
@@ -233,6 +282,9 @@ export async function restoreHits(): Promise<void> {
       restored.push([tabId, { hits: log.hits, truncated: Boolean(log.truncated) }]);
     }
     mergeRestoredHits(hitsByTab, restored, mutatedTabIds);
+    // 恢复后按活跃度重排：镜像读回的顺序与最近改动无关，重排后队首才真的是最久未更新的标签页。
+    reorderByRecency();
+    evictOverflow();
   } catch (error) {
     console.error('[req-freedom] 恢复命中日志镜像失败：', error);
   } finally {

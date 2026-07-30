@@ -4,6 +4,15 @@ import { RuleActionType } from '@req-freedom/shared';
 /** 单个标签页最多保留的命中条数，超出后丢弃最早的记录。 */
 const MAX_RULE_HITS_PER_TAB = 1000;
 
+/**
+ * 同时保留命中日志的标签页上限，超出后丢弃最久未更新的标签页。
+ *
+ * 单标签页的条数上限约束不了标签页数量，而 storage.session 的配额（约 10MB）是全局的：
+ * 长时间开着大量标签页调试时镜像会逼近配额，写入失败只能静默降级。按经验的单标签页体量
+ * 估算，这个上限对应数 MB 量级的镜像，留有充裕余量。
+ */
+export const MAX_TRACKED_TABS = 30;
+
 /** 单条跨上下文消息最多接受的命中条数。 */
 const MAX_HITS_PER_MESSAGE = 100;
 
@@ -58,6 +67,17 @@ export function appendHits(
     log.truncated = true;
   }
   return log;
+}
+
+/**
+ * 取出日志中最后一条命中的时间，用作该标签页的活跃度。
+ *
+ * 镜像不单独记录活跃度：最后一条命中的时间已经在日志里，冷启动据此还原淘汰顺序即可。
+ * @param log 标签页命中日志
+ * @returns 最后一条命中的时间；日志为空时为 0
+ */
+export function getLastHitAt(log: TabHitLog): number {
+  return log.hits[log.hits.length - 1]?.at ?? 0;
 }
 
 /**
