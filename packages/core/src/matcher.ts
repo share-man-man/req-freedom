@@ -1,6 +1,21 @@
 import { BodyMatchType, MatchType, RuleScopeType } from '@req-freedom/shared';
 import type { BodyMatcher, RuleScope, ScopeContext } from '@req-freedom/shared';
 
+/** 正则的编译方式：通配符模式需先转义再首尾锚定，用户正则直接编译。 */
+type RegExpKind = 'raw' | 'wildcard';
+
+/** 已编译正则的缓存上限；超出后整体清空，避免规则被反复编辑时无界增长。 */
+const REGEXP_CACHE_LIMIT = 500;
+
+/**
+ * 已编译正则的缓存。
+ *
+ * matchUrl 会在 Service Worker 中对每个网络请求逐规则调用，重复编译同一模式是纯粹的重复做功。
+ * 缓存键取自模式本身，因此不存在失效问题；非法正则同样缓存（记为 undefined），
+ * 避免每个请求都重新构造并抛错。
+ */
+const regExpCache = new Map<string, RegExp | undefined>();
+
 /**
  * 将通配符模式转换为正则表达式（* 匹配任意长度字符，其余字符按字面量处理）
  * @param pattern 通配符模式，如 https://api.example.com/*
@@ -10,6 +25,33 @@ function wildcardToRegExp(pattern: string): RegExp {
   // 先转义正则元字符，再把转义后的 \* 还原为 .*
   const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
   return new RegExp(`^${escaped}$`);
+}
+
+/**
+ * 取得模式对应的已编译正则，未命中缓存时编译一次。
+ * @param kind 编译方式
+ * @param pattern 匹配模式
+ * @returns 编译好的正则；正则语法非法时为 undefined
+ */
+function getRegExp(kind: RegExpKind, pattern: string): RegExp | undefined {
+  /** 缓存键；编译方式作前缀，避免同一字符串在两种编译方式下互相覆盖。 */
+  const key = `${kind}:${pattern}`;
+  if (regExpCache.has(key)) {
+    return regExpCache.get(key);
+  }
+  if (regExpCache.size >= REGEXP_CACHE_LIMIT) {
+    regExpCache.clear();
+  }
+  /** 本次编译结果。 */
+  let compiled: RegExp | undefined;
+  try {
+    compiled = kind === 'wildcard' ? wildcardToRegExp(pattern) : new RegExp(pattern);
+  } catch {
+    // 用户输入的正则可能非法，静默降级为不匹配
+    compiled = undefined;
+  }
+  regExpCache.set(key, compiled);
+  return compiled;
 }
 
 /**
@@ -26,14 +68,9 @@ export function matchUrl(url: string, matchType: MatchType, pattern: string): bo
     case MatchType.Equals:
       return url === pattern;
     case MatchType.Wildcard:
-      return wildcardToRegExp(pattern).test(url);
+      return getRegExp('wildcard', pattern)?.test(url) ?? false;
     case MatchType.Regex:
-      try {
-        return new RegExp(pattern).test(url);
-      } catch {
-        // 用户输入的正则可能非法，静默降级为不匹配
-        return false;
-      }
+      return getRegExp('raw', pattern)?.test(url) ?? false;
     default:
       return false;
   }
@@ -105,12 +142,7 @@ export function matchRequestBody(matcher: BodyMatcher, body: string): boolean {
     case BodyMatchType.Contains:
       return body.includes(matcher.value);
     case BodyMatchType.Regex:
-      try {
-        return new RegExp(matcher.value).test(body);
-      } catch {
-        // 用户输入的正则可能非法，静默降级为不匹配
-        return false;
-      }
+      return getRegExp('raw', matcher.value)?.test(body) ?? false;
     case BodyMatchType.GraphQlOperation:
       return extractGraphQlOperationNames(body).includes(matcher.value);
     default:

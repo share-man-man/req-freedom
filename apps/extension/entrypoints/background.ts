@@ -17,6 +17,7 @@ import { initActionIcon, setActionIconState } from '@/utils/action-icon';
 import { setActiveDnrRules } from '@/utils/active-rules-cache';
 import { toDnrRules } from '@/utils/dnr';
 import {
+  forgetTab,
   observeTopLevelNavigation,
   setRuleHitHandler,
   syncMatchListener,
@@ -326,11 +327,13 @@ export default defineBackground(() => {
   browser.tabs.onRemoved.addListener((tabId) => {
     scheduleResync();
     dropTab(tabId);
+    forgetTab(tabId);
   });
   browser.tabs.onMoved.addListener(() => scheduleResync());
   browser.tabs.onReplaced.addListener((_addedTabId, removedTabId) => {
     scheduleResync();
     dropTab(removedTabId);
+    forgetTab(removedTabId);
   });
   browser.tabs.onAttached.addListener((tabId) => {
     scheduleResync();

@@ -91,25 +91,48 @@ function onMatchableRequest(details: ObservedRequest): undefined {
 /** 记录命中后的回调，由 background 注入以更新存储与图标。 */
 let onRuleHits: (tabId: number, hits: RuleHit[]) => void = () => undefined;
 
+/** 各标签页最近一次顶层导航的 requestId，用于识别同一次导航的重定向跳。 */
+const lastTopLevelRequestIdByTab = new Map<number, string>();
+
 /**
  * 注册顶层导航监听，用于在新页面开始加载时重置命中日志。
  *
  * 常驻注册：每个页面仅触发一次，开销极小；且它不能跟随匹配组一起按需注册，
  * 否则没有启用规则时清空逻辑会一并失效。
- * @param onTopLevelNavigation 顶层导航开始时的回调
+ *
+ * 重定向跳必须与新导航区分开：主文档被重定向时，onBeforeRequest 会以**同一个 requestId**
+ * 对新地址再触发一次，若照常重置，刚记录的重定向命中会被自己抹掉——Redirect 与
+ * InjectParams 规则命中顶层导航时因此永远统计不到。requestId 在整个浏览器会话内唯一，
+ * 且跨重定向保持不变，据此即可判定。
+ * @param onTopLevelNavigation 新的顶层导航开始时的回调
  */
 export function observeTopLevelNavigation(
   onTopLevelNavigation: (tabId: number) => void,
 ): void {
   browser.webRequest.onBeforeRequest.addListener(
-    (details: { tabId: number }): undefined => {
-      if (details.tabId >= 0) {
-        onTopLevelNavigation(details.tabId);
+    (details: { tabId: number; requestId: string }): undefined => {
+      if (details.tabId < 0) {
+        return undefined;
       }
+      if (lastTopLevelRequestIdByTab.get(details.tabId) === details.requestId) {
+        return undefined;
+      }
+      lastTopLevelRequestIdByTab.set(details.tabId, details.requestId);
+      onTopLevelNavigation(details.tabId);
       return undefined;
     },
     { urls: ['<all_urls>'], types: ['main_frame'] },
   );
+}
+
+/**
+ * 丢弃某个标签页的导航跟踪状态。
+ *
+ * 标签页关闭后其 requestId 不会再出现，留着只会让映射随会话无界增长。
+ * @param tabId 标签页 ID
+ */
+export function forgetTab(tabId: number): void {
+  lastTopLevelRequestIdByTab.delete(tabId);
 }
 
 /**

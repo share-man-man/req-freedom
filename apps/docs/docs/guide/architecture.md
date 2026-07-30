@@ -61,6 +61,7 @@ req-freedom/
 - **页面补丁通道逐条自报**。执行计划（`utils/page-plan.ts`）在决定动作的同时产出命中记录，不做事后推导。
 - **状态以内存为权威**，`storage.session` 只作防抖镜像。命中是逐请求写入的，若以 storage 为权威，每条命中都要全量序列化整个数组。
 - **重置点是顶层 `main_frame` 请求**（`webRequest.onBeforeRequest`）。重置与该请求自身的命中来自同一事件，天然有序，因此不需要统计窗口时间戳或 Document token。
+  - 重定向跳按 `requestId` 与新导航区分：主文档被重定向时会以同一 `requestId` 再次触发 `onBeforeRequest`，此时不重置，否则这次导航自己的重定向命中会被抹掉。
 - MAIN world 与 ISOLATED world 在 `document_start` 建立一次 `MessageChannel`，命中记录只通过私有端口传递；bridge 仍按当前生效规则 ID 校验上报内容。
 
 ## 已知限制

@@ -100,3 +100,30 @@ describe('findMatchedRules', () => {
       .toEqual(['first', 'second']);
   });
 });
+
+// 正则按模式缓存以避免逐请求重复编译，以下用例守护缓存不改变匹配语义。
+describe('正则缓存', () => {
+  it('同一模式重复匹配结果稳定', () => {
+    const wildcard = rule('wildcard', MatchType.Wildcard, 'https://x.com/api/*');
+
+    expect(matches(wildcard, 'https://x.com/api/a')).toBe(true);
+    expect(matches(wildcard, 'https://y.com/api/a')).toBe(false);
+    expect(matches(wildcard, 'https://x.com/api/b')).toBe(true);
+  });
+
+  it('非法正则重复匹配始终不命中', () => {
+    const invalid = rule('invalid', MatchType.Regex, '(');
+
+    expect(matches(invalid, 'https://x.com/(')).toBe(false);
+    expect(matches(invalid, 'https://x.com/(')).toBe(false);
+  });
+
+  it('Wildcard 与 Regex 使用同一模式字符串时互不串用', () => {
+    /** 通配符下 `.` 是字面量，正则下 `.` 匹配任意字符。 */
+    const pattern = 'https://x.com/a.b';
+
+    expect(matches(rule('w', MatchType.Wildcard, pattern), 'https://x.com/aXb')).toBe(false);
+    expect(matches(rule('r', MatchType.Regex, pattern), 'https://x.com/aXb')).toBe(true);
+    expect(matches(rule('w2', MatchType.Wildcard, pattern), 'https://x.com/a.b')).toBe(true);
+  });
+});
