@@ -1,6 +1,10 @@
 import { browser } from 'wxt/browser';
-import type { RuleGroup } from '@req-freedom/shared';
-import { STORAGE_KEY_ENABLED, STORAGE_KEY_GROUPS } from '@req-freedom/shared';
+import type { DnrRegistrationIssues, RuleGroup } from '@req-freedom/shared';
+import {
+  STORAGE_KEY_DNR_ISSUES,
+  STORAGE_KEY_ENABLED,
+  STORAGE_KEY_GROUPS,
+} from '@req-freedom/shared';
 
 /**
  * 读取全部规则分组
@@ -50,4 +54,41 @@ export async function saveConfiguration(groups: RuleGroup[], enabled: boolean): 
     [STORAGE_KEY_GROUPS]: groups,
     [STORAGE_KEY_ENABLED]: enabled,
   });
+}
+
+/**
+ * 读取 DNR 注册失败记录。
+ *
+ * 记录由 background 每轮规则同步后写入 storage.session；Service Worker 尚未完成首次同步时
+ * 读到空对象，界面据此不显示任何失败提示。
+ * @returns 按业务规则 ID 索引的注册失败记录，无失败时为空对象
+ */
+export async function getDnrIssues(): Promise<DnrRegistrationIssues> {
+  /** storage 查询结果 */
+  const result = await browser.storage.session.get(STORAGE_KEY_DNR_ISSUES);
+  return (result[STORAGE_KEY_DNR_ISSUES] as DnrRegistrationIssues | undefined) ?? {};
+}
+
+/**
+ * 订阅 DNR 注册失败记录的变化。
+ *
+ * 规则改动后 background 会重新同步并覆盖该记录，界面借此即时反映最新结果，无需轮询。
+ * @param onChange 记录变化时的回调
+ * @returns 取消订阅的函数
+ */
+export function watchDnrIssues(
+  onChange: (issues: DnrRegistrationIssues) => void,
+): () => void {
+  /** storage 变更监听器。 */
+  const listener = (
+    changes: Record<string, { newValue?: unknown }>,
+    area: string,
+  ): void => {
+    if (area !== 'session' || !(STORAGE_KEY_DNR_ISSUES in changes)) {
+      return;
+    }
+    onChange((changes[STORAGE_KEY_DNR_ISSUES]?.newValue as DnrRegistrationIssues | undefined) ?? {});
+  };
+  browser.storage.onChanged.addListener(listener);
+  return () => browser.storage.onChanged.removeListener(listener);
 }

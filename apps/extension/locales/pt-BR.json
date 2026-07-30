@@ -248,6 +248,7 @@
     }
   },
   "app": {
+    "dnrRejected": "O navegador rejeitou esta ação, portanto ela não está em vigor: {{message}}",
     "scopeBadge": {
       "title": "{{scopeLabel}} · {{count}} objetos"
     },
@@ -364,6 +365,7 @@
     }
   },
   "popup": {
+    "ruleNotRegistered": "O navegador rejeitou esta regra, portanto ela não está em vigor: {{message}}",
     "activeCount": "{{count}} regras ativas",
     "globallyDisabled": "Desativado globalmente",
     "noRules": "Nenhuma regra ainda",

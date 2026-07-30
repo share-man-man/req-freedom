@@ -80,15 +80,22 @@ function rule(id: string, actions: unknown[], overrides: Partial<Rule> = {}): Ru
 
 /**
  * 构造观测快照。
+ *
+ * 注册成功的动作默认取规则声明的全部动作，等价于「本轮提交全部成功」；需要构造注册失败
+ * 时显式传入。
  * @param rules DNR 通道生效规则
  * @param tabIdsByRuleId 作用域规则解析出的目标 tabId
+ * @param registeredActionsByRuleId 各规则实际注册成功的动作类型
  * @returns 观测快照
  */
 function snapshot(
   rules: Rule[],
   tabIdsByRuleId: Map<string, number[]> = new Map(),
+  registeredActionsByRuleId: Map<string, Set<RuleActionType>> = new Map(
+    rules.map((item) => [item.id, new Set(item.actions.map((action) => action.type))]),
+  ),
 ): ActiveDnrRuleSnapshot {
-  return { rules, tabIdsByRuleId };
+  return { rules, tabIdsByRuleId, registeredActionsByRuleId };
 }
 
 /** 一条同时包含重定向与 Header 改写的规则。 */
@@ -114,20 +121,36 @@ describe('toRuleHits', () => {
     ]);
   });
 
-  it('空 Header 列表的改写动作不产生命中', () => {
+  it('注册失败的动作不计入命中，同规则其余动作照常记录', () => {
+    // 浏览器拒绝了 Header 改写、接受了重定向：规则确实生效了一半，统计也只能算一半。
     const hits = toRuleHits(
       { url: 'https://x/api', method: 'GET', tabId: 1 },
-      snapshot([rule('empty', [{ type: RuleActionType.ModifyHeaders, headers: [] }])]),
+      snapshot(
+        [TWO_ACTION_RULE],
+        new Map(),
+        new Map([['two', new Set([RuleActionType.Redirect])]]),
+      ),
+      1,
+    );
+
+    expect(hits.map((item) => item.action)).toEqual([RuleActionType.Redirect]);
+  });
+
+  it('整条规则都没注册成功时不产生命中', () => {
+    const hits = toRuleHits(
+      { url: 'https://x/api', method: 'GET', tabId: 1 },
+      snapshot([TWO_ACTION_RULE], new Map(), new Map()),
       1,
     );
 
     expect(hits).toEqual([]);
   });
 
-  it('页面补丁专属动作不计入 DNR 通道命中', () => {
+  it('未编译成 DNR 规则的动作不计入命中', () => {
+    // 页面补丁专属动作与空 Header 列表都编译不出 DNR 规则，因而不会出现在注册成功集合里。
     const hits = toRuleHits(
       { url: 'https://x/api', method: 'GET', tabId: 1 },
-      snapshot([rule('page', [{ type: RuleActionType.Delay, preset: 'fast-3g' }])]),
+      snapshot([rule('page', [{ type: RuleActionType.Delay, preset: 'fast-3g' }])], new Map(), new Map()),
       1,
     );
 

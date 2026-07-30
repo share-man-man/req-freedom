@@ -248,6 +248,7 @@
     }
   },
   "app": {
+    "dnrRejected": "브라우저가 이 동작을 거부하여 현재 적용되지 않습니다: {{message}}",
     "scopeBadge": {
       "title": "{{scopeLabel}} · {{count}}개 대상"
     },
@@ -364,6 +365,7 @@
     }
   },
   "popup": {
+    "ruleNotRegistered": "브라우저가 이 규칙을 거부하여 현재 적용되지 않습니다: {{message}}",
     "activeCount": "규칙 {{count}}개 활성화",
     "globallyDisabled": "전체 비활성화됨",
     "noRules": "아직 규칙이 없습니다",

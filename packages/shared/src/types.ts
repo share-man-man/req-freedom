@@ -285,6 +285,23 @@ export interface RuleHit {
 }
 
 /**
+ * 一条规则在 DNR 注册阶段被浏览器拒绝的记录。
+ *
+ * DNR 规则由浏览器校验，非法规则会被拒绝且**不会生效**。而命中统计是用同一份业务规则
+ * 重新判定出来的「预测」，若不知道哪些规则实际没注册成功，就会把它们照常算作命中——
+ * 规则明明没生效、界面却显示它命中了，会把排查引向错误方向。
+ */
+export interface DnrRegistrationIssue {
+  /** 注册失败的动作类型；一条规则的多个动作各自独立注册，可能只有部分失败。 */
+  actions: RuleActionType[];
+  /** 浏览器返回的原始错误信息，用于定位具体哪里不合法。 */
+  message: string;
+}
+
+/** 按业务规则 ID 索引的 DNR 注册失败记录。 */
+export type DnrRegistrationIssues = Record<string, DnrRegistrationIssue>;
+
+/**
  * 当前标签页的命中摘要，供 popup 展示命中规则数与逐规则标记。
  *
  * 只给出去重后的规则 ID：popup 关心的是「哪些规则生效了」，而不是各触发了多少次；

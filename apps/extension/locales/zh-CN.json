@@ -248,6 +248,7 @@
     }
   },
   "app": {
+    "dnrRejected": "该动作未被浏览器接受，当前不会生效：{{message}}",
     "scopeBadge": {
       "title": "{{scopeLabel}} · {{count}} 个对象"
     },
@@ -364,6 +365,7 @@
     }
   },
   "popup": {
+    "ruleNotRegistered": "该规则未被浏览器接受，当前不会生效：{{message}}",
     "activeCount": "{{count}} 条规则生效中",
     "globallyDisabled": "已全局停用",
     "noRules": "暂无规则",

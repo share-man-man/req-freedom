@@ -145,6 +145,24 @@ Access-Control-Allow-Origin = *
               </div>
             </article>
 
+            <article class="card" data-test="invalid-rule">
+              <div class="card-heading">
+                <span class="tag">DNR</span>
+                <h2>非法规则 / 注册失败</h2>
+              </div>
+              <p>示例配置里带了一条浏览器<strong>会拒绝</strong>的规则：正则用了前瞻断言，JS 认、DNR 的 RE2 引擎不认。请求应当正常返回，插件里那条规则会被标为未被浏览器接受，且不产生命中。</p>
+              <code>/api/registration-probe.json</code>
+              <details>
+                <summary>预期表现</summary>
+                <pre>规则：regex /api/registration-probe(?=\.json) + 拦截
+请求：正常返回 200（规则没生效）
+popup：该规则右侧显示红色警告图标，且不计入命中
+管理页：被拒绝的动作标签变红，悬停可见浏览器原始报错
+其余规则：照常生效——整批提交失败后会降级为逐条注册以隔离非法规则</pre>
+              </details>
+              <button class="button" data-action="invalid-rule" type="button">发起请求</button>
+            </article>
+
             <article class="card" data-test="methods">
               <div class="card-heading">
                 <span class="tag">MULTI METHOD</span>

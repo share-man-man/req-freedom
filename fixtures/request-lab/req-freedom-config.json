@@ -100,6 +100,16 @@
           "matchType": "contains",
           "pattern": "/api/methods",
           "actions": [{ "type": "block" }]
+        },
+        {
+          "id": "rule-invalid-regex",
+          "name": "非法正则（浏览器会拒绝注册）",
+          "enabled": true,
+          "channel": "dnr",
+          "methods": ["GET"],
+          "matchType": "regex",
+          "pattern": "/api/registration-probe(?=\\.json)",
+          "actions": [{ "type": "block" }]
         }
       ]
     },

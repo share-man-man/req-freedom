@@ -65,7 +65,7 @@ function dnrWouldMatch(rule: Rule, url: string, method: string): boolean {
   if (!compiled) {
     return false;
   }
-  const { urlFilter, regexFilter, requestMethods } = compiled.condition;
+  const { urlFilter, regexFilter, requestMethods } = compiled.dnrRule.condition;
   if (requestMethods && !requestMethods.includes(method.toLowerCase() as never)) {
     return false;
   }

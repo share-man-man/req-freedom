@@ -1,6 +1,5 @@
 import { browser } from 'wxt/browser';
-import type { RuleAction, RuleHit } from '@req-freedom/shared';
-import { RuleActionType } from '@req-freedom/shared';
+import type { RuleHit } from '@req-freedom/shared';
 import { findMatchedRules, isRuleScoped } from '@req-freedom/core';
 import { getActiveDnrRules, type ActiveDnrRuleSnapshot } from './active-rules-cache';
 
@@ -15,31 +14,14 @@ export interface ObservedRequest {
 }
 
 /**
- * 判断一个业务动作是否会由 DNR 通道实际执行。
- *
- * 与旧实现不同，这里的判断只影响「是否记一条命中」，不再承担 DNR 数字 ID 的对齐职责，
- * 因此判断偏差不会导致规则注册失败。
- * @param action 业务动作
- * @returns 该动作会产生 DNR 执行时为 true
- */
-function isDnrHitAction(action: RuleAction): boolean {
-  switch (action.type) {
-    case RuleActionType.Block:
-    case RuleActionType.Redirect:
-    case RuleActionType.InjectParams:
-      return true;
-    case RuleActionType.ModifyHeaders:
-      return action.headers.length > 0;
-    default:
-      return false;
-  }
-}
-
-/**
  * 把一次被观测到的请求转换成命中记录。
  *
  * 这是「预测」而非「事实」：DNR 在网络层真正执行，扩展只能用同一份规则重新判定。
  * 判定复用 core.findMatchedRules——与页面补丁通道完全同一个匹配器，不是第二套实现。
+ *
+ * 动作层面以快照里「实际注册成功的动作」为准，而不是规则声明了哪些动作：非法规则会被
+ * 浏览器拒绝、永远不会执行，把它们算作命中等于宣称一条没生效的规则生效了。这份集合同时
+ * 编码了「哪些动作类型由 DNR 执行」，因此这里不需要第二处判断。
  * @param request 被观测的请求
  * @param snapshot DNR 通道生效规则快照
  * @param at 记录时间
@@ -58,13 +40,20 @@ export function toRuleHits(
     if (isRuleScoped(rule) && !snapshot.tabIdsByRuleId.get(rule.id)?.includes(request.tabId)) {
       return [];
     }
-    return rule.actions.filter(isDnrHitAction).map((action) => ({
-      ruleId: rule.id,
-      action: action.type,
-      url: request.url,
-      method: request.method,
-      at,
-    }));
+    /** 该规则实际注册到 DNR 的动作类型。 */
+    const registeredActions = snapshot.registeredActionsByRuleId.get(rule.id);
+    if (!registeredActions) {
+      return [];
+    }
+    return rule.actions
+      .filter((action) => registeredActions.has(action.type))
+      .map((action) => ({
+        ruleId: rule.id,
+        action: action.type,
+        url: request.url,
+        method: request.method,
+        at,
+      }));
   });
 }
 

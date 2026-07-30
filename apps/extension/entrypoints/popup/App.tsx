@@ -1,15 +1,22 @@
 import { useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
-import { CheckCircle2, ChevronDown, Settings2, Target } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, Settings2, Target } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { RuleGroup, RuleHitSummary } from '@req-freedom/shared';
+import type { DnrRegistrationIssues, RuleGroup, RuleHitSummary } from '@req-freedom/shared';
 import {
   RULE_HIGHLIGHT_QUERY_PARAM,
   RUNTIME_MSG_CLEAR_RULE_HITS,
   RUNTIME_MSG_GET_RULE_HIT_SUMMARY,
 } from '@req-freedom/shared';
 import { collectActiveRules } from '@req-freedom/core';
-import { getEnabled, getGroups, saveGroups, setEnabled } from '@/utils/storage';
+import {
+  getDnrIssues,
+  getEnabled,
+  getGroups,
+  saveGroups,
+  setEnabled,
+  watchDnrIssues,
+} from '@/utils/storage';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -32,6 +39,8 @@ export default function App() {
   const [hitsTruncated, setHitsTruncated] = useState(false);
   /** 点击 popup 时所在的标签页 ID。 */
   const [activeTabId, setActiveTabId] = useState<number | null>(null);
+  /** 各规则的 DNR 注册失败记录，用于标出「规则没生效」而非「没命中」。 */
+  const [dnrIssues, setDnrIssues] = useState<DnrRegistrationIssues>({});
   /** 命中摘要的加载状态，用于区分“零命中”和“读取失败”。 */
   const [hitSummaryStatus, setHitSummaryStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
@@ -64,6 +73,12 @@ export default function App() {
       setHitSummaryStatus('error');
     }
   };
+
+  // 注册失败记录由 background 每轮同步后写入 storage.session，这里读取一次并订阅后续变化
+  useEffect(() => {
+    void getDnrIssues().then(setDnrIssues);
+    return watchDnrIssues(setDnrIssues);
+  }, []);
 
   // 初始加载 storage 中的开关与分组
   useEffect(() => {
@@ -313,6 +328,12 @@ export default function App() {
                     {group.rules.map((rule) => {
                       /** 当前规则是否在本页面命中过。 */
                       const isMatched = hitRuleIdSet.has(rule.id);
+                      /** 当前规则被浏览器拒绝的注册记录；存在时该规则并未真正生效。 */
+                      const issue = dnrIssues[rule.id];
+                      /** 右上角标记的说明文本，注册失败时改为说明规则未生效。 */
+                      const markerLabel = issue
+                        ? t('popup.ruleNotRegistered', { message: issue.message })
+                        : t('popup.ruleMatched');
                       return (
                         <li
                           key={rule.id}
@@ -337,14 +358,22 @@ export default function App() {
                               : 'border-transparent hover:bg-muted/60'
                           }`}
                         >
-                          {/* 命中标记固定在卡片右上角，只表达「命中过」，不表达次数 */}
-                          {isMatched && (
+                          {/*
+                            右上角只有一个标记位：注册失败优先于命中占用它。
+                            规则没注册成功就不可能有命中，两者不会同时出现；而「未生效」比
+                            「没命中」信息量大得多——后者是前者的必然结果，不该抢占同一个位置。
+                          */}
+                          {(issue || isMatched) && (
                             <span
-                              className="absolute -right-1 -top-1 flex size-[18px] items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm"
-                              title={t('popup.ruleMatched')}
-                              aria-label={t('popup.ruleMatched')}
+                              className={`absolute -right-1 -top-1 flex size-[18px] items-center justify-center rounded-full shadow-sm ${
+                                issue
+                                  ? 'bg-destructive text-destructive-foreground'
+                                  : 'bg-primary text-primary-foreground'
+                              }`}
+                              title={markerLabel}
+                              aria-label={markerLabel}
                             >
-                              <Target className="size-3" />
+                              {issue ? <AlertTriangle className="size-3" /> : <Target className="size-3" />}
                             </span>
                           )}
                           <div className="flex min-w-0 flex-1 items-center gap-2">

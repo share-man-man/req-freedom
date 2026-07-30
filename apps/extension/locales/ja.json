@@ -248,6 +248,7 @@
     }
   },
   "app": {
+    "dnrRejected": "このアクションはブラウザーに拒否されたため、現在は適用されません：{{message}}",
     "scopeBadge": {
       "title": "{{scopeLabel}} · {{count}} 件"
     },
@@ -364,6 +365,7 @@
     }
   },
   "popup": {
+    "ruleNotRegistered": "このルールはブラウザーに拒否されたため、現在は適用されません：{{message}}",
     "activeCount": "{{count}} 件のルールが有効",
     "globallyDisabled": "全体で無効",
     "noRules": "ルールがありません",

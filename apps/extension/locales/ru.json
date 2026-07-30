@@ -248,6 +248,7 @@
     }
   },
   "app": {
+    "dnrRejected": "Браузер отклонил это действие, поэтому оно не применяется: {{message}}",
     "scopeBadge": {
       "title": "{{scopeLabel}} · {{count}} объектов"
     },
@@ -364,6 +365,7 @@
     }
   },
   "popup": {
+    "ruleNotRegistered": "Браузер отклонил это правило, поэтому оно не применяется: {{message}}",
     "activeCount": "Активно правил: {{count}}",
     "globallyDisabled": "Глобально отключено",
     "noRules": "Правил пока нет",

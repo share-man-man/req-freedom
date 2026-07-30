@@ -1,4 +1,4 @@
-import type { Rule } from '@req-freedom/shared';
+import type { Rule, RuleActionType } from '@req-freedom/shared';
 
 /**
  * Service Worker 内缓存的 DNR 通道生效规则快照。
@@ -11,10 +11,22 @@ export interface ActiveDnrRuleSnapshot {
   rules: Rule[];
   /** 限定作用域的规则解析出的目标 tabId；不限定作用域的规则无条目。 */
   tabIdsByRuleId: Map<string, number[]>;
+  /**
+   * 各规则**实际注册到 DNR 的**动作类型。
+   *
+   * 命中预测必须以它为准，而不是规则里声明了哪些动作：非法规则会被浏览器拒绝且不会生效，
+   * 若照常预测命中，界面就会宣称一条根本没注册上的规则生效了。它同时也编码了「哪些动作
+   * 类型由 DNR 执行」——能出现在这里的动作，都是 toDnrRules 编译得出来的动作。
+   */
+  registeredActionsByRuleId: Map<string, Set<RuleActionType>>;
 }
 
 /** 当前快照；DNR 规则每次同步后由 background 覆盖。 */
-let snapshot: ActiveDnrRuleSnapshot = { rules: [], tabIdsByRuleId: new Map() };
+let snapshot: ActiveDnrRuleSnapshot = {
+  rules: [],
+  tabIdsByRuleId: new Map(),
+  registeredActionsByRuleId: new Map(),
+};
 
 /**
  * 覆盖 DNR 通道生效规则快照。

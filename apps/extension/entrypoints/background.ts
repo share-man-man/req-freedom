@@ -1,6 +1,12 @@
 import { browser } from 'wxt/browser';
 import { defineBackground } from 'wxt/utils/define-background';
-import type { Rule, RuleHit, ScopeContext } from '@req-freedom/shared';
+import type {
+  DnrRegistrationIssues,
+  Rule,
+  RuleActionType,
+  RuleHit,
+  ScopeContext,
+} from '@req-freedom/shared';
 import {
   DNR_RULE_ID_OFFSET,
   RUNTIME_MSG_CLEAR_RULE_HITS,
@@ -9,13 +15,14 @@ import {
   RUNTIME_MSG_RULE_HIT,
   RUNTIME_MSG_SCOPE_CONTEXT_CHANGED,
   RuleExecutionChannel,
+  STORAGE_KEY_DNR_ISSUES,
   STORAGE_KEY_ENABLED,
   STORAGE_KEY_GROUPS,
 } from '@req-freedom/shared';
 import { collectActiveRules, filterRulesByChannel, isRuleScoped } from '@req-freedom/core';
 import { initActionIcon, setActionIconState } from '@/utils/action-icon';
 import { setActiveDnrRules } from '@/utils/active-rules-cache';
-import { toDnrRules } from '@/utils/dnr';
+import { toDnrRules, type CompiledDnrRule } from '@/utils/dnr';
 import {
   forgetTab,
   initRuleHitObserver,
@@ -34,17 +41,28 @@ import { queryAllTabs, resolveScopeTabIds } from '@/utils/scope';
 import { getEnabled, getGroups } from '@/utils/storage';
 
 /** 由业务规则转换出的、非空的 DNR 规则 */
-type DnrRule = ReturnType<typeof toDnrRules>[number];
+type DnrRule = CompiledDnrRule['dnrRule'];
 
 /** updateDynamicRules / updateSessionRules 共用的更新入参。 */
 type DnrUpdateArg = { removeRuleIds?: number[]; addRules?: DnrRule[] };
 
-/** 一条业务规则与其对应的 DNR 规则的配对，便于失败时定位到源规则 */
-interface DnrEntry {
-  /** 源业务规则，仅用于日志定位 */
+/** 一条业务规则与其某个动作编译出的 DNR 规则的配对，便于把注册结果归回源规则与源动作 */
+interface DnrEntry extends CompiledDnrRule {
+  /** 源业务规则 */
   rule: Rule;
-  /** 转换后的 DNR 规则 */
-  dnrRule: DnrRule;
+}
+
+/**
+ * 一次 DNR 提交的结果。
+ *
+ * 「注册成功了什么」必须与「打算注册什么」分开：浏览器会拒绝非法规则，被拒的规则不会执行，
+ * 命中预测与界面提示都要以这份实际结果为准。
+ */
+interface DnrCommitResult {
+  /** 各业务规则实际注册成功的动作类型。 */
+  registeredActionsByRuleId: Map<string, Set<RuleActionType>>;
+  /** 各业务规则注册失败的动作类型与浏览器给出的原因。 */
+  issues: DnrRegistrationIssues;
 }
 
 /** 串行化 DNR 同步，避免并发的规则集提交互相覆盖。 */
@@ -78,9 +96,26 @@ function compileEntries(rules: Rule[], tabIdsByRuleId?: Map<string, number[]>): 
     /** 当前业务规则编译出的全部网络层动作。 */
     const compiledRules = toDnrRules(rule, nextDnrId, tabIds);
     nextDnrId += compiledRules.length;
-    entries.push(...compiledRules.map((dnrRule) => ({ rule, dnrRule })));
+    entries.push(...compiledRules.map((compiled) => ({ rule, ...compiled })));
   }
   return entries;
+}
+
+/**
+ * 把编译结果按「全部注册成功」记入提交结果，用于整批提交成功的场景。
+ * @param entries 已注册的配对列表
+ * @returns 逐规则的成功动作集合
+ */
+function toRegisteredActions(entries: DnrEntry[]): Map<string, Set<RuleActionType>> {
+  /** 逐规则累计的成功动作。 */
+  const registered = new Map<string, Set<RuleActionType>>();
+  for (const entry of entries) {
+    /** 该规则已累计的成功动作集合。 */
+    const actions = registered.get(entry.rule.id) ?? new Set<RuleActionType>();
+    actions.add(entry.actionType);
+    registered.set(entry.rule.id, actions);
+  }
+  return registered;
 }
 
 /**
@@ -98,7 +133,7 @@ async function commitDnr(
   update: (arg: DnrUpdateArg) => Promise<void>,
   entries: DnrEntry[],
   label: string,
-): Promise<void> {
+): Promise<DnrCommitResult> {
   /** 当前已注册的规则，用于全量清除。 */
   const existing = await getRules();
   /** 需要移除的规则 ID 列表。 */
@@ -107,7 +142,7 @@ async function commitDnr(
   const addRules = entries.map((entry) => entry.dnrRule);
   try {
     await update({ removeRuleIds, addRules });
-    return;
+    return { registeredActionsByRuleId: toRegisteredActions(entries), issues: {} };
   } catch (error) {
     console.error(`[req-freedom] 整批同步 ${label} DNR 规则失败，降级为逐条注册以隔离非法规则：`, error);
     // 先整批清除旧规则（仅移除、不新增，通常不会失败）
@@ -116,14 +151,26 @@ async function commitDnr(
     } catch (removeError) {
       console.error(`[req-freedom] 清除旧 ${label} DNR 规则失败：`, removeError);
     }
+    /** 逐条注册成功的配对，用于回填快照。 */
+    const succeeded: DnrEntry[] = [];
+    /** 逐条注册失败的记录，用于回填快照与界面提示。 */
+    const issues: DnrRegistrationIssues = {};
     // 再逐条添加，非法规则单独失败并跳过，合法规则照常生效
-    for (const { rule, dnrRule } of entries) {
+    for (const entry of entries) {
       try {
-        await update({ addRules: [dnrRule] });
+        await update({ addRules: [entry.dnrRule] });
+        succeeded.push(entry);
       } catch (addError) {
-        console.warn(`[req-freedom] 规则「${rule.name}」非法，已跳过（其余规则不受影响）：`, addError);
+        console.warn(`[req-freedom] 规则「${entry.rule.name}」非法，已跳过（其余规则不受影响）：`, addError);
+        /** 该规则已累计的失败记录。 */
+        const issue = issues[entry.rule.id] ?? { actions: [], message: String(addError) };
+        issues[entry.rule.id] = {
+          actions: [...issue.actions, entry.actionType],
+          message: issue.message,
+        };
       }
     }
+    return { registeredActionsByRuleId: toRegisteredActions(succeeded), issues };
   }
 }
 
@@ -138,6 +185,23 @@ async function loadActiveDnrRules(): Promise<Rule[]> {
     return [];
   }
   return filterRulesByChannel(collectActiveRules(await getGroups()), RuleExecutionChannel.Dnr);
+}
+
+/**
+ * 把注册失败记录写入 storage.session，供扩展页面展示。
+ *
+ * 走 storage 而不是消息：options 与 popup 可以直接读取并订阅 storage.onChanged 拿到更新，
+ * 不需要各自轮询或与 background 约定一套查询消息。background 自身只监听 local 区变化，
+ * 因此这里的写入不会触发规则重新同步。
+ * @param issues 本轮同步的注册失败记录
+ * @returns 写入完成后的 Promise
+ */
+async function publishDnrIssues(issues: DnrRegistrationIssues): Promise<void> {
+  try {
+    await browser.storage.session.set({ [STORAGE_KEY_DNR_ISSUES]: issues });
+  } catch (error) {
+    console.error('[req-freedom] 写入 DNR 注册失败记录失败：', error);
+  }
 }
 
 /**
@@ -167,37 +231,63 @@ function syncDnrRuleSets(): Promise<void> {
       }
     }
 
-    // 关键步骤：先更新观测快照，逐请求匹配才能与刚提交的规则集保持一致。
-    setActiveDnrRules({ rules: activeRules, tabIdsByRuleId });
-    syncSubResourceListener(activeRules.length > 0);
-
     /** 不限定作用域、由动态规则承载的规则。 */
     const unscopedRules = activeRules.filter((rule) => !isRuleScoped(rule));
     /** 限定作用域且当前有匹配标签、由 session 规则承载的规则。 */
     const scopedRules = activeRules.filter(
       (rule) => isRuleScoped(rule) && tabIdsByRuleId.has(rule.id),
     );
+    /** 两套规则集编译出的配对列表。 */
+    const entries = [compileEntries(unscopedRules), compileEntries(scopedRules, tabIdsByRuleId)];
+
+    // 提交期间先乐观地按「编译出的动作全部生效」预测：提交要跨多次 IPC，
+    // 此间请求照常在飞，若按空集预测则每次同步都会漏报一段。提交结束后立刻收窄为实际结果。
+    setActiveDnrRules({
+      rules: activeRules,
+      tabIdsByRuleId,
+      registeredActionsByRuleId: toRegisteredActions(entries.flat()),
+    });
+    syncSubResourceListener(activeRules.length > 0);
 
     /** 两套 DNR 规则集各自的同步结果。 */
     const results = await Promise.allSettled([
       commitDnr(
         () => browser.declarativeNetRequest.getDynamicRules(),
         (arg) => browser.declarativeNetRequest.updateDynamicRules(arg),
-        compileEntries(unscopedRules),
+        entries[0],
         '动态',
       ),
       commitDnr(
         () => browser.declarativeNetRequest.getSessionRules(),
         (arg) => browser.declarativeNetRequest.updateSessionRules(arg),
-        compileEntries(scopedRules, tabIdsByRuleId),
+        entries[1],
         'session',
       ),
     ]);
+    /** 两套规则集合并后的实际注册结果。 */
+    const registeredActionsByRuleId = new Map<string, Set<RuleActionType>>();
+    /** 两套规则集合并后的注册失败记录。 */
+    const issues: DnrRegistrationIssues = {};
     for (const result of results) {
       if (result.status === 'rejected') {
+        // 整个规则集提交失败：这批规则一条都没注册上，快照里也就不该有它们。
         console.error('[req-freedom] 同步 DNR 规则集失败：', result.reason);
+        continue;
       }
+      for (const [ruleId, actions] of result.value.registeredActionsByRuleId) {
+        /** 该规则在两套规则集中累计的成功动作。 */
+        const merged = registeredActionsByRuleId.get(ruleId) ?? new Set<RuleActionType>();
+        for (const action of actions) {
+          merged.add(action);
+        }
+        registeredActionsByRuleId.set(ruleId, merged);
+      }
+      Object.assign(issues, result.value.issues);
     }
+
+    // 关键步骤：把快照收窄为实际注册成功的动作，避免为没生效的规则预测命中。
+    setActiveDnrRules({ rules: activeRules, tabIdsByRuleId, registeredActionsByRuleId });
+    await publishDnrIssues(issues);
   });
   dnrSyncChain = synchronization.catch(() => undefined);
   return synchronization;

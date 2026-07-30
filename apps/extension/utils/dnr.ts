@@ -13,6 +13,19 @@ import { resolveDynamicVariables } from '@req-freedom/core';
 type DnrRule = Browser.declarativeNetRequest.Rule;
 
 /**
+ * 一个业务动作与它编译出的 DNR 规则。
+ *
+ * 保留动作类型是为了让注册结果能归到具体动作：DNR 逐条注册，一条规则的多个动作可能只有
+ * 部分被浏览器接受，而命中统计与界面提示都需要知道到底是哪个动作没生效。
+ */
+export interface CompiledDnrRule {
+  /** 编译来源的业务动作类型。 */
+  actionType: RuleActionType;
+  /** 编译出的 DNR 规则。 */
+  dnrRule: DnrRule;
+}
+
+/**
  * 把规则的 URL 匹配配置转换为 DNR 的 condition。
  * @param rule 业务规则
  * @returns DNR condition 对象
@@ -60,7 +73,7 @@ function toDnrHeaderOperation(operation: HeaderOperation): Browser.declarativeNe
  * 注意：动态变量（`{{uuid}}` 等）在此声明式编译阶段解析一次。DNR 规则由网络层原生执行，
  * 无法逐请求求值，因此同一次同步内命中的所有请求会拿到相同的值；真·逐请求动态请走页面补丁通道。
  */
-export function toDnrRules(rule: Rule, firstDnrId: number, tabIds?: number[]): DnrRule[] {
+export function toDnrRules(rule: Rule, firstDnrId: number, tabIds?: number[]): CompiledDnrRule[] {
   if (rule.channel !== RuleExecutionChannel.Dnr) {
     return [];
   }
@@ -68,37 +81,46 @@ export function toDnrRules(rule: Rule, firstDnrId: number, tabIds?: number[]): D
   const condition: Browser.declarativeNetRequest.RuleCondition =
     tabIds && tabIds.length > 0 ? { ...toCondition(rule), tabIds } : toCondition(rule);
   /** 编译出的 DNR 规则集合。 */
-  const dnrRules: DnrRule[] = [];
+  const dnrRules: CompiledDnrRule[] = [];
   for (const action of rule.actions) {
     /** 每个动作都需要独立的 DNR ID。 */
     const id = firstDnrId + dnrRules.length;
     switch (action.type) {
       case RuleActionType.Block:
-        dnrRules.push({ id, condition, action: { type: browser.declarativeNetRequest.RuleActionType.BLOCK } });
+        dnrRules.push({
+          actionType: action.type,
+          dnrRule: { id, condition, action: { type: browser.declarativeNetRequest.RuleActionType.BLOCK } },
+        });
         break;
       case RuleActionType.Redirect:
         dnrRules.push({
-          id,
-          condition,
-          action: {
-            type: browser.declarativeNetRequest.RuleActionType.REDIRECT,
-            redirect:
-              rule.matchType === MatchType.Regex
-                ? { regexSubstitution: resolveDynamicVariables(action.redirectUrl) }
-                : { url: resolveDynamicVariables(action.redirectUrl) },
+          actionType: action.type,
+          dnrRule: {
+            id,
+            condition,
+            action: {
+              type: browser.declarativeNetRequest.RuleActionType.REDIRECT,
+              redirect:
+                rule.matchType === MatchType.Regex
+                  ? { regexSubstitution: resolveDynamicVariables(action.redirectUrl) }
+                  : { url: resolveDynamicVariables(action.redirectUrl) },
+            },
           },
         });
         break;
       case RuleActionType.InjectParams:
         dnrRules.push({
-          id,
-          condition,
-          action: {
-            type: browser.declarativeNetRequest.RuleActionType.REDIRECT,
-            redirect: {
-              transform: {
-                queryTransform: {
-                  addOrReplaceParams: Object.entries(action.params).map(([key, value]) => ({ key, value: resolveDynamicVariables(value) })),
+          actionType: action.type,
+          dnrRule: {
+            id,
+            condition,
+            action: {
+              type: browser.declarativeNetRequest.RuleActionType.REDIRECT,
+              redirect: {
+                transform: {
+                  queryTransform: {
+                    addOrReplaceParams: Object.entries(action.params).map(([key, value]) => ({ key, value: resolveDynamicVariables(value) })),
+                  },
                 },
               },
             },
@@ -116,12 +138,15 @@ export function toDnrRules(rule: Rule, firstDnrId: number, tabIds?: number[]): D
           .map((item) => ({ header: item.header, operation: toDnrHeaderOperation(item.operation), ...(item.value === undefined ? {} : { value: resolveDynamicVariables(item.value) }) }));
         if (requestHeaders.length || responseHeaders.length) {
           dnrRules.push({
-            id,
-            condition,
-            action: {
-              type: browser.declarativeNetRequest.RuleActionType.MODIFY_HEADERS,
-              ...(requestHeaders.length ? { requestHeaders } : {}),
-              ...(responseHeaders.length ? { responseHeaders } : {}),
+            actionType: action.type,
+            dnrRule: {
+              id,
+              condition,
+              action: {
+                type: browser.declarativeNetRequest.RuleActionType.MODIFY_HEADERS,
+                ...(requestHeaders.length ? { requestHeaders } : {}),
+                ...(responseHeaders.length ? { responseHeaders } : {}),
+              },
             },
           });
         }

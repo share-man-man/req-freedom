@@ -35,6 +35,7 @@ const CARD_TEST_BY_ACTION = {
   cookies: 'cookies',
   'cors-blocked': 'cors',
   'cors-allowed': 'cors',
+  'invalid-rule': 'invalid-rule',
   'methods-get': 'methods',
   'methods-post': 'methods',
   'methods-delete': 'methods',
@@ -372,6 +373,9 @@ async function runAction(action) {
   }
   if (action === 'modify-body-xhr') {
     return postWithXhr('改请求体 XHR', './api/echo', JSON.stringify(MODIFY_BODY_PAYLOAD));
+  }
+  if (action === 'invalid-rule') {
+    return requestWithFetch('注册失败规则探针', './api/registration-probe.json');
   }
   if (action === 'methods-get') {
     return requestWithFetch('方法探针 GET', './api/methods');

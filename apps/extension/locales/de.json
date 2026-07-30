@@ -248,6 +248,7 @@
     }
   },
   "app": {
+    "dnrRejected": "Der Browser hat diese Aktion abgelehnt, sie ist daher nicht aktiv: {{message}}",
     "scopeBadge": {
       "title": "{{scopeLabel}} · {{count}} Objekte"
     },
@@ -364,6 +365,7 @@
     }
   },
   "popup": {
+    "ruleNotRegistered": "Der Browser hat diese Regel abgelehnt, sie ist daher nicht aktiv: {{message}}",
     "activeCount": "{{count}} Regeln aktiv",
     "globallyDisabled": "Global deaktiviert",
     "noRules": "Noch keine Regeln",

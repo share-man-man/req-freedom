@@ -45,6 +45,14 @@ export const RUNTIME_MSG_CLEAR_RULE_HITS = 'req-freedom:clear-rule-hits';
 /** storage.session 中按标签页镜像命中日志的键名前缀。 */
 export const STORAGE_KEY_RULE_HITS = 'req-freedom:rule-hits';
 
+/**
+ * storage.session 中记录 DNR 注册失败规则的键名。
+ *
+ * 放在 session 而非 local：注册结果随浏览器会话有效，且扩展页面可直接订阅
+ * storage.onChanged 拿到更新，无需额外的消息往返。
+ */
+export const STORAGE_KEY_DNR_ISSUES = 'req-freedom:dnr-issues';
+
 /** options 页面用于定位并高亮规则的查询参数名。 */
 export const RULE_HIGHLIGHT_QUERY_PARAM = 'highlightRuleId';
 

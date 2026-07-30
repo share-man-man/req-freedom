@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, FolderPlus, GripVertical, LayoutTemplate, Pencil, Plus, Terminal, Trash2 } from 'lucide-react';
+import { AlertTriangle, ChevronDown, FolderPlus, GripVertical, LayoutTemplate, Pencil, Plus, Terminal, Trash2 } from 'lucide-react';
 import type { ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
@@ -28,8 +28,20 @@ import {
   RuleActionType,
   RuleExecutionChannel,
 } from '@req-freedom/shared';
-import type { Rule, RuleGroup } from '@req-freedom/shared';
-import { getEnabled, getGroups, saveConfiguration, saveGroups } from '@/utils/storage';
+import type {
+  DnrRegistrationIssue,
+  DnrRegistrationIssues,
+  Rule,
+  RuleGroup,
+} from '@req-freedom/shared';
+import {
+  getDnrIssues,
+  getEnabled,
+  getGroups,
+  saveConfiguration,
+  saveGroups,
+  watchDnrIssues,
+} from '@/utils/storage';
 import {
   createConfigurationExport,
   getConfigurationExportFileName,
@@ -104,6 +116,13 @@ const ACTION_BADGE_CLASS: Record<RuleActionType, string> = {
   [RuleActionType.InsertScript]: 'bg-emerald-500/15 text-[var(--accent-emerald)]',
   [RuleActionType.ModifyRequestBody]: 'bg-pink-500/15 text-[var(--accent-pink)]',
 };
+
+/**
+ * 被浏览器拒绝注册的动作徽标样式：与 ACTION_BADGE_CLASS 同一层级，用于覆盖动作本身的配色。
+ *
+ * 刻意脱离动作色系改用警示色——此时「这个动作是什么」已不重要，重要的是它当前根本不生效。
+ */
+const REJECTED_ACTION_BADGE_CLASS = 'gap-1 bg-destructive/10 text-destructive';
 
 /**
  * 作用域徽标：规则限定了生效范围（非全部标签页）时展示，提示这条规则只在部分标签生效。
@@ -250,6 +269,8 @@ function GroupNameInput({ value, onCommit }: GroupNameInputProps) {
 interface SortableRuleRowProps {
   /** 行对应的规则 */
   rule: Rule;
+  /** 该规则的 DNR 注册失败记录；未失败时为 undefined */
+  issue?: DnrRegistrationIssue;
   /** 切换启用状态回调 */
   onToggle: (id: string) => void;
   /** 进入编辑回调 */
@@ -265,6 +286,7 @@ interface SortableRuleRowProps {
  */
 function SortableRuleRow({
   rule,
+  issue,
   onToggle,
   onEdit,
   onDelete,
@@ -310,15 +332,24 @@ function SortableRuleRow({
         {rule.channel === RuleExecutionChannel.Dnr ? 'DNR' : t('templateLibrary.channelPagePatch')}
       </Badge>
       <div className="flex min-w-0 flex-wrap items-center gap-1 justify-self-start">
-        {rule.actions.map((action) => (
-          <Badge
-            key={action.type}
-            variant="secondary"
-            className={`whitespace-nowrap border-transparent ${ACTION_BADGE_CLASS[action.type]}`}
-          >
-            {labels.RULE_ACTION_TYPE_LABELS[action.type]}
-          </Badge>
-        ))}
+        {rule.actions.map((action) => {
+          /** 该动作是否被浏览器拒绝、当前不会生效。 */
+          const rejected = issue?.actions.includes(action.type) ?? false;
+          return (
+            <Badge
+              key={action.type}
+              variant="secondary"
+              className={`whitespace-nowrap border-transparent ${
+                rejected ? REJECTED_ACTION_BADGE_CLASS : ACTION_BADGE_CLASS[action.type]
+              }`}
+              // 浏览器的原始报错通常能直接指出哪里不合法，原样带在提示里
+              title={rejected ? t('app.dnrRejected', { message: issue?.message ?? '' }) : undefined}
+            >
+              {rejected && <AlertTriangle className="size-3" />}
+              {labels.RULE_ACTION_TYPE_LABELS[action.type]}
+            </Badge>
+          );
+        })}
       </div>
       <code
         className="min-w-0 max-w-full justify-self-start truncate rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
@@ -379,6 +410,8 @@ interface SortableGroupCardProps {
   onToggleCollapse: (groupId: string) => void;
   /** popup 跳转后需要强调的目标规则 ID。 */
   highlightedRuleId: string | null;
+  /** 各规则的 DNR 注册失败记录 */
+  dnrIssues: DnrRegistrationIssues;
 }
 
 /**
@@ -402,6 +435,7 @@ function SortableGroupCard({
   collapsed,
   onToggleCollapse,
   highlightedRuleId,
+  dnrIssues,
 }: SortableGroupCardProps) {
   const { t } = useTranslation();
   /** dnd-kit 排序钩子：作用于整张分组卡片（仅由标题栏的拖拽句柄触发） */
@@ -534,6 +568,7 @@ function SortableGroupCard({
                   <SortableRuleRow
                     key={rule.id}
                     rule={rule}
+                    issue={dnrIssues[rule.id]}
                     onToggle={onToggleRule}
                     onEdit={onEditRule}
                     onDelete={onDeleteRule}
@@ -812,9 +847,18 @@ export default function App() {
     new URLSearchParams(window.location.search).get(RULE_HIGHLIGHT_QUERY_PARAM),
   );
 
+  /** 各规则的 DNR 注册失败记录，用于在规则行上标出不会生效的动作。 */
+  const [dnrIssues, setDnrIssues] = useState<DnrRegistrationIssues>({});
+
   // 初始加载分组
   useEffect(() => {
     void getGroups().then(setGroups);
+  }, []);
+
+  // 注册失败记录由 background 每轮同步后写入 storage.session，这里读取一次并订阅后续变化
+  useEffect(() => {
+    void getDnrIssues().then(setDnrIssues);
+    return watchDnrIssues(setDnrIssues);
   }, []);
 
   // popup 带规则 ID 跳转时，清除会隐藏目标的筛选、展开所属分组，再滚动并高亮目标行。
@@ -1415,6 +1459,7 @@ export default function App() {
                     collapsed={collapsedGroupIds.has(group.id)}
                     onToggleCollapse={handleToggleCollapse}
                     highlightedRuleId={highlightedRuleId}
+                    dnrIssues={dnrIssues}
                   />
                 ))}
               </div>
