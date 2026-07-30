@@ -1,0 +1,75 @@
+/**
+ * 文档站主题色：复用插件「规则配置页」（apps/extension/entrypoints/options/style.css）的设计令牌。
+ *
+ * 令牌值在此处复制而非 import —— 插件侧样式基于 Tailwind v4（含 @theme / @custom-variant），
+ * 文档站是 Rspress（无 Tailwind 编译链），无法直接复用同一文件；因此只搬运与主题色相关的一层：
+ * 流光三色（蓝→紫→品红）与由其派生的主色 --primary，其余中性色沿用 Rspress 默认。
+ *
+ * 明暗切换：Rspress 由 <html class="dark"> 驱动，故用 :root / :root.dark 两套，
+ * 与插件侧「跟随系统 + 显式类」的写法不同，但取值一一对应。
+ */
+
+:root {
+  /* 浅色画布上的沉稳流光三色（与规则配置页浅色令牌一致） */
+  --glow-blue: #2469b2;
+  --glow-violet: #7651b5;
+  --glow-rose: #be4f76;
+
+  /* 主色 = 流光紫，与插件按钮/聚焦环同源 */
+  --primary: var(--glow-violet);
+}
+
+.dark {
+  /* 深色背景下恢复高能量霓虹流光（与规则配置页深色令牌一致） */
+  --glow-blue: #2a8af6;
+  --glow-violet: #8b5cf6;
+  --glow-rose: #e92a67;
+
+  /* 深色主色比 --glow-violet 深一档，保证白字对比度 ≥ AA */
+  --primary: oklch(0.56 0.2 293);
+}
+
+/**
+ * Rspress 品牌色变量映射：全部由 --primary 派生，保持单一色源。
+ *
+ * 深浅档次的用途（取自默认主题）：
+ * - 浅色下 --rp-c-link = --rp-c-brand-dark，深色下 = --rp-c-brand-light，
+ *   因此两套里链接档次都需要相对背景够对比，故明暗分别调整混合比例。
+ */
+:root {
+  --rp-c-brand: var(--primary);
+  --rp-c-brand-light: color-mix(in oklab, var(--primary) 80%, white);
+  --rp-c-brand-lighter: color-mix(in oklab, var(--primary) 60%, white);
+  --rp-c-brand-dark: color-mix(in oklab, var(--primary) 85%, black);
+  --rp-c-brand-darker: color-mix(in oklab, var(--primary) 70%, black);
+  /* 高亮块/标签底色：主色兑透明，明暗两套都成立 */
+  --rp-c-brand-tint: color-mix(in oklab, var(--primary) 14%, transparent);
+}
+
+.dark {
+  /* 深色下 --rp-c-brand-dark 仍用于边框与部分文字，压太黑会糊在近黑底上，故只轻微压深 */
+  --rp-c-brand-light: color-mix(in oklab, var(--primary) 72%, white);
+  --rp-c-brand-lighter: color-mix(in oklab, var(--primary) 50%, white);
+  --rp-c-brand-dark: color-mix(in oklab, var(--primary) 92%, black);
+  --rp-c-brand-darker: color-mix(in oklab, var(--primary) 82%, black);
+  --rp-c-brand-tint: color-mix(in oklab, var(--primary) 24%, transparent);
+}
+
+/**
+ * 首页 Hero 与遮罩：默认主题的品牌绿（#42d392）与流光紫不搭，
+ * 替换成插件描边流光同款的 蓝→紫→品红 渐变。
+ */
+:root {
+  --rp-home-hero-name-background: linear-gradient(
+    120deg,
+    var(--glow-blue) 10%,
+    var(--glow-violet) 50%,
+    var(--glow-rose) 90%
+  );
+  --rp-home-mask-background-image: conic-gradient(
+    from 180deg at 50% 50%,
+    var(--glow-blue) 0deg,
+    var(--glow-violet) 180deg,
+    var(--glow-rose) 1turn
+  );
+}
