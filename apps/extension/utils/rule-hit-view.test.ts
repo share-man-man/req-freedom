@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { RuleActionType, RuleHitOutcome, RuleHitSkipReason } from '@req-freedom/shared';
 import type { RuleHit } from '@req-freedom/shared';
-import { countHitsByRule, EMPTY_HIT_LOG_FILTER, filterHits } from './rule-hit-view';
+import {
+  countHitsByRule,
+  EMPTY_HIT_LOG_FILTER,
+  filterHits,
+  groupHitsByLocalDate,
+} from './rule-hit-view';
 
 /**
  * 构造一条已执行的命中记录。
@@ -125,5 +130,30 @@ describe('countHitsByRule', () => {
 
   it('空日志返回空统计', () => {
     expect(countHitsByRule([])).toEqual([]);
+  });
+});
+
+describe('groupHitsByLocalDate', () => {
+  it('按本地自然日分组，并保持记录与分组的首次出现顺序', () => {
+    /** 两个相邻本地自然日内、顺序固定的命中记录。 */
+    const hits = [
+      hit('newest', { at: new Date(2026, 6, 31, 23, 59, 59).getTime() }),
+      hit('same-day', { at: new Date(2026, 6, 31, 0, 0, 1).getTime() }),
+      hit('previous-day', { at: new Date(2026, 6, 30, 23, 59, 59).getTime() }),
+    ];
+
+    /** 使用中文生成展示标题的日期分组。 */
+    const groups = groupHitsByLocalDate(hits, 'zh-CN');
+
+    expect(groups.map((group) => group.key)).toEqual(['2026-07-31', '2026-07-30']);
+    expect(groups.map((group) => group.hits.map((item) => item.ruleId))).toEqual([
+      ['newest', 'same-day'],
+      ['previous-day'],
+    ]);
+    expect(groups.every((group) => group.label.length > 0)).toBe(true);
+  });
+
+  it('空记录返回空分组', () => {
+    expect(groupHitsByLocalDate([], 'en')).toEqual([]);
   });
 });

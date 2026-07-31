@@ -561,6 +561,7 @@
     "appliedOf": "{{applied}} entrées sur {{total}} ont réellement été appliquées",
     "deletedRule": "Règle supprimée",
     "jumpToRule": "Accéder à la règle (groupe : {{groupName}})",
+    "openTab": "Ouvrir l’onglet de cette entrée",
     "columnTime": "Heure",
     "columnMethod": "Méthode",
     "columnUrl": "URL de la requête",

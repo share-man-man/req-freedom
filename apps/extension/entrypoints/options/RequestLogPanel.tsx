@@ -6,7 +6,12 @@ import type { RuleGroup, RuleHit, RuleHitLog, RuleHitTabSummary } from '@req-fre
 import { RuleActionType, RuleHitOutcome } from '@req-freedom/shared';
 import { getLabels } from '@/utils/labels';
 import { clearTabHits, fetchHitLog, fetchHitTabSummaries } from '@/utils/rule-hit-client';
-import { countHitsByRule, EMPTY_HIT_LOG_FILTER, filterHits } from '@/utils/rule-hit-view';
+import {
+  countHitsByRule,
+  EMPTY_HIT_LOG_FILTER,
+  filterHits,
+  groupHitsByLocalDate,
+} from '@/utils/rule-hit-view';
 import type { HitLogFilter } from '@/utils/rule-hit-view';
 import { watchHitTabsChanged, watchTabHitLog } from '@/utils/storage';
 import { Badge } from '@/components/ui/badge';
@@ -253,6 +258,33 @@ export default function RequestLogPanel({
     [filter, log.hits, ruleNameById],
   );
 
+  /** 按本地自然日分组后的可见命中记录。 */
+  const visibleHitGroups = useMemo(
+    () => groupHitsByLocalDate(visibleHits, i18n.language),
+    [i18n.language, visibleHits],
+  );
+
+  /**
+   * 激活当前日志所属的标签页；标签页已关闭时刷新选择器并保持当前页面。
+   */
+  const handleOpenSelectedTab = useCallback(async (): Promise<void> => {
+    if (selectedTabId === null) {
+      return;
+    }
+    try {
+      /** 点击发生时重新查询，避免使用已经过期的标签页快照。 */
+      const targetTab = await browser.tabs.get(selectedTabId);
+      await browser.tabs.update(selectedTabId, { active: true });
+      await browser.windows.update(targetTab.windowId, { focused: true });
+    } catch {
+      await loadTabs();
+    }
+  }, [loadTabs, selectedTabId]);
+
+  /** 当前日志所属的标签页是否仍在浏览器中打开。 */
+  const isSelectedTabAlive =
+    selectedTabId !== null && liveTabs.some((tab) => tab.id === selectedTabId);
+
   /** 当前是否设置了任意筛选条件。 */
   const hasFilter =
     filter.keyword.trim() !== '' ||
@@ -449,20 +481,34 @@ export default function RequestLogPanel({
             <span>{t('requestLog.columnAction')}</span>
             <span>{t('requestLog.columnOutcome')}</span>
           </div>
-          <ul className="divide-y divide-border/60">
-            {visibleHits.map((hit, index) => (
-              <HitRow
-                // 同一请求的同一动作可能重复命中，时间戳不足以唯一标识，补上序号
-                key={`${hit.at}-${hit.ruleId}-${hit.action}-${index}`}
-                hit={hit}
-                ruleInfo={ruleInfoById.get(hit.ruleId)}
-                actionLabel={labels.RULE_ACTION_TYPE_LABELS[hit.action]}
-                skipReasonLabels={labels.RULE_HIT_SKIP_REASON_LABELS}
-                locale={i18n.language}
-                onJumpToRule={onJumpToRule}
-              />
+          <div>
+            {visibleHitGroups.map((group) => (
+              <section key={group.key} aria-labelledby={`request-log-date-${group.key}`}>
+                <h3
+                  id={`request-log-date-${group.key}`}
+                  className="border-b border-border/70 bg-muted/35 px-4 py-2 text-xs font-medium text-muted-foreground"
+                >
+                  {group.label}
+                </h3>
+                <ul className="divide-y divide-border/60">
+                  {group.hits.map((hit, index) => (
+                    <HitRow
+                      // 同一请求的同一动作可能重复命中，时间戳不足以唯一标识，补上序号
+                      key={`${hit.at}-${hit.ruleId}-${hit.action}-${index}`}
+                      hit={hit}
+                      ruleInfo={ruleInfoById.get(hit.ruleId)}
+                      actionLabel={labels.RULE_ACTION_TYPE_LABELS[hit.action]}
+                      skipReasonLabels={labels.RULE_HIT_SKIP_REASON_LABELS}
+                      locale={i18n.language}
+                      canOpenTab={isSelectedTabAlive}
+                      onOpenTab={() => void handleOpenSelectedTab()}
+                      onJumpToRule={onJumpToRule}
+                    />
+                  ))}
+                </ul>
+              </section>
             ))}
-          </ul>
+          </div>
         </div>
       )}
     </section>
@@ -505,6 +551,10 @@ interface HitRowProps {
   skipReasonLabels: ReturnType<typeof getLabels>['RULE_HIT_SKIP_REASON_LABELS'];
   /** 当前界面语言，用于生成完整日期时间的悬停提示。 */
   locale: string;
+  /** 当前日志所属的标签页是否仍然存活。 */
+  canOpenTab: boolean;
+  /** 激活当前日志所属标签页的回调。 */
+  onOpenTab: () => void;
   /** 点击规则名后的跳转回调。 */
   onJumpToRule: (ruleId: string) => void;
 }
@@ -519,13 +569,39 @@ function HitRow({
   actionLabel,
   skipReasonLabels,
   locale,
+  canOpenTab,
+  onOpenTab,
   onJumpToRule,
 }: HitRowProps) {
   const { t } = useTranslation();
   /** 拆成时钟与毫秒两段的命中时间。 */
   const { clock, millis } = formatHitTime(hit.at);
   return (
-    <li className={`${LOG_ROW_GRID} px-4 py-2 text-sm transition-colors hover:bg-muted/40`}>
+    <li
+      role={canOpenTab ? 'button' : undefined}
+      tabIndex={canOpenTab ? 0 : undefined}
+      title={canOpenTab ? t('requestLog.openTab') : undefined}
+      aria-label={canOpenTab ? t('requestLog.openTab') : undefined}
+      onClick={canOpenTab ? onOpenTab : undefined}
+      onKeyDown={
+        canOpenTab
+          ? (event) => {
+              if (event.target !== event.currentTarget) {
+                return;
+              }
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onOpenTab();
+              }
+            }
+          : undefined
+      }
+      className={`${LOG_ROW_GRID} px-4 py-2 text-sm transition-colors ${
+        canOpenTab
+          ? 'cursor-pointer hover:bg-muted/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring'
+          : 'hover:bg-muted/40'
+      }`}
+    >
       {/* 毫秒压暗一档：需要时看得到，扫读时不抢「时:分:秒」的位置 */}
       <span
         className="font-mono text-xs tabular-nums text-muted-foreground"
@@ -541,7 +617,10 @@ function HitRow({
       {ruleInfo ? (
         <button
           type="button"
-          onClick={() => onJumpToRule(hit.ruleId)}
+          onClick={(event) => {
+            event.stopPropagation();
+            onJumpToRule(hit.ruleId);
+          }}
           title={t('requestLog.jumpToRule', { groupName: ruleInfo.groupName })}
           className="min-w-0 truncate text-left text-sm text-primary hover:underline"
         >

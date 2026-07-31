@@ -35,6 +35,57 @@ export interface RuleHitCount {
   applied: number;
 }
 
+/** 同一自然日内的命中记录分组。 */
+export interface HitDateGroup {
+  /** 基于本地时区生成的稳定日期键。 */
+  key: string;
+  /** 跟随当前界面语言展示的完整日期。 */
+  label: string;
+  /** 该自然日内的命中记录。 */
+  hits: RuleHit[];
+}
+
+/**
+ * 按用户本地自然日对命中记录分组，并保持传入记录的排序。
+ * @param hits 已按期望顺序排列的命中记录
+ * @param locale 当前界面语言
+ * @returns 按首次出现顺序排列的日期分组
+ */
+export function groupHitsByLocalDate(
+  hits: readonly RuleHit[],
+  locale: string,
+): HitDateGroup[] {
+  /** 日期分组标题的本地化格式器。 */
+  const dateFormatter = new Intl.DateTimeFormat(locale, { dateStyle: 'full' });
+  /** 日期键到分组的快速索引。 */
+  const groupByKey = new Map<string, HitDateGroup>();
+  /** 按首次出现顺序保存的日期分组。 */
+  const groups: HitDateGroup[] = [];
+
+  for (const hit of hits) {
+    /** 当前命中的本地时间。 */
+    const date = new Date(hit.at);
+    /** 不受语言格式影响的本地自然日键。 */
+    const key = [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0'),
+    ].join('-');
+    /** 已存在的日期分组。 */
+    const existingGroup = groupByKey.get(key);
+    if (existingGroup) {
+      existingGroup.hits.push(hit);
+      continue;
+    }
+    /** 当前日期首次出现时创建的分组。 */
+    const nextGroup = { key, label: dateFormatter.format(date), hits: [hit] };
+    groupByKey.set(key, nextGroup);
+    groups.push(nextGroup);
+  }
+
+  return groups;
+}
+
 /**
  * 按筛选条件过滤命中记录。
  *

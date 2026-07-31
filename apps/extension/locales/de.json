@@ -561,6 +561,7 @@
     "appliedOf": "{{applied}} von {{total}} Einträgen wurden tatsächlich angewendet",
     "deletedRule": "Gelöschte Regel",
     "jumpToRule": "Zur Regel (Gruppe: {{groupName}})",
+    "openTab": "Tab dieses Eintrags öffnen",
     "columnTime": "Zeit",
     "columnMethod": "Methode",
     "columnUrl": "Anfrage-URL",

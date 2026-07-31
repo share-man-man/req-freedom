@@ -561,6 +561,7 @@
     "appliedOf": "{{total}} 筆記錄中有 {{applied}} 筆實際生效",
     "deletedRule": "已刪除的規則",
     "jumpToRule": "跳至規則（分組：{{groupName}}）",
+    "openTab": "開啟該記錄所屬的分頁",
     "columnTime": "時間",
     "columnMethod": "方法",
     "columnUrl": "請求 URL",

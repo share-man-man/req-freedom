@@ -561,6 +561,7 @@
     "appliedOf": "{{total}}건 중 {{applied}}건이 실제로 적용되었습니다",
     "deletedRule": "삭제된 규칙",
     "jumpToRule": "규칙으로 이동(그룹: {{groupName}})",
+    "openTab": "이 기록의 탭 열기",
     "columnTime": "시각",
     "columnMethod": "메서드",
     "columnUrl": "요청 URL",

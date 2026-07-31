@@ -561,6 +561,7 @@
     "appliedOf": "{{total}} 条记录中有 {{applied}} 条实际生效",
     "deletedRule": "已删除的规则",
     "jumpToRule": "跳转到规则（分组：{{groupName}}）",
+    "openTab": "打开该记录所属的标签页",
     "columnTime": "时间",
     "columnMethod": "方法",
     "columnUrl": "请求 URL",

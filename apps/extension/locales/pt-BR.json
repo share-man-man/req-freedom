@@ -561,6 +561,7 @@
     "appliedOf": "{{applied}} de {{total}} registros foram realmente aplicados",
     "deletedRule": "Regra excluída",
     "jumpToRule": "Ir para a regra (grupo: {{groupName}})",
+    "openTab": "Abrir a guia deste registro",
     "columnTime": "Horário",
     "columnMethod": "Método",
     "columnUrl": "URL da requisição",
