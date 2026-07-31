@@ -1,0 +1,147 @@
+import type { RuleHit } from '@req-freedom/shared';
+import { RuleActionType, RuleHitOutcome } from '@req-freedom/shared';
+
+/**
+ * 请求日志视图的筛选条件。
+ *
+ * 各字段为 null 表示该维度不过滤；空关键词同样视为不过滤。
+ */
+export interface HitLogFilter {
+  /** 关键词，匹配请求 URL、请求方法与规则名称，大小写不敏感。 */
+  keyword: string;
+  /** 只看某条规则的命中。 */
+  ruleId: string | null;
+  /** 只看某类动作的命中。 */
+  action: RuleActionType | null;
+  /** 只看某种执行结果（已生效 / 未应用）的命中。 */
+  outcome: RuleHitOutcome | null;
+}
+
+/** 不做任何过滤的筛选条件，供视图初始化与「重置」使用。 */
+export const EMPTY_HIT_LOG_FILTER: HitLogFilter = {
+  keyword: '',
+  ruleId: null,
+  action: null,
+  outcome: null,
+};
+
+/** 单条规则在当前日志中的命中统计。 */
+export interface RuleHitCount {
+  /** 业务规则 ID。 */
+  ruleId: string;
+  /** 该规则的命中记录总数。 */
+  total: number;
+  /** 其中实际执行成功的条数。 */
+  applied: number;
+}
+
+/** 同一自然日内的命中记录分组。 */
+export interface HitDateGroup {
+  /** 基于本地时区生成的稳定日期键。 */
+  key: string;
+  /** 跟随当前界面语言展示的完整日期。 */
+  label: string;
+  /** 该自然日内的命中记录。 */
+  hits: RuleHit[];
+}
+
+/**
+ * 按用户本地自然日对命中记录分组，并保持传入记录的排序。
+ * @param hits 已按期望顺序排列的命中记录
+ * @param locale 当前界面语言
+ * @returns 按首次出现顺序排列的日期分组
+ */
+export function groupHitsByLocalDate(
+  hits: readonly RuleHit[],
+  locale: string,
+): HitDateGroup[] {
+  /** 日期分组标题的本地化格式器。 */
+  const dateFormatter = new Intl.DateTimeFormat(locale, { dateStyle: 'full' });
+  /** 日期键到分组的快速索引。 */
+  const groupByKey = new Map<string, HitDateGroup>();
+  /** 按首次出现顺序保存的日期分组。 */
+  const groups: HitDateGroup[] = [];
+
+  for (const hit of hits) {
+    /** 当前命中的本地时间。 */
+    const date = new Date(hit.at);
+    /** 不受语言格式影响的本地自然日键。 */
+    const key = [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0'),
+    ].join('-');
+    /** 已存在的日期分组。 */
+    const existingGroup = groupByKey.get(key);
+    if (existingGroup) {
+      existingGroup.hits.push(hit);
+      continue;
+    }
+    /** 当前日期首次出现时创建的分组。 */
+    const nextGroup = { key, label: dateFormatter.format(date), hits: [hit] };
+    groupByKey.set(key, nextGroup);
+    groups.push(nextGroup);
+  }
+
+  return groups;
+}
+
+/**
+ * 按筛选条件过滤命中记录。
+ *
+ * 规则名称不在命中记录里（日志只存规则 ID），由调用方把当前规则表投影成 ID → 名称传入，
+ * 使关键词也能按规则名搜索；查不到名称的记录（规则已被删除）只按 URL 与方法匹配。
+ * @param hits 原始命中记录
+ * @param filter 筛选条件
+ * @param ruleNameById 规则 ID 到名称的映射
+ * @returns 保持原始顺序的命中记录
+ */
+export function filterHits(
+  hits: readonly RuleHit[],
+  filter: HitLogFilter,
+  ruleNameById: Readonly<Record<string, string>> = {},
+): RuleHit[] {
+  /** 归一化后的关键词。 */
+  const keyword = filter.keyword.trim().toLocaleLowerCase();
+  return hits.filter((hit) => {
+    if (filter.ruleId !== null && hit.ruleId !== filter.ruleId) {
+      return false;
+    }
+    if (filter.action !== null && hit.action !== filter.action) {
+      return false;
+    }
+    if (filter.outcome !== null && hit.outcome !== filter.outcome) {
+      return false;
+    }
+    if (keyword === '') {
+      return true;
+    }
+    /** 参与关键词匹配的文本。 */
+    const haystack = [hit.url, hit.method, ruleNameById[hit.ruleId] ?? ''];
+    return haystack.some((text) => text.toLocaleLowerCase().includes(keyword));
+  });
+}
+
+/**
+ * 按规则归并命中次数。
+ *
+ * 请求日志里同一条规则会出现很多次，先给出「哪条规则命中得最多」再让用户下钻，
+ * 比直接扫一千行更快定位问题。
+ * @param hits 原始命中记录
+ * @returns 按命中总数倒序排列的逐规则统计；总数相同时保持首次出现顺序
+ */
+export function countHitsByRule(hits: readonly RuleHit[]): RuleHitCount[] {
+  /** 按首次出现顺序累计的逐规则统计。 */
+  const countsByRuleId = new Map<string, RuleHitCount>();
+  for (const hit of hits) {
+    /** 当前规则已累计的统计，首次出现时初始化。 */
+    const count = countsByRuleId.get(hit.ruleId) ?? { ruleId: hit.ruleId, total: 0, applied: 0 };
+    count.total += 1;
+    if (hit.outcome === RuleHitOutcome.Applied) {
+      count.applied += 1;
+    }
+    countsByRuleId.set(hit.ruleId, count);
+  }
+  // Array.prototype.sort 稳定，总数相同的规则因此保持首次命中顺序
+  return [...countsByRuleId.values()].sort((left, right) => right.total - left.total);
+}

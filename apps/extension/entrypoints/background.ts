@@ -3,8 +3,10 @@ import { defineBackground } from 'wxt/utils/define-background';
 import type { DnrRegistrationIssues, Rule, RuleHit, ScopeContext } from '@req-freedom/shared';
 import {
   RUNTIME_MSG_CLEAR_RULE_HITS,
+  RUNTIME_MSG_GET_RULE_HIT_LOG,
   RUNTIME_MSG_GET_RULE_HIT_SUMMARY,
   RUNTIME_MSG_GET_SCOPE_CONTEXT,
+  RUNTIME_MSG_LIST_RULE_HIT_TABS,
   RUNTIME_MSG_RULE_HIT,
   RUNTIME_MSG_SCOPE_CONTEXT_CHANGED,
   RuleExecutionChannel,
@@ -31,8 +33,10 @@ import { parseHits } from '@/utils/rule-hit';
 import {
   clearHits,
   dropTab,
+  getHitLog,
   getHitSummary,
   hasAppliedHits,
+  listHitTabs,
   listTabsWithAppliedHits,
   recordHits,
   restoreHits,
@@ -255,11 +259,16 @@ export default defineBackground(() => {
       return undefined;
     }
 
+    if (messageType === RUNTIME_MSG_LIST_RULE_HIT_TABS) {
+      return Promise.resolve(listHitTabs());
+    }
+
     if (
       messageType === RUNTIME_MSG_GET_RULE_HIT_SUMMARY ||
+      messageType === RUNTIME_MSG_GET_RULE_HIT_LOG ||
       messageType === RUNTIME_MSG_CLEAR_RULE_HITS
     ) {
-      /** popup 显式传入的当前标签页 ID。 */
+      /** 调用方显式传入的目标标签页 ID。 */
       const requestedTabId = Number((message as { tabId?: unknown }).tabId);
       if (!Number.isInteger(requestedTabId) || requestedTabId < 0) {
         return undefined;
@@ -267,6 +276,10 @@ export default defineBackground(() => {
       if (messageType === RUNTIME_MSG_CLEAR_RULE_HITS) {
         clearHits(requestedTabId);
         setActionIconState(requestedTabId, false);
+      }
+      // 请求日志视图要逐条展示命中，摘要给不出请求 URL 与时间，因此单独返回完整日志
+      if (messageType === RUNTIME_MSG_GET_RULE_HIT_LOG) {
+        return Promise.resolve(getHitLog(requestedTabId));
       }
       return Promise.resolve(getHitSummary(requestedTabId));
     }

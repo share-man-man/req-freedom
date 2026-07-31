@@ -78,9 +78,7 @@ flowchart LR
 
 - [x] ~~**P1 · 内嵌代码编辑器（CodeMirror 6）**~~ — 封装 `components/ui/code-editor`，支持 JSON / JavaScript / CSS 的语法高亮、行号、括号匹配、缩进与格式化，按语言 tree-shake（`@codemirror/lang-*`）以适配 MV3 CSP；`MockResponse.body` 已切换为 JSON 编辑器，后续规则类型复用。若将来需 Monaco 级补全再单独评估。
 
-- [ ] **P2 · 请求日志 / 命中高亮**
-  - 让用户看见「哪条规则命中了哪个请求」，否则规则不生效时无从排查。
-  - 数据层已就绪：命中日志已按标签页记录 URL、方法、动作类型与时间（`utils/rule-hit.ts`），只差展示层。
+- [x] ~~**P2 · 请求日志 / 命中高亮**~~ — 复用既有命中日志，不新增数据源：规则管理页顶栏新增「请求日志」视图，逐条展示时间、方法、请求 URL、命中规则、动作与执行结果（已生效 / 未应用及原因），并按规则给出命中次数供一键下钻；支持按关键词（URL / 方法 / 规则名）、动作与执行结果筛选，点击规则名跳回规则视图定位高亮。日志按标签页归档，面板顶部选择标签页；入口即规则统计区新增的「命中记录」卡片（数字为各标签页合计条数，随命中实时增长），日志视图左上角提供返回，清空前二次确认。初次读取走消息拿 background 内存中的权威日志（`RUNTIME_MSG_GET_RULE_HIT_LOG` / `RUNTIME_MSG_LIST_RULE_HIT_TABS`），随后订阅 `storage.session` 镜像实时刷新（约 1 秒一次），不额外唤醒 Service Worker。文档见 [请求日志](apps/docs/docs/guide/features/request-log.md)。
 
 - [ ] **P2 · 规则命中测试器**
   - 输入一个 URL，实时显示命中哪条规则、改写后结果。与「请求日志」互补：那个是事后看，这个是事前验。

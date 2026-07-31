@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronLeft, Download, FileJson, FolderPlus, Languages, ListChecks, Monitor, Moon, MoreHorizontal, Search, Sun, Terminal, ToggleRight, Upload } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Download, FileJson, FolderPlus, Info, Languages, ListChecks, Monitor, Moon, MoreHorizontal, ScrollText, Search, Sun, Terminal, ToggleRight, Upload } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { browser } from 'wxt/browser';
 import { RuleExecutionChannel, ThemeMode } from '@req-freedom/shared';
 import { LogoMark } from '@/components/logo-mark';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,9 @@ import {
 } from '@/components/ui/select';
 import { changeLocale, SUPPORTED_LOCALES, type SupportedLocale } from '@/utils/i18n';
 import { getThemeMode, setTheme } from '@/utils/theme';
+
+/** GitHub Pages 上的在线文档站地址，「关于」菜单项指向这里。 */
+const DOCS_SITE_URL = 'https://share-man-man.github.io/req-freedom/';
 
 /** 各受支持语言的自称展示名（用当前语言书写，不随界面语言翻译）。 */
 const LOCALE_DISPLAY_NAMES: Record<SupportedLocale, string> = {
@@ -64,7 +68,12 @@ const THEME_MODE_LABEL_KEY: Record<ThemeMode, string> = {
  * 并以 fixed 定位，避免被顶栏自身的裁剪或层叠上下文影响。
  * @param props 导入 / 导出回调
  */
-function MoreMenu({ onImportConfig, onImportCurl, onImportHar, onExport }: MoreMenuProps) {
+function MoreMenu({
+  onImportConfig,
+  onImportCurl,
+  onImportHar,
+  onExport,
+}: MoreMenuProps) {
   const { t, i18n } = useTranslation();
   /** 菜单是否展开。 */
   const [open, setOpen] = useState(false);
@@ -142,6 +151,11 @@ function MoreMenu({ onImportConfig, onImportCurl, onImportHar, onExport }: MoreM
   const chooseTheme = (nextTheme: ThemeMode): void => {
     setThemeState(nextTheme);
     choose(() => void setTheme(nextTheme));
+  };
+
+  /** 在新标签页打开在线文档站，并收起菜单。 */
+  const openDocs = (): void => {
+    choose(() => void browser.tabs.create({ url: DOCS_SITE_URL }));
   };
 
   /** 当前主题对应的菜单图标。 */
@@ -307,6 +321,16 @@ function MoreMenu({ onImportConfig, onImportCurl, onImportHar, onExport }: MoreM
               </div>
             )}
           </div>
+          <div className="my-1 border-t border-border" />
+          <button
+            type="button"
+            role="menuitem"
+            onClick={openDocs}
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+          >
+            <Info className="size-4 text-muted-foreground" />
+            {t('dashboard.moreMenu.about')}
+          </button>
         </div>,
         document.body,
       )}
@@ -323,6 +347,17 @@ export const RULE_STATUS_FILTER = {
 
 /** 规则状态筛选的可选取值类型。 */
 export type RuleStatusFilter = (typeof RULE_STATUS_FILTER)[keyof typeof RULE_STATUS_FILTER];
+
+/** 规则管理页的两个主视图。 */
+export const OPTIONS_VIEW = {
+  /** 规则与分组管理。 */
+  Rules: 'rules',
+  /** 请求日志（逐条命中记录）。 */
+  Logs: 'logs',
+} as const;
+
+/** 规则管理页主视图的可选取值类型。 */
+export type OptionsView = (typeof OPTIONS_VIEW)[keyof typeof OPTIONS_VIEW];
 
 interface OptionsPageHeaderProps {
   /** 点击导入配置后的回调。 */
@@ -378,20 +413,29 @@ interface ManagementStatisticsProps {
   ruleCount: number;
   /** 当前有效规则数量。 */
   enabledRuleCount: number;
+  /** 各标签页合计的命中记录条数。 */
+  hitRecordCount: number;
+  /** 点击命中记录卡片后打开请求日志。 */
+  onOpenRequestLog: () => void;
 }
 
 /**
  * 工作台的规则统计卡片。
- * @param props 各类规则数量
+ * @param props 各类规则数量与请求日志入口
  */
 export function ManagementStatistics({
   groupCount,
   ruleCount,
   enabledRuleCount,
+  hitRecordCount,
+  onOpenRequestLog,
 }: ManagementStatisticsProps) {
   const { t } = useTranslation();
   return (
-    <section className="grid gap-4 md:grid-cols-3" aria-label={t('dashboard.statistics.ariaLabel')}>
+    <section
+      className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"
+      aria-label={t('dashboard.statistics.ariaLabel')}
+    >
       <StatisticCard
         icon={<FolderPlus className="size-6" />}
         iconClassName="bg-violet-500/15 text-[var(--accent-violet)]"
@@ -413,6 +457,19 @@ export function ManagementStatistics({
         value={enabledRuleCount}
         suffix={t('dashboard.statistics.ruleSuffix')}
       />
+      {/*
+        命中记录既是统计的一项，也是请求日志的入口：规则配好之后，用户下一步要看的就是
+        「到底命中了没有」，把入口放在这个数字上比藏进「更多」菜单更顺手。
+      */}
+      <StatisticCard
+        icon={<ScrollText className="size-6" />}
+        iconClassName="bg-cyan-500/15 text-[var(--accent-cyan)]"
+        label={t('dashboard.statistics.hitLabel')}
+        value={hitRecordCount}
+        suffix={t('dashboard.statistics.hitSuffix')}
+        actionLabel={t('dashboard.statistics.hitAction')}
+        onClick={onOpenRequestLog}
+      />
     </section>
   );
 }
@@ -428,28 +485,66 @@ interface StatisticCardProps {
   value: number;
   /** 数值后的单位。 */
   suffix: string;
+  /** 可点击卡片的动作说明，同时用作无障碍名称；缺省表示卡片只展示数据。 */
+  actionLabel?: string;
+  /** 点击卡片后的回调；缺省表示卡片不可点击。 */
+  onClick?: () => void;
 }
 
 /**
  * 单项统计卡片。
- * @param props 图标、名称、数值与单位
+ *
+ * 传入 onClick 后整张卡片变为按钮：数字本身就是入口，比另起一个按钮更省位置。
+ * @param props 图标、名称、数值、单位与可选的点击动作
  */
-function StatisticCard({ icon, iconClassName, label, value, suffix }: StatisticCardProps) {
-  return (
-    <Card className="glow-surface border-border/80 shadow-sm">
+function StatisticCard({
+  icon,
+  iconClassName,
+  label,
+  value,
+  suffix,
+  actionLabel,
+  onClick,
+}: StatisticCardProps) {
+  /** 卡片主体，可点击与不可点击共用。 */
+  const content = (
+    <Card
+      className={`glow-surface h-full border-border/80 shadow-sm ${
+        onClick ? 'transition-colors hover:bg-muted/40' : ''
+      }`}
+    >
       <CardContent className="flex items-center gap-4 p-5">
-        <span className={`flex size-11 items-center justify-center rounded-xl ${iconClassName}`}>
+        <span className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${iconClassName}`}>
           {icon}
         </span>
-        <div>
+        <div className="min-w-0">
           <p className="text-sm font-medium text-muted-foreground">{label}</p>
           <p className="mt-1 text-3xl font-semibold leading-none tracking-tight">
             {value}
             <span className="ml-2 text-sm font-normal text-muted-foreground">{suffix}</span>
           </p>
         </div>
+        {actionLabel && (
+          <span className="ml-auto flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+            {actionLabel}
+            <ChevronRight className="size-3.5" />
+          </span>
+        )}
       </CardContent>
     </Card>
+  );
+  if (!onClick) {
+    return content;
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={actionLabel}
+      className="rounded-xl text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
+      {content}
+    </button>
   );
 }
 

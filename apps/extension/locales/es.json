@@ -366,10 +366,6 @@
   },
   "popup": {
     "ruleSkipped": "Una solicitud de esta página coincidió con la regla pero no pudo aplicarse: {{reason}}",
-    "skipReason": {
-      "opaqueResponse": "La respuesta es opaca (no-cors) y no se puede leer su cuerpo",
-      "syncXhr": "Un XMLHttpRequest síncrono no admite procesamiento asíncrono"
-    },
     "ruleNotRegistered": "El navegador rechazó esta regla, por lo que no está en vigor: {{message}}",
     "activeCount": "{{count}} reglas activas",
     "globallyDisabled": "Desactivado globalmente",
@@ -416,7 +412,8 @@
     },
     "moreMenu": {
       "trigger": "Más",
-      "language": "Idioma"
+      "language": "Idioma",
+      "about": "Acerca de"
     },
     "statistics": {
       "ariaLabel": "Estadísticas de reglas",
@@ -424,7 +421,10 @@
       "groupSuffix": "grupos",
       "ruleLabel": "Reglas",
       "ruleSuffix": "reglas",
-      "enabledLabel": "Activadas"
+      "enabledLabel": "Activadas",
+      "hitLabel": "Coincidencias",
+      "hitSuffix": "registros",
+      "hitAction": "Ver registro"
     },
     "toolbar": {
       "ariaLabel": "Filtros de reglas",
@@ -536,6 +536,49 @@
       "set": "Establecer",
       "append": "Anexar",
       "remove": "Eliminar"
+    },
+    "ruleHitSkipReason": {
+      "opaqueResponse": "La respuesta es opaca (no-cors) y no se puede leer su cuerpo",
+      "syncXhr": "Un XMLHttpRequest síncrono no admite procesamiento asíncrono"
     }
+  },
+  "requestLog": {
+    "title": "Registro de solicitudes",
+    "tabSelectorLabel": "Pestaña que se inspecciona",
+    "tabSelectorPlaceholder": "Selecciona una pestaña",
+    "tabOption": "{{label}} · {{count}} registros",
+    "tabFallback": "Pestaña n.º {{tabId}}",
+    "searchPlaceholder": "Filtrar por URL, método o nombre de regla",
+    "actionFilterLabel": "Acción",
+    "actionAll": "Todas las acciones",
+    "outcomeFilterLabel": "Resultado",
+    "outcomeAll": "Todos los resultados",
+    "outcomeApplied": "Aplicada",
+    "outcomeSkipped": "No aplicada",
+    "resetFilter": "Restablecer filtros",
+    "clear": "Vaciar registro",
+    "statsLabel": "Por regla:",
+    "appliedOf": "{{applied}} de {{total}} registros se aplicaron realmente",
+    "deletedRule": "Regla eliminada",
+    "jumpToRule": "Ir a la regla (grupo: {{groupName}})",
+    "openTab": "Abrir la pestaña de este registro",
+    "columnTime": "Hora",
+    "columnMethod": "Método",
+    "columnUrl": "URL de la solicitud",
+    "columnRule": "Regla",
+    "columnAction": "Acción",
+    "columnOutcome": "Resultado",
+    "truncated": "Solo se conservan los registros más recientes de esta pestaña; los anteriores se descartaron.",
+    "loadFailed": "No se pudo cargar el registro de solicitudes.",
+    "retry": "Reintentar",
+    "emptyNoTabs": "Todavía no hay coincidencias registradas",
+    "emptyNoTabsHint": "Activa una regla y visita una página coincidente; las coincidencias aparecerán aquí.",
+    "emptyTab": "Esta pestaña no tiene coincidencias",
+    "emptyTabHint": "El registro se vacía en cada navegación de nivel superior.",
+    "emptyFiltered": "No hay registros que coincidan",
+    "emptyFilteredHint": "Prueba a relajar los filtros de arriba.",
+    "loading": "Cargando el registro de solicitudes…",
+    "backToRules": "Volver a las reglas",
+    "clearConfirm": "¿Borrar los {{count}} registros de esta pestaña? Esta acción no se puede deshacer."
   }
 }

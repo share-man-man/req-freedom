@@ -12,6 +12,7 @@ import {
   RequestBodyMode,
   RequestBodySourceMode,
   RuleActionType,
+  RuleHitSkipReason,
   RuleScopeType,
 } from '@req-freedom/shared';
 import { RuleTemplateCategory } from '@/utils/templates';
@@ -45,6 +46,12 @@ export function getLabels(t: TFunction) {
       [RuleActionType.ModifyRequestBody]: t('label.ruleActionType.modifyRequestBody'),
       [RuleActionType.InsertScript]: t('label.ruleActionType.insertScript'),
     } satisfies Record<RuleActionType, string>,
+
+    /** 规则匹配上却未能应用时，各跳过原因的展示名。 */
+    RULE_HIT_SKIP_REASON_LABELS: {
+      [RuleHitSkipReason.OpaqueResponse]: t('label.ruleHitSkipReason.opaqueResponse'),
+      [RuleHitSkipReason.SyncXhr]: t('label.ruleHitSkipReason.syncXhr'),
+    } satisfies Record<RuleHitSkipReason, string>,
 
     /** 请求体改写模式的展示名 */
     REQUEST_BODY_MODE_LABELS: {

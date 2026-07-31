@@ -366,10 +366,6 @@
   },
   "popup": {
     "ruleSkipped": "Запрос на этой странице совпал с правилом, но применить его не удалось: {{reason}}",
-    "skipReason": {
-      "opaqueResponse": "Ответ непрозрачный (no-cors), его тело недоступно для чтения",
-      "syncXhr": "Синхронный XMLHttpRequest не допускает асинхронной обработки"
-    },
     "ruleNotRegistered": "Браузер отклонил это правило, поэтому оно не применяется: {{message}}",
     "activeCount": "Активно правил: {{count}}",
     "globallyDisabled": "Глобально отключено",
@@ -416,7 +412,8 @@
     },
     "moreMenu": {
       "trigger": "Ещё",
-      "language": "Язык"
+      "language": "Язык",
+      "about": "О расширении"
     },
     "statistics": {
       "ariaLabel": "Статистика правил",
@@ -424,7 +421,10 @@
       "groupSuffix": "группы",
       "ruleLabel": "Правила",
       "ruleSuffix": "правила",
-      "enabledLabel": "Включено"
+      "enabledLabel": "Включено",
+      "hitLabel": "Срабатывания",
+      "hitSuffix": "записей",
+      "hitAction": "Открыть журнал"
     },
     "toolbar": {
       "ariaLabel": "Фильтры правил",
@@ -536,6 +536,49 @@
       "set": "Установить",
       "append": "Добавить",
       "remove": "Удалить"
+    },
+    "ruleHitSkipReason": {
+      "opaqueResponse": "Ответ непрозрачный (no-cors), его тело недоступно для чтения",
+      "syncXhr": "Синхронный XMLHttpRequest не допускает асинхронной обработки"
     }
+  },
+  "requestLog": {
+    "title": "Журнал запросов",
+    "tabSelectorLabel": "Просматриваемая вкладка",
+    "tabSelectorPlaceholder": "Выберите вкладку",
+    "tabOption": "{{label}} · {{count}} записей",
+    "tabFallback": "Вкладка №{{tabId}}",
+    "searchPlaceholder": "Фильтр по URL, методу или названию правила",
+    "actionFilterLabel": "Действие",
+    "actionAll": "Все действия",
+    "outcomeFilterLabel": "Результат",
+    "outcomeAll": "Все результаты",
+    "outcomeApplied": "Применено",
+    "outcomeSkipped": "Не применено",
+    "resetFilter": "Сбросить фильтры",
+    "clear": "Очистить журнал",
+    "statsLabel": "По правилам:",
+    "appliedOf": "Из {{total}} записей фактически применено {{applied}}",
+    "deletedRule": "Удалённое правило",
+    "jumpToRule": "Перейти к правилу (группа: {{groupName}})",
+    "openTab": "Открыть вкладку этой записи",
+    "columnTime": "Время",
+    "columnMethod": "Метод",
+    "columnUrl": "URL запроса",
+    "columnRule": "Правило",
+    "columnAction": "Действие",
+    "columnOutcome": "Результат",
+    "truncated": "Хранятся только последние записи этой вкладки; более ранние удалены.",
+    "loadFailed": "Не удалось загрузить журнал запросов.",
+    "retry": "Повторить",
+    "emptyNoTabs": "Срабатываний пока нет",
+    "emptyNoTabsHint": "Включите правило и откройте подходящую страницу — срабатывания появятся здесь.",
+    "emptyTab": "На этой вкладке нет срабатываний",
+    "emptyTabHint": "Журнал очищается при каждом переходе верхнего уровня.",
+    "emptyFiltered": "Нет записей, удовлетворяющих фильтрам",
+    "emptyFilteredHint": "Попробуйте ослабить фильтры выше.",
+    "loading": "Загрузка журнала запросов…",
+    "backToRules": "Назад к правилам",
+    "clearConfirm": "Очистить все записи этой вкладки ({{count}})? Отменить это действие нельзя."
   }
 }

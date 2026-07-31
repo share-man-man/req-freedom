@@ -1,5 +1,5 @@
 import { browser } from 'wxt/browser';
-import type { RuleHit, RuleHitSummary } from '@req-freedom/shared';
+import type { RuleHit, RuleHitLog, RuleHitSummary, RuleHitTabSummary } from '@req-freedom/shared';
 import { STORAGE_KEY_RULE_HITS } from '@req-freedom/shared';
 import {
   appendHits,
@@ -187,6 +187,31 @@ export function dropTab(tabId: number): void {
  */
 export function getHitSummary(tabId: number): RuleHitSummary {
   return summarizeHits(hitsByTab.get(tabId));
+}
+
+/**
+ * 读取某个标签页的完整命中日志。
+ *
+ * 请求日志视图要逐条展示「哪条规则命中了哪个请求」，摘要（去重后的规则 ID）不够用，
+ * 因此单独提供一个返回原始日志的入口。
+ * @param tabId 标签页 ID
+ * @returns 该标签页的命中日志；无记录时为空日志
+ */
+export function getHitLog(tabId: number): RuleHitLog {
+  return hitsByTab.get(tabId) ?? createTabHitLog();
+}
+
+/**
+ * 列出当前仍保有命中日志的标签页概览。
+ *
+ * 请求日志视图据此列出可查看的标签页；按最后一条命中的时间倒序，最近活跃的排在最前。
+ * @returns 标签页概览列表
+ */
+export function listHitTabs(): RuleHitTabSummary[] {
+  return [...hitsByTab.entries()]
+    .map(([tabId, log]) => ({ tabId, total: log.hits.length, lastHitAt: getLastHitAt(log) }))
+    .filter((summary) => summary.total > 0)
+    .sort((left, right) => right.lastHitAt - left.lastHitAt);
 }
 
 /**

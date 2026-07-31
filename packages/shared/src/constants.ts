@@ -42,6 +42,12 @@ export const RUNTIME_MSG_GET_RULE_HIT_SUMMARY = 'req-freedom:get-rule-hit-summar
 /** popup 通知 background 清空当前标签页命中日志的消息类型。 */
 export const RUNTIME_MSG_CLEAR_RULE_HITS = 'req-freedom:clear-rule-hits';
 
+/** 请求日志视图向 background 查询某个标签页完整命中日志的消息类型。 */
+export const RUNTIME_MSG_GET_RULE_HIT_LOG = 'req-freedom:get-rule-hit-log';
+
+/** 请求日志视图向 background 查询当前仍有命中日志的标签页列表的消息类型。 */
+export const RUNTIME_MSG_LIST_RULE_HIT_TABS = 'req-freedom:list-rule-hit-tabs';
+
 /** storage.session 中按标签页镜像命中日志的键名前缀。 */
 export const STORAGE_KEY_RULE_HITS = 'req-freedom:rule-hits';
 

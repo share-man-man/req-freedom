@@ -366,10 +366,6 @@
   },
   "popup": {
     "ruleSkipped": "A request on this page matched this rule but could not apply it: {{reason}}",
-    "skipReason": {
-      "opaqueResponse": "The response is opaque (no-cors), so its body cannot be read",
-      "syncXhr": "A synchronous XMLHttpRequest leaves no room for async handling"
-    },
     "ruleNotRegistered": "The browser rejected this rule, so it is not in effect: {{message}}",
     "activeCount": "{{count}} rules active",
     "globallyDisabled": "Globally disabled",
@@ -416,7 +412,8 @@
     },
     "moreMenu": {
       "trigger": "More",
-      "language": "Language"
+      "language": "Language",
+      "about": "About"
     },
     "statistics": {
       "ariaLabel": "Rule statistics",
@@ -424,7 +421,10 @@
       "groupSuffix": "groups",
       "ruleLabel": "Rules",
       "ruleSuffix": "rules",
-      "enabledLabel": "Enabled"
+      "enabledLabel": "Enabled",
+      "hitLabel": "Hit records",
+      "hitSuffix": "records",
+      "hitAction": "View log"
     },
     "toolbar": {
       "ariaLabel": "Rule filters",
@@ -536,6 +536,49 @@
       "set": "Set",
       "append": "Append",
       "remove": "Remove"
+    },
+    "ruleHitSkipReason": {
+      "opaqueResponse": "The response is opaque (no-cors), so its body cannot be read",
+      "syncXhr": "A synchronous XMLHttpRequest leaves no room for async handling"
     }
+  },
+  "requestLog": {
+    "title": "Request log",
+    "tabSelectorLabel": "Tab to inspect",
+    "tabSelectorPlaceholder": "Select a tab",
+    "tabOption": "{{label}} · {{count}} records",
+    "tabFallback": "Tab #{{tabId}}",
+    "searchPlaceholder": "Filter by URL, method or rule name",
+    "actionFilterLabel": "Action",
+    "actionAll": "All actions",
+    "outcomeFilterLabel": "Outcome",
+    "outcomeAll": "All outcomes",
+    "outcomeApplied": "Applied",
+    "outcomeSkipped": "Not applied",
+    "resetFilter": "Reset filters",
+    "clear": "Clear log",
+    "statsLabel": "By rule:",
+    "appliedOf": "{{applied}} of {{total}} records were actually applied",
+    "deletedRule": "Deleted rule",
+    "jumpToRule": "Go to rule (group: {{groupName}})",
+    "openTab": "Open the tab for this record",
+    "columnTime": "Time",
+    "columnMethod": "Method",
+    "columnUrl": "Request URL",
+    "columnRule": "Rule",
+    "columnAction": "Action",
+    "columnOutcome": "Outcome",
+    "truncated": "Only the most recent records of this tab are kept; older ones were dropped.",
+    "loadFailed": "Could not load the request log.",
+    "retry": "Retry",
+    "emptyNoTabs": "No hits recorded yet",
+    "emptyNoTabsHint": "Enable a rule and visit a matching page; hits show up here automatically.",
+    "emptyTab": "No hits on this tab",
+    "emptyTabHint": "The log is cleared on every top-level navigation.",
+    "emptyFiltered": "No matching records",
+    "emptyFilteredHint": "Try relaxing the filters above.",
+    "loading": "Loading the request log…",
+    "backToRules": "Back to rules",
+    "clearConfirm": "Clear all {{count}} records for this tab? This cannot be undone."
   }
 }

@@ -366,10 +366,6 @@
   },
   "popup": {
     "ruleSkipped": "Une requête de cette page correspondait à cette règle mais n'a pas pu l'appliquer : {{reason}}",
-    "skipReason": {
-      "opaqueResponse": "La réponse est opaque (no-cors), son corps est illisible",
-      "syncXhr": "Un XMLHttpRequest synchrone ne laisse pas place au traitement asynchrone"
-    },
     "ruleNotRegistered": "Le navigateur a rejeté cette règle, elle n'est donc pas appliquée : {{message}}",
     "activeCount": "{{count}} règles actives",
     "globallyDisabled": "Désactivé globalement",
@@ -416,7 +412,8 @@
     },
     "moreMenu": {
       "trigger": "Plus",
-      "language": "Langue"
+      "language": "Langue",
+      "about": "À propos"
     },
     "statistics": {
       "ariaLabel": "Statistiques des règles",
@@ -424,7 +421,10 @@
       "groupSuffix": "groupes",
       "ruleLabel": "Règles",
       "ruleSuffix": "règles",
-      "enabledLabel": "Activé"
+      "enabledLabel": "Activé",
+      "hitLabel": "Déclenchements",
+      "hitSuffix": "entrées",
+      "hitAction": "Voir le journal"
     },
     "toolbar": {
       "ariaLabel": "Filtres des règles",
@@ -536,6 +536,49 @@
       "set": "Définir",
       "append": "Ajouter",
       "remove": "Supprimer"
+    },
+    "ruleHitSkipReason": {
+      "opaqueResponse": "La réponse est opaque (no-cors), son corps est illisible",
+      "syncXhr": "Un XMLHttpRequest synchrone ne laisse pas place au traitement asynchrone"
     }
+  },
+  "requestLog": {
+    "title": "Journal des requêtes",
+    "tabSelectorLabel": "Onglet inspecté",
+    "tabSelectorPlaceholder": "Choisir un onglet",
+    "tabOption": "{{label}} · {{count}} entrées",
+    "tabFallback": "Onglet n° {{tabId}}",
+    "searchPlaceholder": "Filtrer par URL, méthode ou nom de règle",
+    "actionFilterLabel": "Action",
+    "actionAll": "Toutes les actions",
+    "outcomeFilterLabel": "Résultat",
+    "outcomeAll": "Tous les résultats",
+    "outcomeApplied": "Appliquée",
+    "outcomeSkipped": "Non appliquée",
+    "resetFilter": "Réinitialiser les filtres",
+    "clear": "Vider le journal",
+    "statsLabel": "Par règle :",
+    "appliedOf": "{{applied}} entrées sur {{total}} ont réellement été appliquées",
+    "deletedRule": "Règle supprimée",
+    "jumpToRule": "Accéder à la règle (groupe : {{groupName}})",
+    "openTab": "Ouvrir l’onglet de cette entrée",
+    "columnTime": "Heure",
+    "columnMethod": "Méthode",
+    "columnUrl": "URL de la requête",
+    "columnRule": "Règle",
+    "columnAction": "Action",
+    "columnOutcome": "Résultat",
+    "truncated": "Seules les entrées les plus récentes de cet onglet sont conservées ; les plus anciennes ont été supprimées.",
+    "loadFailed": "Impossible de charger le journal des requêtes.",
+    "retry": "Réessayer",
+    "emptyNoTabs": "Aucun déclenchement enregistré pour l’instant",
+    "emptyNoTabsHint": "Activez une règle puis ouvrez une page correspondante : les déclenchements s’afficheront ici.",
+    "emptyTab": "Aucun déclenchement dans cet onglet",
+    "emptyTabHint": "Le journal est vidé à chaque navigation de premier niveau.",
+    "emptyFiltered": "Aucune entrée ne correspond aux filtres",
+    "emptyFilteredHint": "Essayez d’assouplir les filtres ci-dessus.",
+    "loading": "Chargement du journal des requêtes…",
+    "backToRules": "Retour aux règles",
+    "clearConfirm": "Vider les {{count}} entrées de cet onglet ? Cette action est irréversible."
   }
 }

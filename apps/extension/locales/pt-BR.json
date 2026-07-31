@@ -366,10 +366,6 @@
   },
   "popup": {
     "ruleSkipped": "Uma requisição desta página correspondeu à regra, mas não pôde aplicá-la: {{reason}}",
-    "skipReason": {
-      "opaqueResponse": "A resposta é opaca (no-cors) e seu corpo não pode ser lido",
-      "syncXhr": "Um XMLHttpRequest síncrono não comporta processamento assíncrono"
-    },
     "ruleNotRegistered": "O navegador rejeitou esta regra, portanto ela não está em vigor: {{message}}",
     "activeCount": "{{count}} regras ativas",
     "globallyDisabled": "Desativado globalmente",
@@ -416,7 +412,8 @@
     },
     "moreMenu": {
       "trigger": "Mais",
-      "language": "Idioma"
+      "language": "Idioma",
+      "about": "Sobre"
     },
     "statistics": {
       "ariaLabel": "Estatísticas de regras",
@@ -424,7 +421,10 @@
       "groupSuffix": "grupos",
       "ruleLabel": "Regras",
       "ruleSuffix": "regras",
-      "enabledLabel": "Ativado"
+      "enabledLabel": "Ativado",
+      "hitLabel": "Acionamentos",
+      "hitSuffix": "registros",
+      "hitAction": "Ver registro"
     },
     "toolbar": {
       "ariaLabel": "Filtros de regras",
@@ -536,6 +536,49 @@
       "set": "Definir",
       "append": "Anexar",
       "remove": "Remover"
+    },
+    "ruleHitSkipReason": {
+      "opaqueResponse": "A resposta é opaca (no-cors) e seu corpo não pode ser lido",
+      "syncXhr": "Um XMLHttpRequest síncrono não comporta processamento assíncrono"
     }
+  },
+  "requestLog": {
+    "title": "Registro de requisições",
+    "tabSelectorLabel": "Aba inspecionada",
+    "tabSelectorPlaceholder": "Selecione uma aba",
+    "tabOption": "{{label}} · {{count}} registros",
+    "tabFallback": "Aba nº {{tabId}}",
+    "searchPlaceholder": "Filtrar por URL, método ou nome da regra",
+    "actionFilterLabel": "Ação",
+    "actionAll": "Todas as ações",
+    "outcomeFilterLabel": "Resultado",
+    "outcomeAll": "Todos os resultados",
+    "outcomeApplied": "Aplicada",
+    "outcomeSkipped": "Não aplicada",
+    "resetFilter": "Redefinir filtros",
+    "clear": "Limpar registro",
+    "statsLabel": "Por regra:",
+    "appliedOf": "{{applied}} de {{total}} registros foram realmente aplicados",
+    "deletedRule": "Regra excluída",
+    "jumpToRule": "Ir para a regra (grupo: {{groupName}})",
+    "openTab": "Abrir a guia deste registro",
+    "columnTime": "Horário",
+    "columnMethod": "Método",
+    "columnUrl": "URL da requisição",
+    "columnRule": "Regra",
+    "columnAction": "Ação",
+    "columnOutcome": "Resultado",
+    "truncated": "Apenas os registros mais recentes desta aba são mantidos; os antigos foram descartados.",
+    "loadFailed": "Não foi possível carregar o registro de requisições.",
+    "retry": "Tentar novamente",
+    "emptyNoTabs": "Ainda não há acionamentos registrados",
+    "emptyNoTabsHint": "Ative uma regra e acesse uma página correspondente; os acionamentos aparecem aqui.",
+    "emptyTab": "Esta aba não tem acionamentos",
+    "emptyTabHint": "O registro é limpo a cada navegação de nível superior.",
+    "emptyFiltered": "Nenhum registro corresponde aos filtros",
+    "emptyFilteredHint": "Tente afrouxar os filtros acima.",
+    "loading": "Carregando o registro de requisições…",
+    "backToRules": "Voltar para as regras",
+    "clearConfirm": "Limpar os {{count}} registros desta aba? Esta ação não pode ser desfeita."
   }
 }
