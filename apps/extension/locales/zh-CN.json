@@ -230,6 +230,8 @@
       "limitedHint": "{{emptyHint}}；对象 ID 为会话级，浏览器重启后需重新选择。"
     },
     "mockActionEditor": {
+      "modeLabel": "生成方式",
+      "statusCodeLabel": "状态码",
       "bodyTypeAriaLabel": "响应体类型",
       "invalidJsonHint": "响应体不是合法 JSON；若要返回其他格式，请切换上方「响应体类型」。",
       "dynamicHint": "动态代码可读取 req.url、req.method、req.headers、req.query、req.body、req.json。",
@@ -244,7 +246,13 @@
       "upload": "上行({{unit}})"
     },
     "requestBodyActionEditor": {
+      "sourceModeLabel": "内容来源",
+      "modeLabel": "改写方式",
       "hint": "仅作用于 fetch / XHR 的可带请求体方法；异常或返回 undefined 时保留原请求体。"
+    },
+    "insertScriptActionEditor": {
+      "codeTypeLabel": "代码类型",
+      "timingLabel": "注入时机"
     }
   },
   "app": {

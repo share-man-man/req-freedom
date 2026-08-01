@@ -1141,12 +1141,41 @@ function MockActionEditor({ action, onChange }: { action: Extract<RuleAction, { 
   const editorLanguage: CodeEditorLanguage = isStatic ? MOCK_BODY_TYPE_EDITOR_LANGUAGE[bodyType] : 'javascript';
   /** 是否已开启「基于真实响应」：此时状态码与响应头沿用真实响应，规则内的配置不再参与。 */
   const isPassthrough = action.passthrough === true;
+  /**
+   * 切换响应体生成方式。
+   * @param value 目标模式
+   */
+  const changeMode = (value: string): void => {
+    /** 切换后的响应体生成方式。 */
+    const mode = value as MockResponseMode;
+    // 切回静态模式时必须清掉 passthrough：静态模式没有 res 入参，残留该字段会让导入校验直接判失败
+    if (mode === MockResponseMode.Static) {
+      onChange({ ...action, mode, passthrough: undefined });
+      return;
+    }
+    // 首次切到动态模式时补上预填示例：functionCode 是可选字段，导入或手写的静态 Mock 规则
+    // 通常只带 body，直接切过去编辑器会是空白（界面新建的规则在创建时两种模式的初值都写好了，不受影响）
+    onChange({
+      ...action,
+      mode,
+      functionCode: action.functionCode?.trim()
+        ? action.functionCode
+        : isPassthrough
+          ? DEFAULT_PASSTHROUGH_MOCK_FUNCTION_CODE
+          : DEFAULT_DYNAMIC_MOCK_FUNCTION_CODE,
+    });
+  };
   return <div className="space-y-3">
     <div className="grid grid-cols-2 gap-3">
-      {/* 切回静态模式时必须清掉 passthrough：静态模式没有 res 入参，残留该字段会让导入校验直接判失败 */}
-      <Select value={action.mode} onValueChange={(value) => onChange(value === MockResponseMode.Static ? { ...action, mode: value as MockResponseMode, passthrough: undefined } : { ...action, mode: value as MockResponseMode })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(MockResponseMode).map((mode) => <SelectItem key={mode} value={mode}>{labels.MOCK_RESPONSE_MODE_LABELS[mode]}</SelectItem>)}</SelectContent></Select>
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground" htmlFor="mock-mode">{t('ruleEditor.mockActionEditor.modeLabel')}</Label>
+        <Select value={action.mode} onValueChange={changeMode}><SelectTrigger id="mock-mode"><SelectValue /></SelectTrigger><SelectContent>{Object.values(MockResponseMode).map((mode) => <SelectItem key={mode} value={mode}>{labels.MOCK_RESPONSE_MODE_LABELS[mode]}</SelectItem>)}</SelectContent></Select>
+      </div>
       {/* 基于真实响应时状态码来自服务端，隐藏输入框避免用户以为填了会生效 */}
-      {!isPassthrough && <Input type="number" value={action.statusCode} onChange={(event) => onChange({ ...action, statusCode: Number(event.target.value) })} />}
+      {!isPassthrough && <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground" htmlFor="mock-status-code">{t('ruleEditor.mockActionEditor.statusCodeLabel')}</Label>
+        <Input id="mock-status-code" type="number" value={action.statusCode} onChange={(event) => onChange({ ...action, statusCode: Number(event.target.value) })} />
+      </div>}
     </div>
     {/* 「基于真实响应」只在动态模式可用：静态模式发一次真实请求再整体丢弃没有意义 */}
     {!isStatic && <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/40 px-3 py-2">
@@ -1212,7 +1241,33 @@ function RequestBodyActionEditor({ action, onChange }: { action: Extract<RuleAct
   const { t } = useTranslation();
   /** 各枚举展示名映射。 */
   const labels = getLabels(t);
-  return <div className="space-y-3"><div className="grid grid-cols-2 gap-3"><Select value={action.sourceMode} onValueChange={(value) => onChange({ ...action, sourceMode: value as RequestBodySourceMode })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(RequestBodySourceMode).map((mode) => <SelectItem key={mode} value={mode}>{labels.REQUEST_BODY_SOURCE_MODE_LABELS[mode]}</SelectItem>)}</SelectContent></Select>{action.sourceMode === RequestBodySourceMode.Static && <Select value={action.mode} onValueChange={(value) => onChange({ ...action, mode: value as RequestBodyMode })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(RequestBodyMode).map((mode) => <SelectItem key={mode} value={mode}>{labels.REQUEST_BODY_MODE_LABELS[mode]}</SelectItem>)}</SelectContent></Select>}</div><CodeEditor language={action.sourceMode === RequestBodySourceMode.Dynamic ? 'javascript' : 'json'} value={action.sourceMode === RequestBodySourceMode.Dynamic ? action.functionCode ?? '' : action.content} onChange={(next) => onChange(action.sourceMode === RequestBodySourceMode.Dynamic ? { ...action, functionCode: next } : { ...action, content: next })} headerEnd={action.sourceMode === RequestBodySourceMode.Static ? <DynamicVariableHint /> : undefined} /><p className="text-xs text-muted-foreground">{t('ruleEditor.requestBodyActionEditor.hint')}</p></div>;
+  /**
+   * 切换请求体内容来源。
+   * @param value 目标来源模式
+   */
+  const changeSourceMode = (value: string): void => {
+    /** 切换后的内容来源模式。 */
+    const sourceMode = value as RequestBodySourceMode;
+    // 与 Mock 同理：functionCode 是可选字段，只带 content 的规则切到动态模式会是空白编辑器
+    onChange({
+      ...action,
+      sourceMode,
+      ...(sourceMode === RequestBodySourceMode.Dynamic && !action.functionCode?.trim()
+        ? { functionCode: DEFAULT_DYNAMIC_REQUEST_BODY_FUNCTION_CODE }
+        : {}),
+    });
+  };
+  return <div className="space-y-3"><div className="grid grid-cols-2 gap-3">
+    <div className="space-y-1">
+      <Label className="text-xs text-muted-foreground" htmlFor="request-body-source-mode">{t('ruleEditor.requestBodyActionEditor.sourceModeLabel')}</Label>
+      <Select value={action.sourceMode} onValueChange={changeSourceMode}><SelectTrigger id="request-body-source-mode"><SelectValue /></SelectTrigger><SelectContent>{Object.values(RequestBodySourceMode).map((mode) => <SelectItem key={mode} value={mode}>{labels.REQUEST_BODY_SOURCE_MODE_LABELS[mode]}</SelectItem>)}</SelectContent></Select>
+    </div>
+    {/* 动态生成时整段请求体由函数返回，深合并 / 整体替换无从谈起，连标签一起收起 */}
+    {action.sourceMode === RequestBodySourceMode.Static && <div className="space-y-1">
+      <Label className="text-xs text-muted-foreground" htmlFor="request-body-mode">{t('ruleEditor.requestBodyActionEditor.modeLabel')}</Label>
+      <Select value={action.mode} onValueChange={(value) => onChange({ ...action, mode: value as RequestBodyMode })}><SelectTrigger id="request-body-mode"><SelectValue /></SelectTrigger><SelectContent>{Object.values(RequestBodyMode).map((mode) => <SelectItem key={mode} value={mode}>{labels.REQUEST_BODY_MODE_LABELS[mode]}</SelectItem>)}</SelectContent></Select>
+    </div>}
+  </div><CodeEditor language={action.sourceMode === RequestBodySourceMode.Dynamic ? 'javascript' : 'json'} value={action.sourceMode === RequestBodySourceMode.Dynamic ? action.functionCode ?? '' : action.content} onChange={(next) => onChange(action.sourceMode === RequestBodySourceMode.Dynamic ? { ...action, functionCode: next } : { ...action, content: next })} headerEnd={action.sourceMode === RequestBodySourceMode.Static ? <DynamicVariableHint /> : undefined} /><p className="text-xs text-muted-foreground">{t('ruleEditor.requestBodyActionEditor.hint')}</p></div>;
 }
 
 /** 脚本注入参数编辑器。 */
@@ -1220,5 +1275,14 @@ function InsertScriptActionEditor({ action, onChange }: { action: Extract<RuleAc
   const { t } = useTranslation();
   /** 各枚举展示名映射。 */
   const labels = getLabels(t);
-  return <div className="space-y-3"><div className="grid grid-cols-2 gap-3"><Select value={action.codeType} onValueChange={(value) => onChange({ ...action, codeType: value as InsertScriptCodeType })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(InsertScriptCodeType).map((codeType) => <SelectItem key={codeType} value={codeType}>{labels.INSERT_SCRIPT_CODE_TYPE_LABELS[codeType]}</SelectItem>)}</SelectContent></Select><Select value={action.timing} onValueChange={(value) => onChange({ ...action, timing: value as InsertScriptTiming })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{Object.values(InsertScriptTiming).map((timing) => <SelectItem key={timing} value={timing}>{labels.INSERT_SCRIPT_TIMING_LABELS[timing]}</SelectItem>)}</SelectContent></Select></div><CodeEditor language={action.codeType === InsertScriptCodeType.Css ? 'css' : 'javascript'} value={action.code} onChange={(next) => onChange({ ...action, code: next })} /></div>;
+  return <div className="space-y-3"><div className="grid grid-cols-2 gap-3">
+    <div className="space-y-1">
+      <Label className="text-xs text-muted-foreground" htmlFor="insert-script-code-type">{t('ruleEditor.insertScriptActionEditor.codeTypeLabel')}</Label>
+      <Select value={action.codeType} onValueChange={(value) => onChange({ ...action, codeType: value as InsertScriptCodeType })}><SelectTrigger id="insert-script-code-type"><SelectValue /></SelectTrigger><SelectContent>{Object.values(InsertScriptCodeType).map((codeType) => <SelectItem key={codeType} value={codeType}>{labels.INSERT_SCRIPT_CODE_TYPE_LABELS[codeType]}</SelectItem>)}</SelectContent></Select>
+    </div>
+    <div className="space-y-1">
+      <Label className="text-xs text-muted-foreground" htmlFor="insert-script-timing">{t('ruleEditor.insertScriptActionEditor.timingLabel')}</Label>
+      <Select value={action.timing} onValueChange={(value) => onChange({ ...action, timing: value as InsertScriptTiming })}><SelectTrigger id="insert-script-timing"><SelectValue /></SelectTrigger><SelectContent>{Object.values(InsertScriptTiming).map((timing) => <SelectItem key={timing} value={timing}>{labels.INSERT_SCRIPT_TIMING_LABELS[timing]}</SelectItem>)}</SelectContent></Select>
+    </div>
+  </div><CodeEditor language={action.codeType === InsertScriptCodeType.Css ? 'css' : 'javascript'} value={action.code} onChange={(next) => onChange({ ...action, code: next })} /></div>;
 }

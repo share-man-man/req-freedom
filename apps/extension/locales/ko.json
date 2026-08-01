@@ -230,6 +230,8 @@
       "limitedHint": "{{emptyHint}}. 객체 ID는 세션 동안만 유효하므로 브라우저를 다시 시작하면 다시 선택해야 합니다."
     },
     "mockActionEditor": {
+      "modeLabel": "생성 방식",
+      "statusCodeLabel": "상태 코드",
       "bodyTypeAriaLabel": "응답 본문 유형",
       "invalidJsonHint": "응답 본문이 올바른 JSON이 아닙니다. 다른 형식을 반환하려면 위의 \"본문 유형\"을 변경하세요.",
       "dynamicHint": "동적 함수에서 req.url, req.method, req.headers, req.query, req.body, req.json을 읽을 수 있습니다.",
@@ -244,7 +246,13 @@
       "upload": "업로드({{unit}})"
     },
     "requestBodyActionEditor": {
+      "sourceModeLabel": "콘텐츠 소스",
+      "modeLabel": "재작성 방식",
       "hint": "본문을 포함할 수 있는 fetch / XHR 메서드에만 적용됩니다. 오류가 발생하거나 undefined가 반환되면 원래 본문을 유지합니다."
+    },
+    "insertScriptActionEditor": {
+      "codeTypeLabel": "코드 유형",
+      "timingLabel": "삽입 시점"
     }
   },
   "app": {

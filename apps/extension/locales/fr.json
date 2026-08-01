@@ -230,6 +230,8 @@
       "limitedHint": "{{emptyHint}} ; les ID ne valent que pour la session et doivent être resélectionnés après le redémarrage."
     },
     "mockActionEditor": {
+      "modeLabel": "Mode",
+      "statusCodeLabel": "Code de statut",
       "bodyTypeAriaLabel": "Type du corps de réponse",
       "invalidJsonHint": "Le corps n’est pas un JSON valide ; pour un autre format, changez le « Type du corps » ci-dessus.",
       "dynamicHint": "La fonction dynamique peut lire req.url, req.method, req.headers, req.query, req.body et req.json.",
@@ -244,7 +246,13 @@
       "upload": "Envoi ({{unit}})"
     },
     "requestBodyActionEditor": {
+      "sourceModeLabel": "Source du contenu",
+      "modeLabel": "Mode de réécriture",
       "hint": "Ne s’applique qu’aux méthodes fetch / XHR avec corps ; le corps original est conservé en cas d’erreur ou de retour undefined."
+    },
+    "insertScriptActionEditor": {
+      "codeTypeLabel": "Type de code",
+      "timingLabel": "Moment d'injection"
     }
   },
   "app": {
