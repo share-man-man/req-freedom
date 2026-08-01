@@ -207,6 +207,10 @@
       "matched": "命中",
       "notMatched": "未命中，該 URL 不會被此規則處理"
     },
+    "dnrRegex": {
+      "syntaxError": "瀏覽器拒絕此正規表示式：DNR 使用 RE2 語法，不支援前瞻、反向參照等寫法，規則將無法生效",
+      "memoryLimitExceeded": "瀏覽器拒絕此正規表示式：複雜度超出 DNR 的記憶體上限，規則將無法生效"
+    },
     "methodPicker": {
       "scriptOnlyHint": "指令碼注入按頁面 URL 命中，無需配置請求方法。",
       "all": "全部",

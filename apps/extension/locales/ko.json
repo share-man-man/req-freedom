@@ -207,6 +207,10 @@
       "matched": "일치함",
       "notMatched": "일치하지 않음 — 이 규칙에서 URL을 처리하지 않습니다"
     },
+    "dnrRegex": {
+      "syntaxError": "브라우저가 이 정규식을 거부했습니다: DNR은 RE2 구문을 사용하므로 전방 탐색이나 역참조를 지원하지 않습니다. 이 규칙은 적용되지 않습니다.",
+      "memoryLimitExceeded": "브라우저가 이 정규식을 거부했습니다: DNR의 메모리 한도를 초과합니다. 이 규칙은 적용되지 않습니다."
+    },
     "methodPicker": {
       "scriptOnlyHint": "스크립트 삽입은 페이지 URL로 일치하므로 메서드 구성이 필요하지 않습니다.",
       "all": "모두",

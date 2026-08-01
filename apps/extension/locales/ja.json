@@ -207,6 +207,10 @@
       "matched": "一致",
       "notMatched": "不一致 — この URL はルールで処理されません"
     },
+    "dnrRegex": {
+      "syntaxError": "ブラウザーがこの正規表現を拒否しました: DNR は RE2 構文のため、先読みや後方参照は使用できません。このルールは動作しません。",
+      "memoryLimitExceeded": "ブラウザーがこの正規表現を拒否しました: DNR のメモリ上限を超えています。このルールは動作しません。"
+    },
     "methodPicker": {
       "scriptOnlyHint": "スクリプト注入はページ URL で一致するため、メソッド設定は不要です。",
       "all": "すべて",

@@ -207,6 +207,10 @@
       "matched": "Correspondente",
       "notMatched": "Sem correspondência — esta URL não será processada pela regra"
     },
+    "dnrRegex": {
+      "syntaxError": "O navegador rejeitou esta expressão regular: o DNR usa a sintaxe RE2, sem lookahead nem retrorreferências. A regra não será aplicada.",
+      "memoryLimitExceeded": "O navegador rejeitou esta expressão regular: ela excede o limite de memória do DNR. A regra não será aplicada."
+    },
     "methodPicker": {
       "scriptOnlyHint": "A injeção de script corresponde pela URL; não exige configurar métodos.",
       "all": "Todos",

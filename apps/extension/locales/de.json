@@ -207,6 +207,10 @@
       "matched": "Übereinstimmung",
       "notMatched": "Keine Übereinstimmung — diese URL wird nicht verarbeitet"
     },
+    "dnrRegex": {
+      "syntaxError": "Der Browser hat diesen regulären Ausdruck abgelehnt: DNR verwendet die RE2-Syntax und unterstützt weder Lookahead noch Rückwärtsverweise. Die Regel wird nicht wirksam.",
+      "memoryLimitExceeded": "Der Browser hat diesen regulären Ausdruck abgelehnt: Er überschreitet das Speicherlimit von DNR. Die Regel wird nicht wirksam."
+    },
     "methodPicker": {
       "scriptOnlyHint": "Skript-Injektion nutzt die Seiten-URL; keine Methoden erforderlich.",
       "all": "Alle",

@@ -207,6 +207,10 @@
       "matched": "Coincide",
       "notMatched": "No coincide: esta regla no procesará la URL"
     },
+    "dnrRegex": {
+      "syntaxError": "El navegador rechazó esta expresión regular: DNR usa la sintaxis RE2, sin anticipación ni retrorreferencias. La regla no se aplicará.",
+      "memoryLimitExceeded": "El navegador rechazó esta expresión regular: supera el límite de memoria de DNR. La regla no se aplicará."
+    },
     "methodPicker": {
       "scriptOnlyHint": "La inyección de scripts coincide por URL de página; no requiere configurar métodos.",
       "all": "Todos",

@@ -207,6 +207,10 @@
       "matched": "Matched",
       "notMatched": "Not matched — this URL won't be handled by this rule"
     },
+    "dnrRegex": {
+      "syntaxError": "The browser rejected this pattern: DNR uses RE2 syntax, which has no lookahead or backreferences. This rule will not take effect.",
+      "memoryLimitExceeded": "The browser rejected this pattern: it exceeds the DNR memory limit. This rule will not take effect."
+    },
     "methodPicker": {
       "scriptOnlyHint": "Script injection matches by page URL, no method configuration needed.",
       "all": "All",

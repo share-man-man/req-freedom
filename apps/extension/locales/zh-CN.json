@@ -207,6 +207,10 @@
       "matched": "命中",
       "notMatched": "未命中，该 URL 不会被此规则处理"
     },
+    "dnrRegex": {
+      "syntaxError": "浏览器拒绝该正则：DNR 使用 RE2 语法，不支持前瞻、反向引用等写法，规则将无法生效",
+      "memoryLimitExceeded": "浏览器拒绝该正则：复杂度超出 DNR 的内存上限，规则将无法生效"
+    },
     "methodPicker": {
       "scriptOnlyHint": "脚本注入按页面 URL 命中，无需配置请求方法。",
       "all": "全部",

@@ -18,39 +18,20 @@ import {
   RuleExecutionChannel,
 } from '@req-freedom/shared';
 import { findMatchedRules } from '@req-freedom/core';
-import { toDnrRules } from './dnr';
+import { toDnrCondition } from './dnr';
+import { matchDnrCondition } from './dnr-match';
 
 /**
  * 这组测试守护本次重构接受的核心取舍：DNR 命中统计是「预测」而非「事实」。
  *
- * 网络层真正执行的是 `toDnrRules` 编译出的 condition，而统计用的是 `core.findMatchedRules`。
- * 两者一旦语义不一致，popup 显示的命中就会和实际行为对不上。这里用一个最小的 DNR
- * condition 求值器把二者放在同一组 URL 上对比，并把已知的不一致显式钉住。
- */
-
-/**
- * 求值 DNR urlFilter，仅覆盖 `toCondition` 会生成的构造。
+ * 网络层真正执行的是 `toDnrCondition` 编译出的 condition，而统计用的是 `core.findMatchedRules`。
+ * 两者一旦语义不一致，popup 显示的命中就会和实际行为对不上。这里把二者放在同一组 URL 上
+ * 对比，并把已知的不一致显式钉住。
  *
- * DNR 的 urlFilter 是**子串**匹配：`*` 为通配符，首尾的 `|` 表示锚定。
- * 默认大小写不敏感，这里按默认行为实现。
- * @param urlFilter DNR urlFilter 表达式
- * @param url 完整请求 URL
- * @returns DNR 是否会认为该 URL 命中
+ * 注意求值器的来源：`matchDnrCondition` 原本是本文件里的一份局部实现，现已提升为生产代码，
+ * 供规则编辑器的命中测试按通道求值。它仍然是对网络层的**手写复刻**而非事实来源——
+ * 本文件因此不再具备「独立第二意见」的性质，只保证编译产物与统计侧语义的对照关系不漂移。
  */
-function matchesUrlFilter(urlFilter: string, url: string): boolean {
-  /** 是否要求从 URL 开头匹配。 */
-  const anchoredStart = urlFilter.startsWith('|');
-  /** 是否要求匹配到 URL 结尾。 */
-  const anchoredEnd = urlFilter.endsWith('|') && urlFilter.length > 1;
-  /** 去掉锚定符后的模式主体。 */
-  const body = urlFilter.slice(anchoredStart ? 1 : 0, anchoredEnd ? -1 : undefined);
-  /** 把 `*` 还原为正则通配后的模式。 */
-  const escaped = body.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
-  return new RegExp(
-    `${anchoredStart ? '^' : ''}${escaped}${anchoredEnd ? '$' : ''}`,
-    'i',
-  ).test(url);
-}
 
 /**
  * 判断编译出的 DNR 规则是否会命中给定请求。
@@ -60,19 +41,7 @@ function matchesUrlFilter(urlFilter: string, url: string): boolean {
  * @returns DNR 网络层是否会命中
  */
 function dnrWouldMatch(rule: Rule, url: string, method: string): boolean {
-  /** 该规则编译出的全部 DNR 规则；取第一条的 condition 即可，同规则共用 condition。 */
-  const [compiled] = toDnrRules(rule, 1000);
-  if (!compiled) {
-    return false;
-  }
-  const { urlFilter, regexFilter, requestMethods } = compiled.dnrRule.condition;
-  if (requestMethods && !requestMethods.includes(method.toLowerCase() as never)) {
-    return false;
-  }
-  if (regexFilter !== undefined) {
-    return new RegExp(regexFilter).test(url);
-  }
-  return urlFilter !== undefined && matchesUrlFilter(urlFilter, url);
+  return matchDnrCondition(toDnrCondition(rule), { url, method });
 }
 
 /**

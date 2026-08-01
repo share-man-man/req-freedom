@@ -207,6 +207,10 @@
       "matched": "Correspondance",
       "notMatched": "Aucune correspondance — cette URL ne sera pas traitée"
     },
+    "dnrRegex": {
+      "syntaxError": "Le navigateur a rejeté cette expression régulière : DNR utilise la syntaxe RE2, sans anticipation ni références arrière. La règle ne sera pas appliquée.",
+      "memoryLimitExceeded": "Le navigateur a rejeté cette expression régulière : elle dépasse la limite de mémoire de DNR. La règle ne sera pas appliquée."
+    },
     "methodPicker": {
       "scriptOnlyHint": "L’injection de script correspond à l’URL ; aucune méthode à configurer.",
       "all": "Tous",

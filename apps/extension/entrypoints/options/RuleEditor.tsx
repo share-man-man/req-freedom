@@ -47,6 +47,8 @@ import { InfoHint } from '@/components/ui/info-hint';
 import HeadersEditor from './HeadersEditor';
 import KeyValueEditor from './KeyValueEditor';
 import { getLabels } from '@/utils/labels';
+import { toDnrCondition } from '@/utils/dnr';
+import { matchDnrCondition } from '@/utils/dnr-match';
 
 /** 供所属分组下拉选择的分组简要信息。 */
 export interface GroupOption { id: string; name: string; }
@@ -140,6 +142,22 @@ interface TestResult {
   matched: boolean;
   /** 命中后各动作的效果预览（未命中时为空）。 */
   effect: string;
+}
+
+/**
+ * 按规则所在通道判断测试 URL 是否命中。
+ *
+ * 两条通道的匹配语义并不相同，必须分别求值：DNR 通道由网络层执行编译后的 condition
+ * （子串匹配、大小写不敏感、`*` 与 `^` 有特殊含义），页面补丁通道走 `core.matchUrl`
+ * （通配模式首尾锚定、大小写敏感）。用单一匹配器预览会对通配规则给出与实际相反的答案。
+ * @param rule 规则草稿
+ * @param url 待测试的 URL
+ * @returns 该通道下是否命中
+ */
+function matchRuleUrl(rule: Rule, url: string): boolean {
+  return rule.channel === RuleExecutionChannel.Dnr
+    ? matchDnrCondition(toDnrCondition(rule), { url })
+    : matchUrl(url, rule.matchType, rule.pattern);
 }
 
 /**
@@ -373,6 +391,80 @@ export function normalizeRuleDraft(rule: Rule): Rule {
   return normalized;
 }
 
+/** 询问浏览器前的去抖时长（毫秒）：用户还在输入时不必逐字符发问。 */
+const DNR_REGEX_CHECK_DEBOUNCE_MS = 400;
+
+/**
+ * 询问浏览器 DNR 是否接受当前正则，返回本地化的问题说明。
+ *
+ * DNR 用 RE2 求值正则，不支持前瞻、反向引用等 JS 正则构造，也有内存上限；不被接受的规则
+ * 会在注册时被整条拒绝，用户此前只能在保存之后才看到失败提示。这里把浏览器的判断提前到
+ * 编辑阶段——它是浏览器给出的事实，不是本地推测。
+ *
+ * 不阻断保存：`validateRule` 是同步校验，而本检查是异步的；注册失败本就有事后提示兜底，
+ * 这里只负责让用户提前知情。
+ * @param t 当前语言下的翻译函数
+ * @param draft 规则草稿
+ * @returns 正则不被接受时的说明文案；接受或不适用时为 null
+ */
+function useDnrRegexSupport(t: TFunction, draft: Rule): string | null {
+  /** 浏览器拒绝该正则时的说明文案。 */
+  const [issue, setIssue] = useState<string | null>(null);
+  /**
+   * 重定向目标是否引用了捕获组（`\1`~`\9`）。
+   *
+   * 只有这种写法才依赖 `regexSubstitution` 的捕获能力，据此决定是否要求浏览器一并校验捕获，
+   * 避免对不使用捕获组的规则给出多余告警。
+   */
+  const requireCapturing = draft.actions.some(
+    (action) => action.type === RuleActionType.Redirect && /\\[1-9]/.test(action.redirectUrl),
+  );
+  /** 仅 DNR 通道的正则匹配需要询问浏览器。 */
+  const applicable =
+    draft.channel === RuleExecutionChannel.Dnr &&
+    draft.matchType === MatchType.Regex &&
+    draft.pattern.trim() !== '';
+  /** 去抖依赖用的模式原文。 */
+  const pattern = draft.pattern;
+  useEffect(() => {
+    if (!applicable) {
+      setIssue(null);
+      return;
+    }
+    /** 输入继续变化或组件卸载后，丢弃这一次的异步结果。 */
+    let cancelled = false;
+    /** 去抖定时器。 */
+    const timer = setTimeout(() => {
+      // 与注册时保持同一组参数：condition 未设 isUrlFilterCaseSensitive，即按缺省的不区分大小写注册
+      void browser.declarativeNetRequest
+        .isRegexSupported({ regex: pattern, isCaseSensitive: false, requireCapturing })
+        .then((result) => {
+          if (cancelled) {
+            return;
+          }
+          setIssue(
+            result.isSupported
+              ? null
+              : t(result.reason === 'memoryLimitExceeded'
+                ? 'ruleEditor.dnrRegex.memoryLimitExceeded'
+                : 'ruleEditor.dnrRegex.syntaxError'),
+          );
+        })
+        .catch(() => {
+          // 浏览器不支持该 API 或调用失败时不打扰用户，保留原有的事后提示路径
+          if (!cancelled) {
+            setIssue(null);
+          }
+        });
+    }, DNR_REGEX_CHECK_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [applicable, pattern, requireCapturing, t]);
+  return issue;
+}
+
 /**
  * 规则编辑器：先选「执行动作」明确要做什么，再配「命中条件」明确对谁生效。
  * 执行通道由动作类型自动推导，方法可选集随动作收敛，用户无需感知底层通道。
@@ -406,6 +498,8 @@ export default function RuleEditor({
   const [channelTab, setChannelTab] = useState<RuleExecutionChannel>(() => draft.channel);
   /** 高级条件面板（请求体匹配 / 作用域）是否展开；已配置任一条件时默认展开。 */
   const [advancedOpen, setAdvancedOpen] = useState(() => draft.bodyMatch !== undefined || draft.scope !== undefined);
+  /** DNR 通道下浏览器拒绝该正则时的提示文案；null 表示无问题或不适用。 */
+  const dnrRegexIssue = useDnrRegexSupport(t, draft);
   // 草稿或目标分组一经改动即清除上次校验错误，避免用户修好后仍残留旧提示
   useEffect(() => { setError(null); }, [draft, targetGroupId]);
   // 批量编辑父级持有完整草稿，折叠卸载后再次展开仍能恢复用户修改。
@@ -586,6 +680,8 @@ export default function RuleEditor({
             <Input className="flex-1" aria-invalid={error?.field === 'pattern'} value={draft.pattern} onChange={(event) => setDraft({ ...draft, pattern: event.target.value })} />
             <MatchTester draft={draft} />
           </div>
+          {/* 浏览器已明确拒绝该正则：提前告知，避免保存后才发现规则从未注册成功 */}
+          {dnrRegexIssue && <p className="mt-1 text-xs text-[var(--accent-amber)]">{dnrRegexIssue}</p>}
         </Field>
         <Field label={t('ruleEditor.methods')} error={error?.field === 'methods' ? error.message : undefined} innerRef={registerField('methods')}><MethodPicker draft={draft} onToggle={toggleMethod} onSelectAll={() => setDraft({ ...draft, methods: [] })} /></Field>
 
@@ -656,10 +752,13 @@ function MatchTester({ draft }: MatchTesterProps) {
 
   /** 用当前草稿对测试 URL 做命中判断并生成效果预览。 */
   const handleTest = (): void => {
-    /** 测试 URL 是否命中草稿的匹配条件。 */
-    const matched = matchUrl(testUrl, draft.matchType, draft.pattern);
+    /** 测试 URL 是否命中草稿的匹配条件（按草稿所在通道的语义判定）。 */
+    const matched = matchRuleUrl(draft, testUrl);
     setResult({ matched, effect: matched ? describeEffect(t, draft) : '' });
   };
+
+  /** 当前判定采用的通道名称，复用动作分组标题，避免为此单独引入文案。 */
+  const channelTitle = getActionGroups(t).find((group) => group.channel === draft.channel)?.title ?? '';
 
   return <div ref={rootRef} className="relative shrink-0">
     <Button type="button" variant="outline" size="icon" aria-label={t('ruleEditor.matchTester.trigger')} title={t('ruleEditor.matchTester.trigger')} onClick={() => setOpen((value) => !value)}>
@@ -667,6 +766,11 @@ function MatchTester({ draft }: MatchTesterProps) {
     </Button>
     {open && (
       <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-md">
+        {/* 标明判定采用的通道语义：同一模式在两条通道下的命中范围并不相同 */}
+        <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span>{t('ruleEditor.matchTester.trigger')}</span>
+          <span className="rounded bg-muted px-1.5 py-0.5 font-medium">{channelTitle}</span>
+        </div>
         <div className="flex items-center gap-2">
           <Input
             autoFocus
