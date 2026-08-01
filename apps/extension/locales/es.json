@@ -207,6 +207,10 @@
       "matched": "Coincide",
       "notMatched": "No coincide: esta regla no procesará la URL"
     },
+    "dnrRegex": {
+      "syntaxError": "El navegador rechazó esta expresión regular: DNR usa la sintaxis RE2, sin anticipación ni retrorreferencias. La regla no se aplicará.",
+      "memoryLimitExceeded": "El navegador rechazó esta expresión regular: supera el límite de memoria de DNR. La regla no se aplicará."
+    },
     "methodPicker": {
       "scriptOnlyHint": "La inyección de scripts coincide por URL de página; no requiere configurar métodos.",
       "all": "Todos",
@@ -230,6 +234,8 @@
       "limitedHint": "{{emptyHint}}; los ID de objeto duran una sesión y deben seleccionarse de nuevo al reiniciar el navegador."
     },
     "mockActionEditor": {
+      "modeLabel": "Modo",
+      "statusCodeLabel": "Código de estado",
       "bodyTypeAriaLabel": "Tipo de cuerpo de respuesta",
       "invalidJsonHint": "El cuerpo no contiene JSON válido; para devolver otro formato, cambia el «Tipo de cuerpo» de arriba.",
       "dynamicHint": "La función dinámica puede leer req.url, req.method, req.headers, req.query, req.body y req.json.",
@@ -244,7 +250,13 @@
       "upload": "Subida ({{unit}})"
     },
     "requestBodyActionEditor": {
+      "sourceModeLabel": "Origen del contenido",
+      "modeLabel": "Modo de reescritura",
       "hint": "Solo se aplica a métodos fetch / XHR con cuerpo; se conserva el cuerpo original si hay un error o se devuelve undefined."
+    },
+    "insertScriptActionEditor": {
+      "codeTypeLabel": "Tipo de código",
+      "timingLabel": "Momento de inyección"
     }
   },
   "app": {

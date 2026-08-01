@@ -207,6 +207,10 @@
       "matched": "Übereinstimmung",
       "notMatched": "Keine Übereinstimmung — diese URL wird nicht verarbeitet"
     },
+    "dnrRegex": {
+      "syntaxError": "Der Browser hat diesen regulären Ausdruck abgelehnt: DNR verwendet die RE2-Syntax und unterstützt weder Lookahead noch Rückwärtsverweise. Die Regel wird nicht wirksam.",
+      "memoryLimitExceeded": "Der Browser hat diesen regulären Ausdruck abgelehnt: Er überschreitet das Speicherlimit von DNR. Die Regel wird nicht wirksam."
+    },
     "methodPicker": {
       "scriptOnlyHint": "Skript-Injektion nutzt die Seiten-URL; keine Methoden erforderlich.",
       "all": "Alle",
@@ -230,6 +234,8 @@
       "limitedHint": "{{emptyHint}}; Objekt-IDs gelten nur für die Sitzung und müssen nach einem Neustart neu gewählt werden."
     },
     "mockActionEditor": {
+      "modeLabel": "Modus",
+      "statusCodeLabel": "Statuscode",
       "bodyTypeAriaLabel": "Response-Body-Typ",
       "invalidJsonHint": "Der Response-Body ist kein gültiges JSON; für andere Formate oben den „Body-Typ“ ändern.",
       "dynamicHint": "Die dynamische Funktion kann req.url, req.method, req.headers, req.query, req.body und req.json lesen.",
@@ -244,7 +250,13 @@
       "upload": "Upload ({{unit}})"
     },
     "requestBodyActionEditor": {
+      "sourceModeLabel": "Inhaltsquelle",
+      "modeLabel": "Änderungsmodus",
       "hint": "Gilt nur für fetch / XHR mit Body; bei Fehler oder undefined bleibt der ursprüngliche Body erhalten."
+    },
+    "insertScriptActionEditor": {
+      "codeTypeLabel": "Codetyp",
+      "timingLabel": "Injektionszeitpunkt"
     }
   },
   "app": {

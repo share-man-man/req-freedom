@@ -187,14 +187,17 @@ body {
 }
 
 /**
- * Radix Select 会在浮层打开时锁住 body 滚动，并额外补偿一个滚动条宽度的右外边距。
+ * Radix 浮层（Dialog / Select 等）打开时会锁住 body 滚动，并额外补偿一个滚动条宽度的右外边距。
  *
- * 页面已经通过 scrollbar-gutter 预留了稳定槽位，这份补偿会重复占位，导致下拉菜单打开时
- * 整页横向收窄。仅在 listbox 浮层存在时恢复纵向滚动条并取消重复补偿；Dialog 仍沿用
- * Radix 默认的锁滚动行为。
+ * 上面的 scrollbar-gutter 在锁滚动期间依然为根框预留着槽位，这份补偿于是成了重复占位，
+ * 整页会横向收窄一个滚动条的宽度。取消补偿即可，锁滚动本身（overflow: hidden）要保留，
+ * 否则浮层打开时页面又能滚了。
+ *
+ * 选择器带上 html 提高权重：Radix 的补偿样式是浮层打开那一刻注入 <head> 的，
+ * 同权重下它排在后面会赢。react-remove-scroll 用 data-scroll-locked 记引用计数，
+ * 「模态框里再开下拉」这类嵌套场景计数会叠加，但这里只判断属性存在，各层浮层表现一致。
  */
-body[data-scroll-locked]:has([role='listbox'][data-state='open']) {
-  overflow-y: auto !important;
+html body[data-scroll-locked] {
   margin-right: 0 !important;
 }
 

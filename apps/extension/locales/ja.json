@@ -207,6 +207,10 @@
       "matched": "一致",
       "notMatched": "不一致 — この URL はルールで処理されません"
     },
+    "dnrRegex": {
+      "syntaxError": "ブラウザーがこの正規表現を拒否しました: DNR は RE2 構文のため、先読みや後方参照は使用できません。このルールは動作しません。",
+      "memoryLimitExceeded": "ブラウザーがこの正規表現を拒否しました: DNR のメモリ上限を超えています。このルールは動作しません。"
+    },
     "methodPicker": {
       "scriptOnlyHint": "スクリプト注入はページ URL で一致するため、メソッド設定は不要です。",
       "all": "すべて",
@@ -230,6 +234,8 @@
       "limitedHint": "{{emptyHint}}。オブジェクト ID はセッション単位のため、ブラウザ再起動後に再選択が必要です。"
     },
     "mockActionEditor": {
+      "modeLabel": "生成方式",
+      "statusCodeLabel": "ステータスコード",
       "bodyTypeAriaLabel": "レスポンスボディの種類",
       "invalidJsonHint": "レスポンスボディが有効な JSON ではありません。別形式を返す場合は上の「ボディの種類」を変更してください。",
       "dynamicHint": "動的関数では req.url、req.method、req.headers、req.query、req.body、req.json を参照できます。",
@@ -244,7 +250,13 @@
       "upload": "アップロード（{{unit}}）"
     },
     "requestBodyActionEditor": {
+      "sourceModeLabel": "生成方法",
+      "modeLabel": "書き換え方式",
       "hint": "ボディを持てる fetch / XHR メソッドにのみ適用されます。エラー時または undefined が返された場合は元のボディを保持します。"
+    },
+    "insertScriptActionEditor": {
+      "codeTypeLabel": "コードの種類",
+      "timingLabel": "挿入タイミング"
     }
   },
   "app": {

@@ -207,6 +207,10 @@
       "matched": "命中",
       "notMatched": "未命中，該 URL 不會被此規則處理"
     },
+    "dnrRegex": {
+      "syntaxError": "瀏覽器拒絕此正規表示式：DNR 使用 RE2 語法，不支援前瞻、反向參照等寫法，規則將無法生效",
+      "memoryLimitExceeded": "瀏覽器拒絕此正規表示式：複雜度超出 DNR 的記憶體上限，規則將無法生效"
+    },
     "methodPicker": {
       "scriptOnlyHint": "指令碼注入按頁面 URL 命中，無需配置請求方法。",
       "all": "全部",
@@ -230,6 +234,8 @@
       "limitedHint": "{{emptyHint}}；物件 ID 為會話級，瀏覽器重啟後需重新選擇。"
     },
     "mockActionEditor": {
+      "modeLabel": "產生方式",
+      "statusCodeLabel": "狀態碼",
       "bodyTypeAriaLabel": "響應體型別",
       "invalidJsonHint": "響應體不是合法 JSON；若要返回其他格式，請切換上方「響應體型別」。",
       "dynamicHint": "動態程式碼可讀取 req.url、req.method、req.headers、req.query、req.body、req.json。",
@@ -244,7 +250,13 @@
       "upload": "上行({{unit}})"
     },
     "requestBodyActionEditor": {
+      "sourceModeLabel": "內容來源",
+      "modeLabel": "改寫方式",
       "hint": "僅作用於 fetch / XHR 的可帶請求體方法；異常或返回 undefined 時保留原請求體。"
+    },
+    "insertScriptActionEditor": {
+      "codeTypeLabel": "程式碼類型",
+      "timingLabel": "注入時機"
     }
   },
   "app": {

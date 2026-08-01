@@ -27,10 +27,13 @@ export interface CompiledDnrRule {
 
 /**
  * 把规则的 URL 匹配配置转换为 DNR 的 condition。
+ *
+ * 编辑器的命中测试也用它编译草稿，再交给 `matchDnrCondition` 求值，
+ * 保证「预览的语义」与「网络层实际执行的语义」出自同一处编译。
  * @param rule 业务规则
  * @returns DNR condition 对象
  */
-function toCondition(rule: Rule): Browser.declarativeNetRequest.RuleCondition {
+export function toDnrCondition(rule: Rule): Browser.declarativeNetRequest.RuleCondition {
   /** 将大写 HTTP 方法转成 DNR 所需的小写格式。 */
   const requestMethods = rule.methods.map((method) => method.toLowerCase() as Browser.declarativeNetRequest.RequestMethod);
   switch (rule.matchType) {
@@ -79,7 +82,7 @@ export function toDnrRules(rule: Rule, firstDnrId: number, tabIds?: number[]): C
   }
   /** 规则共有的匹配条件；作用域规则附加 tabIds 把生效范围限定到目标标签页。 */
   const condition: Browser.declarativeNetRequest.RuleCondition =
-    tabIds && tabIds.length > 0 ? { ...toCondition(rule), tabIds } : toCondition(rule);
+    tabIds && tabIds.length > 0 ? { ...toDnrCondition(rule), tabIds } : toDnrCondition(rule);
   /** 编译出的 DNR 规则集合。 */
   const dnrRules: CompiledDnrRule[] = [];
   for (const action of rule.actions) {

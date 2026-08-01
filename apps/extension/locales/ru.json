@@ -207,6 +207,10 @@
       "matched": "Совпадает",
       "notMatched": "Не совпадает — правило не обработает этот URL"
     },
+    "dnrRegex": {
+      "syntaxError": "Браузер отклонил это регулярное выражение: DNR использует синтаксис RE2, без опережающих проверок и обратных ссылок. Правило не будет работать.",
+      "memoryLimitExceeded": "Браузер отклонил это регулярное выражение: превышен лимит памяти DNR. Правило не будет работать."
+    },
     "methodPicker": {
       "scriptOnlyHint": "Внедрение скрипта совпадает по URL; методы настраивать не нужно.",
       "all": "Все",
@@ -230,6 +234,8 @@
       "limitedHint": "{{emptyHint}}; ID действуют только в сеансе, после перезапуска браузера их нужно выбрать заново."
     },
     "mockActionEditor": {
+      "modeLabel": "Режим",
+      "statusCodeLabel": "Код статуса",
       "bodyTypeAriaLabel": "Тип тела ответа",
       "invalidJsonHint": "Тело ответа не является допустимым JSON; для другого формата измените «Тип тела» выше.",
       "dynamicHint": "Динамическая функция может читать req.url, req.method, req.headers, req.query, req.body и req.json.",
@@ -244,7 +250,13 @@
       "upload": "Отправка ({{unit}})"
     },
     "requestBodyActionEditor": {
+      "sourceModeLabel": "Источник содержимого",
+      "modeLabel": "Режим перезаписи",
       "hint": "Только для fetch / XHR с телом; при ошибке или возврате undefined исходное тело сохраняется."
+    },
+    "insertScriptActionEditor": {
+      "codeTypeLabel": "Тип кода",
+      "timingLabel": "Момент внедрения"
     }
   },
   "app": {

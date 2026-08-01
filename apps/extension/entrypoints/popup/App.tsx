@@ -22,8 +22,23 @@ import {
 } from '@/utils/storage';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { HoverHint } from '@/components/ui/hover-hint';
 import { Switch } from '@/components/ui/switch';
 import { LogoMark } from '@/components/logo-mark';
+
+/**
+ * 判断分组在 popup 打开时是否应默认折叠。
+ *
+ * 整组停用、或组内规则全部停用时，展开的列表不会有任何生效项，默认收起把空间留给还在生效的分组；
+ * 这只影响打开时的初始状态，用户之后的展开/折叠仍以手动操作为准。
+ * @param group 待判断的规则分组
+ * @returns 是否默认折叠
+ */
+function shouldCollapseByDefault(group: RuleGroup): boolean {
+  return (
+    group.rules.length > 0 && (!group.enabled || group.rules.every((rule) => !rule.enabled))
+  );
+}
 
 /**
  * Popup 主界面：全局开关 + 按分组快速启停
@@ -36,7 +51,7 @@ export default function App() {
   const [enabled, setEnabledState] = useState(true);
   /** 规则分组列表 */
   const [groups, setGroups] = useState<RuleGroup[]>([]);
-  /** 已折叠的分组 ID 集合，仅保留在当前弹窗会话中 */
+  /** 已折叠的分组 ID 集合，初值按 shouldCollapseByDefault 计算，仅保留在当前弹窗会话中 */
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
   /** 当前页面命中过的业务规则 ID，已按规则去重。 */
   const [hitRuleIds, setHitRuleIds] = useState<string[]>([]);
@@ -107,6 +122,9 @@ export default function App() {
       const [nextEnabled, nextGroups] = await Promise.all([getEnabled(), getGroups()]);
       setEnabledState(nextEnabled);
       setGroups(nextGroups);
+      setCollapsedGroupIds(
+        new Set(nextGroups.filter(shouldCollapseByDefault).map((group) => group.id)),
+      );
       await loadRuleHitSummary();
     })();
   }, []);
@@ -247,14 +265,14 @@ export default function App() {
   return (
     <div className="flex flex-col">
       {/* 顶部：品牌 + 全局开关 */}
-      <header className="flex items-center justify-between border-b border-border px-4 py-3">
+      <header className="flex items-center justify-between border-b border-border px-3 py-2">
         <div className="flex items-center gap-2">
-          <span className="flex size-7 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <LogoMark className="size-4" />
+          <span className="flex size-6 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <LogoMark className="size-3.5" />
           </span>
           <div className="leading-tight">
             <h1 className="text-sm font-semibold">Req Freedom</h1>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[11px] text-muted-foreground">
               {enabled ? t('popup.activeCount', { count: activeCount }) : t('popup.globallyDisabled')}
             </p>
           </div>
@@ -264,8 +282,8 @@ export default function App() {
 
       {/* 当前页面命中提示：总数同时包含 DNR 与页面补丁通道。 */}
       {visibleHitCount > 0 && (
-        <div className="mx-3 mt-3 flex items-start gap-2 rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-primary">
-          <CheckCircle2 className="mt-px size-4 shrink-0" />
+        <div className="mx-2 mt-2 flex items-start gap-2 rounded-lg border border-primary/25 bg-primary/10 px-2.5 py-1.5 text-primary">
+          <CheckCircle2 className="mt-px size-3.5 shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-medium leading-4">
               {t('popup.hitTotal', { count: visibleHitCount })}
@@ -289,7 +307,7 @@ export default function App() {
       )}
 
       {hitSummaryStatus === 'error' && (
-        <div className="mx-3 mt-3 flex items-center gap-2 rounded-lg border border-destructive/25 bg-destructive/10 px-3 py-2 text-destructive">
+        <div className="mx-2 mt-2 flex items-center gap-2 rounded-lg border border-destructive/25 bg-destructive/10 px-2.5 py-1.5 text-destructive">
           <p className="min-w-0 flex-1 text-xs font-medium">
             {t('popup.hitSummaryUnavailable')}
           </p>
@@ -297,7 +315,7 @@ export default function App() {
             type="button"
             variant="ghost"
             size="sm"
-            className="h-6 shrink-0 px-2 text-xs"
+            className="h-5 shrink-0 px-1.5 text-xs"
             onClick={() => void loadRuleHitSummary()}
           >
             {t('popup.retry')}
@@ -306,18 +324,18 @@ export default function App() {
       )}
 
       {/* 分组列表 */}
-      <div className="max-h-96 overflow-y-auto p-2">
+      <div className="max-h-96 overflow-y-auto p-1.5">
         {!hasRules ? (
-          <div className="flex flex-col items-center gap-1 px-4 py-10 text-center">
+          <div className="flex flex-col items-center gap-1 px-4 py-8 text-center">
             <p className="text-sm text-muted-foreground">{t('popup.noRules')}</p>
             <p className="text-xs text-muted-foreground/70">{t('popup.noRulesHint')}</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             {groups.map((group) => (
               <div key={group.id} className="rounded-lg border border-border">
                 {/* 分组标题行：折叠控制 + 整组开关 */}
-                <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                <div className="flex items-center justify-between gap-2 px-1.5 py-1">
                   <div className="flex min-w-0 items-center gap-2">
                     <button
                       type="button"
@@ -345,7 +363,7 @@ export default function App() {
                       {group.name}
                     </span>
                   </div>
-                  <Badge variant="muted" className="shrink-0">
+                  <Badge variant="muted" className="shrink-0 px-1.5 py-0 text-[11px]">
                     {t('popup.ruleCount', { count: group.rules.length })}
                   </Badge>
                 </div>
@@ -353,7 +371,7 @@ export default function App() {
                 {/* 组内规则：整组停用时淡化 */}
                 {!collapsedGroupIds.has(group.id) && group.rules.length > 0 && (
                   <ul
-                    className={`flex flex-col gap-0.5 border-t border-border p-1 ${
+                    className={`flex flex-col border-t border-border p-1 ${
                       group.enabled ? '' : 'opacity-50'
                     }`}
                   >
@@ -379,7 +397,6 @@ export default function App() {
                           key={rule.id}
                           role="button"
                           tabIndex={0}
-                          title={t('popup.jumpToRule')}
                           aria-label={t('popup.jumpToRule')}
                           onClick={() => handleJumpToRule(rule.id)}
                           onKeyDown={(event) => {
@@ -392,7 +409,7 @@ export default function App() {
                               handleJumpToRule(rule.id);
                             }
                           }}
-                          className={`flex cursor-pointer items-center justify-between gap-2 rounded-md border border-transparent px-2 py-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
+                          className={`flex cursor-pointer items-center justify-between gap-2 rounded-md border border-transparent px-1.5 py-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
                             isMatched
                               ? 'bg-[var(--hit-surface)] hover:bg-[var(--hit-surface-hover)]'
                               : 'hover:bg-muted/60'
@@ -427,27 +444,37 @@ export default function App() {
                               四层装饰叠在一起，命中多条时整个列表会糊成一片。
                             */}
                             {statusLabel && (
+                              // 说明文字走自绘气泡：原生 title 要悬停约一秒才出、样式不可控，
+                              // 且会被行自身的 title 抢走，注册失败/未应用这类关键信息看不清楚
                               <span
-                                className={`flex size-5 shrink-0 items-center justify-center ${
-                                  issue
-                                    ? 'text-destructive'
-                                    : skipReason
-                                      ? 'text-warning'
-                                      : 'text-primary'
-                                }`}
-                                title={statusLabel}
-                                aria-label={statusLabel}
+                                className="contents"
+                                onClick={(event) => event.stopPropagation()}
                               >
-                                {issue ? (
-                                  <AlertTriangle className="size-3.5" />
-                                ) : skipReason ? (
-                                  <CircleSlash className="size-3.5" />
-                                ) : (
-                                  <Target className="size-3.5" />
-                                )}
+                                <HoverHint
+                                  label={statusLabel}
+                                  content={statusLabel}
+                                  className={`size-4 items-center justify-center ${
+                                    issue
+                                      ? 'text-destructive'
+                                      : skipReason
+                                        ? 'text-warning'
+                                        : 'text-primary'
+                                  }`}
+                                >
+                                  {issue ? (
+                                    <AlertTriangle aria-hidden="true" className="size-3.5" />
+                                  ) : skipReason ? (
+                                    <CircleSlash aria-hidden="true" className="size-3.5" />
+                                  ) : (
+                                    <Target aria-hidden="true" className="size-3.5" />
+                                  )}
+                                </HoverHint>
                               </span>
                             )}
-                            <Badge variant={rule.enabled ? 'default' : 'muted'} className="shrink-0">
+                            <Badge
+                              variant={rule.enabled ? 'default' : 'muted'}
+                              className="shrink-0 px-1.5 py-0 text-[11px]"
+                            >
                               {rule.channel === 'dnr'
                                 ? 'DNR'
                                 : t('templateLibrary.channelPagePatch')}
@@ -465,7 +492,7 @@ export default function App() {
       </div>
 
       {/* 底部：进入管理页 */}
-      <footer className="border-t border-border p-3">
+      <footer className="border-t border-border p-2">
         <Button variant="outline" size="sm" className="w-full" onClick={handleOpenOptions}>
           <Settings2 />
           {t('popup.manageRules')}
