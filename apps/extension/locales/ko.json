@@ -150,6 +150,11 @@
       "insertScript": "페이지 URL에 따라 JS / CSS 삽입"
     },
     "actionGroup": {
+      "selectionMode": {
+        "exclusive": "상호 배타적 옵션 · 하나 선택",
+        "combinable": "조합 가능한 옵션",
+        "standalone": "단독 사용"
+      },
       "dnr": {
         "title": "네트워크 계층",
         "hint": "모든 요청(페이지 이동 및 정적 리소스 포함)에 적용되지만 요청 본문은 읽을 수 없습니다",

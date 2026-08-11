@@ -150,6 +150,11 @@
       "insertScript": "JS / CSS anhand der Seiten-URL einfügen"
     },
     "actionGroup": {
+      "selectionMode": {
+        "exclusive": "Gegenseitig exklusiv · Eine Option",
+        "combinable": "Kombinierbare Optionen",
+        "standalone": "Separat verwenden"
+      },
       "dnr": {
         "title": "Netzwerkschicht",
         "hint": "Gilt für alle Anfragen (einschließlich Navigation und statischer Dateien), kann den Body aber nicht lesen",

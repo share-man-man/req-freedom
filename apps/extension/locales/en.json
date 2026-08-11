@@ -150,6 +150,11 @@
       "insertScript": "Inject JS / CSS by page URL"
     },
     "actionGroup": {
+      "selectionMode": {
+        "exclusive": "Mutually exclusive · Choose one",
+        "combinable": "Combinable options",
+        "standalone": "Use separately"
+      },
       "dnr": {
         "title": "Network layer",
         "hint": "Applies to all requests (including navigation and static assets), but can't read the request body",

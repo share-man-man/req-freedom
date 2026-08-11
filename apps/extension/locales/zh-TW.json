@@ -150,6 +150,11 @@
       "insertScript": "按頁面 URL 注入 JS / CSS"
     },
     "actionGroup": {
+      "selectionMode": {
+        "exclusive": "互斥選項 · 選擇一項",
+        "combinable": "可組合選項",
+        "standalone": "單獨使用"
+      },
       "dnr": {
         "title": "網路層",
         "hint": "作用於全部請求（含頁面導航、靜態資源），但讀不到請求體",

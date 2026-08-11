@@ -150,6 +150,11 @@
       "insertScript": "Inyecta JS / CSS según la URL de la página"
     },
     "actionGroup": {
+      "selectionMode": {
+        "exclusive": "Opciones excluyentes · Elige una",
+        "combinable": "Opciones combinables",
+        "standalone": "Usar por separado"
+      },
       "dnr": {
         "title": "Capa de red",
         "hint": "Se aplica a todas las solicitudes (incluidas navegación y recursos estáticos), pero no puede leer el cuerpo",

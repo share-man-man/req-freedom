@@ -150,6 +150,11 @@
       "insertScript": "按页面 URL 注入 JS / CSS"
     },
     "actionGroup": {
+      "selectionMode": {
+        "exclusive": "互斥选项 · 选择一项",
+        "combinable": "可组合选项",
+        "standalone": "单独使用"
+      },
       "dnr": {
         "title": "网络层",
         "hint": "作用于全部请求（含页面导航、静态资源），但读不到请求体",

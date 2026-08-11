@@ -150,6 +150,11 @@
       "insertScript": "Injeta JS / CSS pela URL da página"
     },
     "actionGroup": {
+      "selectionMode": {
+        "exclusive": "Opções exclusivas · Escolha uma",
+        "combinable": "Opções combináveis",
+        "standalone": "Usar separadamente"
+      },
       "dnr": {
         "title": "Camada de rede",
         "hint": "Aplica-se a todas as requisições (incluindo navegação e recursos estáticos), mas não lê o corpo",

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { browser } from 'wxt/browser';
 import { Check, CheckCircle2, ChevronDown, FlaskConical, RefreshCw, Trash2, XCircle } from 'lucide-react';
 import type { ReactNode, Ref } from 'react';
@@ -74,12 +74,14 @@ interface RuleEditorProps {
 
 /** DNR 通道可用的动作。 */
 const DNR_ACTIONS = [RuleActionType.Block, RuleActionType.Redirect, RuleActionType.InjectParams, RuleActionType.ModifyHeaders] as const;
-/** 页面补丁通道可用的动作。 */
-const PAGE_ACTIONS = [RuleActionType.MockResponse, RuleActionType.Delay, RuleActionType.ModifyRequestBody, RuleActionType.InsertScript] as const;
+/** 页面内补丁页签可用的请求处理动作。 */
+const PAGE_PATCH_ACTIONS = [RuleActionType.MockResponse, RuleActionType.Delay, RuleActionType.ModifyRequestBody] as const;
 /** 不能在一次请求中同时执行的 DNR 路由动作。 */
 const EXCLUSIVE_DNR_ACTIONS = [RuleActionType.Block, RuleActionType.Redirect, RuleActionType.InjectParams] as const;
-/** 页面脚本注入以顶层文档 URL 命中，不能和按网络请求匹配的页面补丁动作混用。 */
-const EXCLUSIVE_PAGE_ACTIONS = [RuleActionType.InsertScript] as const;
+/** 页面内补丁中需单独使用的脚本注入动作。 */
+const SCRIPT_ACTIONS = [RuleActionType.InsertScript] as const;
+/** 页面内补丁页签的全部动作。 */
+const PAGE_ACTIONS = [...PAGE_PATCH_ACTIONS, ...SCRIPT_ACTIONS] as const;
 /** 可携带请求体的 HTTP 方法（改请求体动作专用）。 */
 const BODY_METHODS = [HttpMethod.Post, HttpMethod.Put, HttpMethod.Patch, HttpMethod.Delete, HttpMethod.Options] as const;
 /** 请求体条件下拉里「不启用」选项的哨兵值（不与任何 BodyMatchType 冲突）。 */
@@ -116,7 +118,7 @@ function getActionDescriptions(t: TFunction): Record<RuleActionType, string> {
 /**
  * 按当前语言构建动作分组元信息：以用户视角描述作用范围与组合规则，隐藏底层执行通道细节。
  * @param t 当前语言下的翻译函数
- * @returns 各通道对应的分组元信息
+ * @returns 各动作页签对应的分组元信息
  */
 function getActionGroups(t: TFunction): ReadonlyArray<{
   /** 组对应的执行通道。 */
@@ -127,13 +129,53 @@ function getActionGroups(t: TFunction): ReadonlyArray<{
   hint: string;
   /** 组内动作类型。 */
   types: readonly RuleActionType[];
+  /** 按组合约束拆分后的选择区。 */
+  selectionGroups: ReadonlyArray<{
+    /** 选择区标题，用于明确互斥或组合关系。 */
+    title: string;
+    /** 选择区内的动作类型。 */
+    types: readonly RuleActionType[];
+    /** 原生选择控件类型：互斥用 radio，可多选用 checkbox。 */
+    control: 'radio' | 'checkbox';
+  }>;
   /** 组内动作的组合约束说明。 */
   note: string;
 }> {
   return [
-    { channel: RuleExecutionChannel.Dnr, title: t('ruleEditor.actionGroup.dnr.title'), hint: t('ruleEditor.actionGroup.dnr.hint'), types: DNR_ACTIONS, note: t('ruleEditor.actionGroup.dnr.note') },
-    { channel: RuleExecutionChannel.PagePatch, title: t('ruleEditor.actionGroup.pagePatch.title'), hint: t('ruleEditor.actionGroup.pagePatch.hint'), types: PAGE_ACTIONS, note: t('ruleEditor.actionGroup.pagePatch.note') },
+    {
+      channel: RuleExecutionChannel.Dnr,
+      title: t('ruleEditor.actionGroup.dnr.title'),
+      hint: t('ruleEditor.actionGroup.dnr.hint'),
+      types: DNR_ACTIONS,
+      selectionGroups: [
+        { title: t('ruleEditor.actionGroup.selectionMode.exclusive'), types: EXCLUSIVE_DNR_ACTIONS, control: 'radio' },
+        { title: t('ruleEditor.actionGroup.selectionMode.combinable'), types: [RuleActionType.ModifyHeaders], control: 'checkbox' },
+      ],
+      note: t('ruleEditor.actionGroup.dnr.note'),
+    },
+    {
+      channel: RuleExecutionChannel.PagePatch,
+      title: t('ruleEditor.actionGroup.pagePatch.title'),
+      hint: t('ruleEditor.actionGroup.pagePatch.hint'),
+      types: PAGE_ACTIONS,
+      selectionGroups: [
+        { title: t('ruleEditor.actionGroup.selectionMode.combinable'), types: PAGE_PATCH_ACTIONS, control: 'checkbox' },
+        { title: t('ruleEditor.actionGroup.selectionMode.standalone'), types: SCRIPT_ACTIONS, control: 'radio' },
+      ],
+      note: t('ruleEditor.actionGroup.pagePatch.note'),
+    },
   ];
+}
+
+/**
+ * 按动作类型解析其工作台页签。
+ * @param type 动作类型
+ * @returns 动作所属的工作台页签
+ */
+function getActionGroupId(type: RuleActionType): RuleExecutionChannel {
+  return DNR_ACTIONS.includes(type as (typeof DNR_ACTIONS)[number])
+    ? RuleExecutionChannel.Dnr
+    : RuleExecutionChannel.PagePatch;
 }
 
 /** 一次规则命中测试的结果。 */
@@ -494,7 +536,7 @@ export default function RuleEditor({
   const [error, setError] = useState<ValidationError | null>(null);
   /** 主从面板中当前聚焦、正在配置的动作类型；null 表示尚无动作。 */
   const [focusedActionType, setFocusedActionType] = useState<RuleActionType | null>(() => draft.actions[0]?.type ?? null);
-  /** 左栏当前展示的执行通道 tab（网络层 / 页面内补丁）。 */
+  /** 左栏当前展示的动作页签（网络层 / 页面内补丁）。 */
   const [channelTab, setChannelTab] = useState<RuleExecutionChannel>(() => draft.channel);
   /** 高级条件面板（请求体匹配 / 作用域）是否展开；已配置任一条件时默认展开。 */
   const [advancedOpen, setAdvancedOpen] = useState(() => draft.bodyMatch !== undefined || draft.scope !== undefined);
@@ -517,11 +559,7 @@ export default function RuleEditor({
         /** 出错动作类型。 */
         const erroredType = externalError.field.slice('action:'.length) as RuleActionType;
         setFocusedActionType(erroredType);
-        setChannelTab(
-          DNR_ACTIONS.includes(erroredType as (typeof DNR_ACTIONS)[number])
-            ? RuleExecutionChannel.Dnr
-            : RuleExecutionChannel.PagePatch,
-        );
+        setChannelTab(getActionGroupId(erroredType));
       }
     }
   }, [externalError]);
@@ -577,13 +615,13 @@ export default function RuleEditor({
     }
     // 新增动作后聚焦到它、并把左栏 tab 切到其所属通道，主从面板右侧立即展示其配置
     setFocusedActionType(type);
-    setChannelTab(channel);
+    setChannelTab(getActionGroupId(type));
     if (type === RuleActionType.InsertScript) {
       setDraft({ ...draft, channel: RuleExecutionChannel.PagePatch, methods: [HttpMethod.Get], actions: [createAction(type)] });
       return;
     }
     /** 去除不能与按请求匹配动作共存的脚本注入动作。 */
-    const compatibleActions = draft.actions.filter((action) => !EXCLUSIVE_PAGE_ACTIONS.includes(action.type as (typeof EXCLUSIVE_PAGE_ACTIONS)[number]));
+    const compatibleActions = draft.actions.filter((action) => action.type !== RuleActionType.InsertScript);
     /** 选择改请求体后，自动收敛为可携带 body 的 POST 请求。 */
     const methods = type === RuleActionType.ModifyRequestBody && !isActionSupportedByMethods(type, draft.methods)
       ? [HttpMethod.Post]
@@ -624,7 +662,7 @@ export default function RuleEditor({
         /** 出错动作的类型。 */
         const erroredType = validation.field.slice('action:'.length) as RuleActionType;
         setFocusedActionType(erroredType);
-        setChannelTab(DNR_ACTIONS.includes(erroredType as (typeof DNR_ACTIONS)[number]) ? RuleExecutionChannel.Dnr : RuleExecutionChannel.PagePatch);
+        setChannelTab(getActionGroupId(erroredType));
       }
       // 等标红渲染后再滚动定位到出错项，居中显示便于用户立即看到
       requestAnimationFrame(() => fieldRefs.current[validation.field]?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
@@ -757,7 +795,7 @@ function MatchTester({ draft }: MatchTesterProps) {
     setResult({ matched, effect: matched ? describeEffect(t, draft) : '' });
   };
 
-  /** 当前判定采用的通道名称，复用动作分组标题，避免为此单独引入文案。 */
+  /** 当前判定采用的通道名称，复用工作台页签标题，避免为此单独引入文案。 */
   const channelTitle = getActionGroups(t).find((group) => group.channel === draft.channel)?.title ?? '';
 
   return <div ref={rootRef} className="relative shrink-0">
@@ -802,9 +840,9 @@ interface ActionWorkbenchProps {
   draft: Rule;
   /** 当前聚焦、正在配置的动作类型。 */
   focusedType: RuleActionType | null;
-  /** 左栏当前展示的执行通道 tab。 */
+  /** 左栏当前展示的动作页签。 */
   channelTab: RuleExecutionChannel;
-  /** 切换执行通道 tab 的回调。 */
+  /** 切换动作页签的回调。 */
   onChannelTab: (channel: RuleExecutionChannel) => void;
   /** 勾选 / 取消动作的回调。 */
   onToggle: (type: RuleActionType) => void;
@@ -835,6 +873,8 @@ function ActionWorkbench({ draft, focusedType, channelTab, onChannelTab, onToggl
   const actionGroups = getActionGroups(t);
   /** 当前语言下各动作的一句话说明。 */
   const actionDescriptions = getActionDescriptions(t);
+  /** 当前工作台实例的唯一标识，隔离批量编辑场景下不同规则的原生 radio 分组。 */
+  const workbenchId = useId();
   /** 当前 tab 对应的动作分组。 */
   const currentGroup = actionGroups.find((group) => group.channel === channelTab) ?? actionGroups[0];
   /** 实际聚焦的动作类型：focusedType 缺省或已被移除时回退到首个动作。 */
@@ -847,13 +887,13 @@ function ActionWorkbench({ draft, focusedType, channelTab, onChannelTab, onToggl
   /** 聚焦动作的校验错误文案。 */
   const activeError = activeAction && errorField === actionFieldKey(activeAction.type) ? errorMessage : undefined;
   return <div className="rounded-lg border border-border">
-    {/* 通道 tab：横跨整个面板作为标题头，网络层 / 页面内补丁二选一 */}
+    {/* 动作 tab：横跨整个面板作为标题头，网络层 / 页面内补丁二选一 */}
     <div className="flex gap-1 border-b border-border px-2 pt-2">
       {actionGroups.map((group) => {
         /** 该通道是否为当前 tab。 */
         const activeTab = group.channel === channelTab;
         /** 选中动作落在「另一个（非当前）」通道时，用小圆点提示选择在别的 tab。 */
-        const hasSelection = !activeTab && draft.actions.length > 0 && draft.channel === group.channel;
+        const hasSelection = !activeTab && draft.actions.some((action) => group.types.includes(action.type));
         // 说明气泡的触发器是按钮，不能嵌在 tab 按钮内，故把 tab 拆成「切换按钮 + 气泡」两个兄弟节点，
         // 外层 div 承载原来的行布局与底部下划线；左内边距留在按钮上，保证标题周围仍可点击切换。
         return <div key={group.channel} className="relative flex items-center gap-1.5 pr-3">
@@ -874,36 +914,56 @@ function ActionWorkbench({ draft, focusedType, channelTab, onChannelTab, onToggl
     {/* 双栏：左列该通道动作清单（选择器 + master），右列聚焦动作配置（detail） */}
     <div className="grid grid-cols-[224px_1fr] gap-4 p-3">
       <div className="flex flex-col border-r border-border pr-3">
-        <div className="flex flex-col gap-0.5">
-          {currentGroup.types.map((type) => {
-            /** 该动作已选中的动作对象（未选中为空）。 */
-            const selectedAction = draft.actions.find((action) => action.type === type);
-            /** 该动作是否为当前聚焦项。 */
-            const active = type === activeType;
-            /** 该动作是否存在校验错误。 */
-            const hasError = errorField === actionFieldKey(type);
-            // 行本身不能嵌套按钮，故拆成「主区按钮 + 说明气泡 + 删除按钮」三个兄弟节点，外层 div 承载选中/悬停底色
-            return <div key={type} className={`group flex items-center rounded-md pr-1 transition-colors ${active ? 'bg-primary/10' : 'hover:bg-muted/50'}`}>
-              {/* 主区：未选中 → 勾选并聚焦（onToggle 内部会聚焦）；已选中 → 仅切换聚焦 */}
-              <button type="button" onClick={() => selectedAction ? onFocus(type) : onToggle(type)} className="flex min-w-0 flex-1 items-center gap-1.5 px-2.5 py-1.5 text-left">
-                {hasError
-                  ? <span className="size-1.5 shrink-0 rounded-full bg-destructive" />
-                  : <Check className={`size-3.5 shrink-0 ${selectedAction ? 'text-primary' : 'text-transparent'}`} />}
-                <span className={`truncate text-sm font-medium ${selectedAction ? 'text-foreground' : 'text-muted-foreground'}`}>{labels.RULE_ACTION_TYPE_LABELS[type]}</span>
-              </button>
-              {/* 动作说明移入气泡：默认展示动作用途，已选时展示当前配置预览 */}
-              <InfoHint className="shrink-0" contentClassName="w-56">
-                {selectedAction ? describeAction(t, selectedAction) : actionDescriptions[type]}
-              </InfoHint>
-              {/* 删除入口：仅已选动作可删；聚焦行常显，其余行悬停浮现 */}
-              {selectedAction && (
-                <button type="button" title={t('ruleEditor.deleteAction', { actionLabel: labels.RULE_ACTION_TYPE_LABELS[type] })} onClick={() => onRemove(type)} className={`shrink-0 rounded p-1 text-muted-foreground transition-opacity hover:text-destructive ${active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                  <Trash2 className="size-3.5" />
-                  <span className="sr-only">{t('ruleEditor.deleteActionSr')}</span>
-                </button>
-              )}
-            </div>;
-          })}
+        <div className="flex flex-col gap-3">
+          {currentGroup.selectionGroups.map((selectionGroup, selectionGroupIndex) => (
+            <div key={selectionGroup.title} role={selectionGroup.control === 'radio' ? 'radiogroup' : 'group'} aria-label={selectionGroup.title} className={selectionGroupIndex === 0 ? '' : 'border-t border-border pt-3'}>
+              {/* 不额外包裹卡片，仅用分割线区分互斥与可组合动作。 */}
+              <div className="px-2 pb-1 text-[11px] font-medium text-muted-foreground">{selectionGroup.title}</div>
+              <div className="flex flex-col gap-0.5">
+                {selectionGroup.types.map((type) => {
+                  /** 该动作已选中的动作对象（未选中为空）。 */
+                  const selectedAction = draft.actions.find((action) => action.type === type);
+                  /** 该动作是否为当前聚焦项。 */
+                  const active = type === activeType;
+                  /** 该动作是否存在校验错误。 */
+                  const hasError = errorField === actionFieldKey(type);
+                  /** 当前选择控件所属的原生 radio/checkbox name。 */
+                  const controlName = `${workbenchId}-action-choice-${currentGroup.channel}-${selectionGroupIndex}`;
+                  /** 当前选择控件与文字标签共享的唯一 id。 */
+                  const controlId = `${controlName}-${type}`;
+                  // 行本身不能嵌套按钮，故拆成「控件 + 文字 label + 说明气泡 + 删除按钮」，让说明图标紧跟动作名称
+                  return <div key={type} className={`group flex items-center rounded-md pr-1 transition-colors ${active ? 'bg-primary/10' : 'hover:bg-muted/50'}`}>
+                    {/* 互斥动作使用 radio，可叠加动作使用 checkbox；原生控件同时提供键盘与读屏语义。 */}
+                    <input
+                      id={controlId}
+                      type={selectionGroup.control}
+                      name={controlName}
+                      checked={selectedAction !== undefined}
+                      aria-invalid={hasError}
+                      className={`ml-2.5 size-3.5 shrink-0 accent-primary ${hasError ? 'outline outline-2 outline-offset-1 outline-destructive' : ''}`}
+                      onFocus={() => { if (selectedAction) onFocus(type); }}
+                      onChange={() => onToggle(type)}
+                    />
+                    <label htmlFor={controlId} className="block min-w-0 cursor-pointer py-1.5 pl-1.5 text-left">
+                      <span className={`block truncate text-sm font-medium ${selectedAction ? 'text-foreground' : 'text-muted-foreground'}`}>{labels.RULE_ACTION_TYPE_LABELS[type]}</span>
+                    </label>
+                    {/* 动作说明移入气泡：默认展示动作用途，已选时展示当前配置预览 */}
+                    <InfoHint className="ml-1 shrink-0" contentClassName="w-56">
+                      {selectedAction ? describeAction(t, selectedAction) : actionDescriptions[type]}
+                    </InfoHint>
+                    <span className="min-w-0 flex-1" />
+                    {/* 删除入口：仅已选动作可删；聚焦行常显，其余行悬停浮现 */}
+                    {selectedAction && (
+                      <button type="button" title={t('ruleEditor.deleteAction', { actionLabel: labels.RULE_ACTION_TYPE_LABELS[type] })} onClick={() => onRemove(type)} className={`shrink-0 rounded p-1 text-muted-foreground transition-opacity hover:text-destructive ${active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                        <Trash2 className="size-3.5" />
+                        <span className="sr-only">{t('ruleEditor.deleteActionSr')}</span>
+                      </button>
+                    )}
+                  </div>;
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
       {/* 右列：聚焦动作的参数编辑器（detail）；当前 tab 未选任何动作时给出引导 */}

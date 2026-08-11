@@ -150,6 +150,11 @@
       "insertScript": "Injecter du JS / CSS selon l’URL de la page"
     },
     "actionGroup": {
+      "selectionMode": {
+        "exclusive": "Options exclusives · Un seul choix",
+        "combinable": "Options combinables",
+        "standalone": "Utiliser séparément"
+      },
       "dnr": {
         "title": "Couche réseau",
         "hint": "S’applique à toutes les requêtes (navigation et ressources statiques comprises), sans pouvoir lire le corps",
