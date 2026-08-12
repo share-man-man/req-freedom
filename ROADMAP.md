@@ -12,7 +12,7 @@
 ```mermaid
 flowchart LR
     A[请求发起] --> B{发起方}
-    B -->|页面 JS: fetch / XHR| C[页面补丁通道<br/>MAIN world 内容脚本]
+    B -->|页面 JS: fetch / XHR / EventSource| C[页面补丁通道<br/>MAIN world 内容脚本]
     B -->|浏览器原生: document / img<br/>iframe / css / media| D[DNR 通道<br/>declarativeNetRequest]
     C --> E[可读写 body<br/>可跑任意 JS<br/>可精确延迟]
     D --> F[网络层原生执行<br/>拿不到 body<br/>不能跑 JS]
@@ -21,8 +21,8 @@ flowchart LR
 要点：
 
 - **DNR 通道**能拦全部流量，但只能做声明式的 URL / Header 改写，**拿不到也改不了 body**，更不能跑 JS。
-- **页面补丁通道**能力不受限，但**只拦得到页面 JS 发起的请求**，`document`、`img`、`iframe` 等浏览器原生发起的流量一律拦不到。
-- **页面补丁通道还只作用于顶层文档**：内容脚本未开启 `all_frames`，iframe 内部页面 JS 发起的 fetch / XHR 同样拦不到，命中统计也不会包含。这与上一条是两个维度——上一条讲请求由谁发起，这一条讲文档层级。
+- **页面补丁通道**能力不受限，但**只拦得到页面 JS 发起的请求**：通用动作覆盖 `fetch` / XHR，SSE Mock 还会代理原生 `EventSource`；`document`、`img`、`iframe` 等浏览器原生发起的流量一律拦不到。
+- **页面补丁通道还只作用于顶层文档**：内容脚本未开启 `all_frames`，iframe 内部页面 JS 发起的 fetch / XHR / EventSource 同样拦不到，命中统计也不会包含。这与上一条是两个维度——上一条讲请求由谁发起，这一条讲文档层级。
 - **同步 XHR（`open(..., false)`）也拦不到**：该通道的处理全是异步的，而同步 XHR 要求 `send` 返回时响应已就绪，因此一律原样放行——fail-open，宁可规则不生效也不破坏页面。
 - 因此「改请求体」「JS 写响应」「Mock」「延迟」只能走页面补丁通道，这个边界要在文档站显式写清楚，否则用户会当成 bug 提。
 
@@ -36,7 +36,7 @@ flowchart LR
 - [x] `Redirect` 重定向（支持正则捕获组）
 - [x] `InjectParams` 查询参数注入
 - [x] `ModifyHeaders` 请求 / 响应 Header 改写
-- [x] `MockResponse` 返回值 Mock
+- [x] `MockResponse` 返回值 Mock（普通响应 / SSE 事件流）
 - [x] `Delay` 延迟模拟
 
 > 这 6 项已覆盖同类插件的核心盘，属于合格的最小完备集。以下是相对竞品的实际缺口。
@@ -52,6 +52,8 @@ flowchart LR
 - [x] ~~**P1 · 用 JS 动态生成响应**~~ — `MockResponseMode` 支持静态响应体与 JavaScript 动态生成；动态函数可用 `req` 的 URL、方法、请求头、查询参数与请求体（含可选 JSON 解析），支持 `return` / `await`，fetch 与 XHR 均由 MAIN world 拦截执行，文档明确仅应运行可信代码的安全边界。
 
 - [x] ~~**P1 · 基于真实响应改写（Mock 包装模式）**~~ — `MockResponseAction` 新增可选 `passthrough`（仅 `MockResponseMode.Dynamic` 可开）。关闭时保持既有短路语义（不发真实请求）；开启时切换为包装语义：先发出真实请求（同规则的改请求体先生效），把真实响应以 `res` 快照（`status` / `statusText` / `ok` / `headers` / `body` / `json`）连同 `req` 一起交给动态函数，用返回值替换响应体，状态码与响应头一律沿用真实响应；函数不返回值或抛异常时保留真实响应体。XHR 侧页面持有的实例全程不 `send`，真实请求由影子实例（`originalOpen` / `originalSend`）承载，避免原生同步事件抢在异步函数之前交付响应；不透明响应（`no-cors`）原样放行。文档见 [基于真实响应改写](apps/docs/docs/guide/features/mock.md#基于真实响应改写)。
+
+- [x] ~~**P1 · SSE 事件流 Mock**~~ — 静态 Mock 可选择 `MockResponseDelivery.Sse`，将事件序列按各自延迟编码为 UTF-8 `text/event-stream` 流；每条事件支持 `event` / `data` / `id` / `retryMs` 字段、动态变量与多行数据，并可从原始 SSE 响应批量导入。支持事件发完后关闭、保持连接或循环发送；`fetch` 通过 `ReadableStream` 逐块消费，原生 `EventSource` 会模拟连接状态、`open` / `message` / 自定义事件及 `close()`，未命中时回落浏览器原生实现。当前不支持动态响应、基于真实响应改写或 XHR，状态码固定为 `200`。文档见 [SSE 事件流](apps/docs/docs/guide/features/mock.md#sse-事件流)。
 
 ### 匹配能力增强
 
@@ -78,6 +80,8 @@ flowchart LR
 
 - [x] ~~**P1 · 内嵌代码编辑器（CodeMirror 6）**~~ — 封装 `components/ui/code-editor`，支持 JSON / JavaScript / CSS 的语法高亮、行号、括号匹配、缩进与格式化，按语言 tree-shake（`@codemirror/lang-*`）以适配 MV3 CSP；`MockResponse.body` 已切换为 JSON 编辑器，后续规则类型复用。若将来需 Monaco 级补全再单独评估。
 
+- [x] ~~**i18n 国际化**~~ — popup 与规则管理页统一接入 `i18next` / `react-i18next`，支持简体中文、英语、繁体中文、日语、韩语、西班牙语、巴西葡萄牙语、法语、德语与俄语共 10 种语言；扩展名称和描述同步使用浏览器 `_locales`。首次使用按浏览器 UI 语言选择，无法匹配时回落英语；用户可在规则管理页切换语言，选择持久化到 `storage.local` 并实时同步已打开的 popup / options 页面。`scripts/validate-locales.mjs` 校验语言文件键集合、插值变量、富文本标签及 manifest 文案完整性。
+
 - [x] ~~**P2 · 请求日志 / 命中高亮**~~ — 复用既有命中日志，不新增数据源：规则管理页顶栏新增「请求日志」视图，逐条展示时间、方法、请求 URL、命中规则、动作与执行结果（已生效 / 未应用及原因），并按规则给出命中次数供一键下钻；支持按关键词（URL / 方法 / 规则名）、动作与执行结果筛选，点击规则名跳回规则视图定位高亮。日志按标签页归档，面板顶部选择标签页；入口即规则统计区新增的「命中记录」卡片（数字为各标签页合计条数，随命中实时增长），日志视图左上角提供返回，清空前二次确认。初次读取走消息拿 background 内存中的权威日志（`RUNTIME_MSG_GET_RULE_HIT_LOG` / `RUNTIME_MSG_LIST_RULE_HIT_TABS`），随后订阅 `storage.session` 镜像实时刷新（约 1 秒一次），不额外唤醒 Service Worker。文档见 [请求日志](apps/docs/docs/guide/features/request-log.md)。
 
 - [ ] **P2 · Profiles / 环境切换**
@@ -90,7 +94,6 @@ flowchart LR
 
 ### 待评估
 
-- [ ] **i18n 国际化** — 现文案为中文硬编码。若要承接 Resource Override 外流的海外用户（见「市场时机」），英文界面几乎是前提。
 - [ ] **快捷键 + 右键菜单** — `commands` API 一键开关；页面右键「拦截此资源 / 为此接口建 Mock」，降低建规则门槛。
 
 ## 三、浏览器支持矩阵
@@ -124,7 +127,7 @@ WXT 本身支持多浏览器打包（`wxt build -b firefox / edge / safari`）�
 
 ### 对 ROADMAP 的影响
 
-- **所有走页面补丁通道的功能**（`ModifyRequestBody`、JS 动态生成响应、精确延迟 / 限速）依赖 MAIN world，**Safari 上基本不可用**——Safari 版会退化成「只有 DNR 能力」的阉割版；Firefox 需 FF128+，可接受。
+- **所有走页面补丁通道的功能**（`ModifyRequestBody`、JS 动态生成响应、SSE 事件流 Mock、精确延迟 / 限速）依赖 MAIN world，**Safari 上基本不可用**——Safari 版会退化成「只有 DNR 能力」的阉割版；Firefox 需 FF128+，可接受。
 - **几乎无痛跨浏览器**：已完成的 6 种规则中走 DNR 的部分、导入导出、规则分组、徽标 + 全局开关、CodeMirror 编辑器、i18n、模板库——纯 UI / storage 或 DNR 声明式改写，可移植性好。
 
 ### 落地顺序建议
