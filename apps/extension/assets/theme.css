@@ -11,6 +11,8 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
+  /* 声明默认明暗能力，确保生产构建为 light-dark() 初始化浅色分支。 */
+  color-scheme: light dark;
   --radius: 0.625rem;
 
   --background: oklch(1 0 0);
