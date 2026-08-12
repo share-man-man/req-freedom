@@ -15,7 +15,11 @@ import {
   STORAGE_KEY_GROUPS,
 } from '@req-freedom/shared';
 import { collectActiveRules, filterRulesByChannel, isRuleScoped } from '@req-freedom/core';
-import { initActionIcon, setActionIconState } from '@/utils/action-icon';
+import {
+  initActionIcon,
+  setActionIconEnabled,
+  setActionIconState,
+} from '@/utils/action-icon';
 import { setActiveDnrRules } from '@/utils/active-rules-cache';
 import {
   commitDnr,
@@ -37,7 +41,6 @@ import {
   getHitSummary,
   hasAppliedHits,
   listHitTabs,
-  listTabsWithAppliedHits,
   recordHits,
   restoreHits,
 } from '@/utils/rule-hit-store';
@@ -46,6 +49,9 @@ import { getEnabled, getGroups } from '@/utils/storage';
 
 /** 串行化 DNR 同步，避免并发的规则集提交互相覆盖。 */
 let dnrSyncChain: Promise<unknown> = Promise.resolve();
+
+/** 串行化工具栏图标刷新，避免快速切换全局开关时旧状态后写入。 */
+let actionIconSyncChain: Promise<unknown> = Promise.resolve();
 
 /**
  * 记录一批命中并把徽标刷新为最新状态。
@@ -57,7 +63,32 @@ let dnrSyncChain: Promise<unknown> = Promise.resolve();
  */
 function applyRuleHits(tabId: number, hits: RuleHit[]): void {
   recordHits(tabId, hits);
-  setActionIconState(tabId, hasAppliedHits(tabId));
+  void setActionIconState(tabId, hasAppliedHits(tabId));
+}
+
+/**
+ * 按最新全局开关与命中记录刷新所有标签页的工具栏徽标。
+ * @returns 本轮刷新完成后的 Promise
+ */
+function syncActionIcons(): Promise<void> {
+  /** 排在上一轮刷新之后执行的本轮任务。 */
+  const synchronization = actionIconSyncChain.then(async () => {
+    /** 最新全局开关状态。 */
+    const enabled = await getEnabled();
+    await setActionIconEnabled(enabled);
+
+    /** 当前所有标签页，用于覆盖已存在的逐页徽标状态。 */
+    const tabs = await queryAllTabs();
+    await Promise.all(
+      tabs.map((tab) =>
+        tab.id === undefined
+          ? Promise.resolve()
+          : setActionIconState(tab.id, hasAppliedHits(tab.id)),
+      ),
+    );
+  });
+  actionIconSyncChain = synchronization.catch(() => undefined);
+  return synchronization;
 }
 
 /**
@@ -212,19 +243,19 @@ async function pushScopeContext(tabId: number): Promise<void> {
 export default defineBackground(() => {
   initActionIcon();
 
-  // 冷启动：先从镜像恢复命中日志，再按恢复结果补回徽标状态。
-  void restoreHits().then(() => {
-    for (const tabId of listTabsWithAppliedHits()) {
-      setActionIconState(tabId, true);
-    }
-  });
+  // 冷启动：先从镜像恢复命中日志，再按全局开关和恢复结果补回徽标状态。
+  void restoreHits()
+    .then(() => syncActionIcons())
+    .catch((error) => {
+      console.error('[req-freedom] 恢复工具栏徽标状态失败：', error);
+    });
 
   // 观测式 webRequest 是本扩展唯一可用的 DNR 命中推送信号：onRuleMatchedDebug 仅未打包可用，
   // getMatchedRules 只有 pull 且受 20 次 / 10 分钟配额与 5 分钟保留窗口限制。
   initRuleHitObserver({
     onNavigationReset: (tabId) => {
       clearHits(tabId);
-      setActionIconState(tabId, false);
+      void setActionIconState(tabId, false);
     },
     onRuleHits: applyRuleHits,
   });
@@ -241,6 +272,11 @@ export default defineBackground(() => {
     if (STORAGE_KEY_GROUPS in changes || STORAGE_KEY_ENABLED in changes) {
       void syncDnrRuleSets().catch((error) => {
         console.error('[req-freedom] 配置变化后同步 DNR 规则集失败：', error);
+      });
+    }
+    if (STORAGE_KEY_ENABLED in changes) {
+      void syncActionIcons().catch((error) => {
+        console.error('[req-freedom] 全局开关变化后刷新徽标失败：', error);
       });
     }
   });
@@ -275,7 +311,7 @@ export default defineBackground(() => {
       }
       if (messageType === RUNTIME_MSG_CLEAR_RULE_HITS) {
         clearHits(requestedTabId);
-        setActionIconState(requestedTabId, false);
+        void setActionIconState(requestedTabId, false);
       }
       // 请求日志视图要逐条展示命中，摘要给不出请求 URL 与时间，因此单独返回完整日志
       if (messageType === RUNTIME_MSG_GET_RULE_HIT_LOG) {
