@@ -12,6 +12,7 @@ import {
   InsertScriptCodeType,
   InsertScriptTiming,
   MOCK_BODY_TYPE_CONTENT_TYPES,
+  MockResponseDelivery,
   MockResponseMode,
   PAGE_MESSAGE_CHANNEL_REQUEST_SOURCE,
   PAGE_PORT_MSG_RULE_HITS,
@@ -44,6 +45,11 @@ import {
   type PagePlan,
 } from '@/utils/page-plan';
 import { createAppliedHit } from '@/utils/rule-hit';
+import {
+  createMockEventSource,
+  createSseReadableStream,
+  SSE_CONTENT_TYPE,
+} from '@/utils/sse';
 
 /** 动态 Mock 与动态改请求体函数可读取的请求快照。 */
 interface DynamicRequestContext {
@@ -557,7 +563,9 @@ export default defineContentScript({
     const buildMockResponseHeaders = (rule: MockResponseAction): Record<string, string> => {
       /** 静态模式按响应体类型推导 Content-Type，动态模式回落到默认 JSON。 */
       const contentType =
-        rule.mode === MockResponseMode.Static
+        rule.delivery === MockResponseDelivery.Sse
+          ? SSE_CONTENT_TYPE
+          : rule.mode === MockResponseMode.Static
           ? MOCK_BODY_TYPE_CONTENT_TYPES[rule.bodyType ?? DEFAULT_MOCK_BODY_TYPE]
           : DEFAULT_MOCK_CONTENT_TYPE;
       /** 解析动态变量后的显式响应头。 */
@@ -576,7 +584,14 @@ export default defineContentScript({
       );
       return {
         ...remainingHeaders,
-        'Content-Type': explicitContentType ?? contentType,
+        ...(rule.delivery === MockResponseDelivery.Sse &&
+        !Object.keys(remainingHeaders).some((name) => name.toLowerCase() === 'cache-control')
+          ? { 'Cache-Control': 'no-cache' }
+          : {}),
+        'Content-Type':
+          rule.delivery === MockResponseDelivery.Sse
+            ? contentType
+            : explicitContentType ?? contentType,
       };
     };
 
@@ -835,6 +850,18 @@ export default defineContentScript({
         // 短路 Mock 必定应用：响应完全由规则构造，没有会失败的执行环节
         reportMockHit(plan.mockHit);
         await sleep(mockRule.delayMs ?? 0);
+        if (mockRule.delivery === MockResponseDelivery.Sse) {
+          /** SSE Mock 按事件各自的等待时间逐块交付，避免把整个事件列表缓冲成普通文本。 */
+          const response = new Response(
+            createSseReadableStream(mockRule, resolveDynamicVariables),
+            {
+              status: mockRule.statusCode,
+              statusText: mockRule.statusText,
+              headers: buildMockResponseHeaders(mockRule),
+            },
+          );
+          return throttleResponse(response, delayRule);
+        }
         /** 动态模式读取请求快照后生成响应；静态模式使用配置中的 body 并解析其中的动态变量。 */
         const mockBody =
           mockRule.mode === MockResponseMode.Dynamic
@@ -872,7 +899,70 @@ export default defineContentScript({
       return throttleResponse(response, delayRule);
     };
 
+    // ---------- EventSource 补丁 ----------
+
+    /** 页面原始 EventSource 构造器，未命中 SSE Mock 时完整回落原生实现。 */
+    const OriginalEventSource = window.EventSource;
+    /** 仅在命中 SSE Mock 时返回本地事件源的代理构造器。 */
+    const PatchedEventSource = new Proxy(OriginalEventSource, {
+      construct(target, args) {
+        /** 构造器收到的原始 URL。 */
+        const rawUrl = args[0] as string | URL;
+        /** 绝对化后的事件流 URL。 */
+        const url = toAbsoluteUrl(rawUrl.toString());
+        /** EventSource 的可选初始化参数。 */
+        const eventSourceInit = args[1] as EventSourceInit | undefined;
+        /** GET 请求初筛命中的页面补丁规则。 */
+        const candidateRules = resolveCandidateRules(url, 'GET');
+        /** EventSource 没有请求体，带请求体条件的规则只可能按空文本匹配。 */
+        const activeRules = rulesNeedBody(candidateRules)
+          ? filterRulesByBody(candidateRules, '')
+          : candidateRules;
+        /** 复用页面补丁计划，确保动作优先级与 fetch / XHR 一致。 */
+        const plan = resolvePagePlan(activeRules, url, 'GET', Date.now());
+        /** 本次计划命中的 Mock 动作。 */
+        const mockRule = plan.mock;
+        if (!mockRule || mockRule.delivery !== MockResponseDelivery.Sse) {
+          return Reflect.construct(target, args) as EventSource;
+        }
+        // EventSource 只执行 SSE Mock；普通 Mock、请求体改写和仅限 fetch/XHR 的计划不改变原生连接。
+        reportRuleHits(plan.hits);
+        reportMockHit(plan.mockHit);
+        /** 网络限速规则在 EventSource 上可模拟的首包等待时间。 */
+        const networkDelayMs = plan.delay
+          ? getNetworkRequestDelayMs(plan.delay, 0)
+          : 0;
+        return createMockEventSource(
+          url,
+          eventSourceInit,
+          mockRule,
+          resolveDynamicVariables,
+          { initialDelayMs: networkDelayMs + (mockRule.delayMs ?? 0) },
+        );
+      },
+    });
+    window.EventSource = PatchedEventSource;
+
     // ---------- XMLHttpRequest 补丁 ----------
+
+    /**
+     * 从 XHR 规则快照中移除 SSE Mock 动作。
+     *
+     * XHR 没有可替换的增量响应流；忽略 SSE Mock，但保留同一规则内可正常执行的限速与改请求体动作。
+     * @param rules XHR 初筛命中的规则
+     * @returns 不含 SSE Mock 动作的规则列表
+     */
+    const withoutSseMockActions = (rules: Rule[]): Rule[] =>
+      rules
+        .map((rule) => ({
+          ...rule,
+          actions: rule.actions.filter(
+            (action) =>
+              action.type !== RuleActionType.MockResponse ||
+              action.delivery !== MockResponseDelivery.Sse,
+          ),
+        }))
+        .filter((rule) => rule.actions.length > 0);
 
     /** 记录每个 XHR 实例在 open / setRequestHeader 阶段的请求信息，供 send 阶段匹配与动态 Mock 使用。 */
     const xhrRequestMap = new WeakMap<XMLHttpRequest, XhrRequestMetadata>();
@@ -1067,7 +1157,7 @@ export default defineContentScript({
       /** open 阶段记录的请求方法。 */
       const method = requestMetadata?.method ?? 'GET';
       /** URL + 方法初筛命中的页面补丁规则。 */
-      const candidateRules = resolveCandidateRules(url, method);
+      const candidateRules = withoutSseMockActions(resolveCandidateRules(url, method));
 
       // 关键步骤：同步 XHR 必须在 send 返回前拿到响应，而页面补丁的 Mock、延迟与请求体改写全都是异步的
       // （读请求体、执行用户函数、影子请求都要等微任务或事件），插进去只会让页面读到空响应。

@@ -1,21 +1,23 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { browser } from 'wxt/browser';
-import { Check, CheckCircle2, ChevronDown, FlaskConical, RefreshCw, Trash2, XCircle } from 'lucide-react';
+import { Check, CheckCircle2, ChevronDown, ClipboardPaste, FlaskConical, RefreshCw, Trash2, XCircle } from 'lucide-react';
 import type { ReactNode, Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import type { BodyMatcher, Rule, RuleAction, RuleScope, ScopeTarget } from '@req-freedom/shared';
+import type { BodyMatcher, Rule, RuleAction, RuleScope, ScopeTarget, SseEvent } from '@req-freedom/shared';
 import { matchUrl } from '@req-freedom/core';
 import {
   BodyMatchType,
   DEFAULT_DYNAMIC_MOCK_FUNCTION_CODE,
   DEFAULT_DYNAMIC_REQUEST_BODY_FUNCTION_CODE,
   DEFAULT_MOCK_BODY_TYPE,
+  DEFAULT_MOCK_RESPONSE_DELIVERY,
   DEFAULT_MOCK_RESPONSE_MODE,
   DEFAULT_MOCK_STATUS,
   DEFAULT_NETWORK_THROTTLE_PRESET,
   DEFAULT_PASSTHROUGH_MOCK_FUNCTION_CODE,
   DEFAULT_REQUEST_BODY_SOURCE_MODE,
+  DEFAULT_SSE_EVENT_DELAY_MS,
   HeaderOperation,
   HeaderTarget,
   HttpMethod,
@@ -25,6 +27,7 @@ import {
   kilobytesPerSecondToKilobitsPerSecond,
   MatchType,
   MockBodyType,
+  MockResponseDelivery,
   MockResponseMode,
   NETWORK_SPEED_DISPLAY_UNIT,
   NETWORK_THROTTLE_PRESET_SETTINGS,
@@ -34,9 +37,10 @@ import {
   RuleActionType,
   RuleExecutionChannel,
   RuleScopeType,
+  SseEndBehavior,
 } from '@req-freedom/shared';
 import { Button } from '@/components/ui/button';
-import { DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -49,6 +53,7 @@ import KeyValueEditor from './KeyValueEditor';
 import { getLabels } from '@/utils/labels';
 import { toDnrCondition } from '@/utils/dnr';
 import { matchDnrCondition } from '@/utils/dnr-match';
+import { parseSseEventStream } from '@/utils/sse';
 
 /** 供所属分组下拉选择的分组简要信息。 */
 export interface GroupOption { id: string; name: string; }
@@ -243,9 +248,11 @@ function describeAction(t: TFunction, action: RuleAction): string {
     }
     case RuleActionType.ModifyHeaders: return t('ruleEditor.describeAction.modifyHeaders', { count: action.headers.length });
     // 基于真实响应时状态码来自服务端，摘要里再展示规则内的状态码会误导
-    case RuleActionType.MockResponse: return action.passthrough === true
-      ? t('ruleEditor.describeAction.mockResponsePassthrough')
-      : t('ruleEditor.describeAction.mockResponse', { statusCode: action.statusCode });
+    case RuleActionType.MockResponse: return action.delivery === MockResponseDelivery.Sse
+      ? t('ruleEditor.describeAction.mockResponseSse', { count: action.sseEvents?.length ?? 0 })
+      : action.passthrough === true
+        ? t('ruleEditor.describeAction.mockResponsePassthrough')
+        : t('ruleEditor.describeAction.mockResponse', { statusCode: action.statusCode });
     case RuleActionType.Delay: return t('ruleEditor.describeAction.delay', { preset: labels.NETWORK_THROTTLE_PRESET_LABELS[action.throttlePreset] });
     case RuleActionType.ModifyRequestBody: return t('ruleEditor.describeAction.modifyRequestBody', { sourceMode: labels.REQUEST_BODY_SOURCE_MODE_LABELS[action.sourceMode] });
     case RuleActionType.InsertScript: return t('ruleEditor.describeAction.insertScript', { codeType: labels.INSERT_SCRIPT_CODE_TYPE_LABELS[action.codeType], timing: labels.INSERT_SCRIPT_TIMING_LABELS[action.timing] });
@@ -307,7 +314,7 @@ function createAction(type: RuleActionType): RuleAction {
     case RuleActionType.Redirect: return { type, redirectUrl: 'https://example.com/target' };
     case RuleActionType.InjectParams: return { type, params: { debug: '1' } };
     case RuleActionType.ModifyHeaders: return { type, headers: [{ target: HeaderTarget.Request, operation: HeaderOperation.Set, header: 'X-Req-Freedom', value: '1' }] };
-    case RuleActionType.MockResponse: return { type, mode: DEFAULT_MOCK_RESPONSE_MODE, bodyType: DEFAULT_MOCK_BODY_TYPE, statusCode: DEFAULT_MOCK_STATUS, body: '{\n  "code": 0\n}', functionCode: DEFAULT_DYNAMIC_MOCK_FUNCTION_CODE };
+    case RuleActionType.MockResponse: return { type, mode: DEFAULT_MOCK_RESPONSE_MODE, delivery: DEFAULT_MOCK_RESPONSE_DELIVERY, bodyType: DEFAULT_MOCK_BODY_TYPE, statusCode: DEFAULT_MOCK_STATUS, body: '{\n  "code": 0\n}', functionCode: DEFAULT_DYNAMIC_MOCK_FUNCTION_CODE };
     case RuleActionType.Delay: return { type, throttlePreset: DEFAULT_NETWORK_THROTTLE_PRESET, ...defaultPresetSettings };
     case RuleActionType.ModifyRequestBody: return { type, sourceMode: DEFAULT_REQUEST_BODY_SOURCE_MODE, mode: RequestBodyMode.MergeJson, content: '{\n  "injectedBy": "req-freedom"\n}', functionCode: DEFAULT_DYNAMIC_REQUEST_BODY_FUNCTION_CODE };
     case RuleActionType.InsertScript: return { type, codeType: InsertScriptCodeType.JavaScript, timing: InsertScriptTiming.DocumentEnd, code: "console.log('injected by req-freedom');" };
@@ -401,6 +408,7 @@ export function validateRule(t: TFunction, rule: Rule): ValidationError | null {
     if (action.type === RuleActionType.InsertScript && !action.code.trim()) return { field: actionFieldKey(action.type), message: t('ruleEditor.validation.insertScriptCodeRequired') };
     if (action.type === RuleActionType.MockResponse) {
       if (action.statusCode < 100 || action.statusCode > 599) return { field: actionFieldKey(action.type), message: t('ruleEditor.validation.mockStatusCodeRange') };
+      if (action.delivery === MockResponseDelivery.Sse && (!action.sseEvents || action.sseEvents.length === 0)) return { field: actionFieldKey(action.type), message: t('ruleEditor.validation.sseEventsRequired') };
       // 扩展页禁用 eval，无法在保存时静态执行/编译校验动态函数；以完整命名函数模板降低写错概率，运行期错误由运行时兜底
       if (action.mode === MockResponseMode.Dynamic && !action.functionCode?.trim()) return { field: actionFieldKey(action.type), message: t('ruleEditor.validation.dynamicMockFunctionRequired') };
     }
@@ -1305,6 +1313,12 @@ function MockActionEditor({ action, onChange }: { action: Extract<RuleAction, { 
   const editorLanguage: CodeEditorLanguage = isStatic ? MOCK_BODY_TYPE_EDITOR_LANGUAGE[bodyType] : 'javascript';
   /** 是否已开启「基于真实响应」：此时状态码与响应头沿用真实响应，规则内的配置不再参与。 */
   const isPassthrough = action.passthrough === true;
+  /** 当前响应是否以 SSE 事件流方式交付。 */
+  const isSse = action.delivery === MockResponseDelivery.Sse;
+  /** SSE 事件发送完毕后的行为。 */
+  const sseEndBehavior = action.sseEndBehavior ?? SseEndBehavior.Close;
+  /** SSE 编辑器使用的事件列表。 */
+  const sseEvents = action.sseEvents ?? [];
   /**
    * 切换响应体生成方式。
    * @param value 目标模式
@@ -1329,20 +1343,57 @@ function MockActionEditor({ action, onChange }: { action: Extract<RuleAction, { 
           : DEFAULT_DYNAMIC_MOCK_FUNCTION_CODE,
     });
   };
+  /**
+   * 切换 Mock 的响应交付方式。
+   * @param value 目标交付方式
+   */
+  const changeDelivery = (value: string): void => {
+    /** 切换后的交付方式。 */
+    const delivery = value as MockResponseDelivery;
+    if (delivery === MockResponseDelivery.Sse) {
+      // SSE 使用静态事件序列并固定 200；同时清除真实响应包装，避免产生无法流式处理的组合。
+      onChange({
+        ...action,
+        delivery,
+        mode: MockResponseMode.Static,
+        statusCode: 200,
+        passthrough: undefined,
+        sseEndBehavior: action.sseEndBehavior ?? SseEndBehavior.Close,
+        sseEvents: action.sseEvents?.length
+          ? action.sseEvents
+          : [{ data: '{"message":"hello"}' }],
+      });
+      return;
+    }
+    onChange({
+      ...action,
+      delivery,
+      sseEvents: undefined,
+      sseEndBehavior: undefined,
+    });
+  };
   return <div className="space-y-3">
-    <div className="grid grid-cols-2 gap-3">
+    <div className={`grid gap-3 ${isSse ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-3'}`}>
       <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground" htmlFor="mock-delivery">{t('ruleEditor.mockActionEditor.deliveryLabel')}</Label>
+        <Select value={action.delivery ?? DEFAULT_MOCK_RESPONSE_DELIVERY} onValueChange={changeDelivery}><SelectTrigger id="mock-delivery"><SelectValue /></SelectTrigger><SelectContent><SelectItem value={MockResponseDelivery.Buffered}>{t('ruleEditor.mockActionEditor.deliveryBuffered')}</SelectItem><SelectItem value={MockResponseDelivery.Sse}>{t('ruleEditor.mockActionEditor.deliverySse')}</SelectItem></SelectContent></Select>
+      </div>
+      {isSse && <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground" htmlFor="sse-end-behavior">{t('ruleEditor.mockActionEditor.sseEndBehaviorLabel')}</Label>
+        <Select value={sseEndBehavior} onValueChange={(value) => onChange({ ...action, sseEndBehavior: value as SseEndBehavior })}><SelectTrigger id="sse-end-behavior"><SelectValue /></SelectTrigger><SelectContent><SelectItem value={SseEndBehavior.Close}>{t('ruleEditor.mockActionEditor.sseEndClose')}</SelectItem><SelectItem value={SseEndBehavior.KeepOpen}>{t('ruleEditor.mockActionEditor.sseEndKeepOpen')}</SelectItem><SelectItem value={SseEndBehavior.Loop}>{t('ruleEditor.mockActionEditor.sseEndLoop')}</SelectItem></SelectContent></Select>
+      </div>}
+      {!isSse && <div className="space-y-1">
         <Label className="text-xs text-muted-foreground" htmlFor="mock-mode">{t('ruleEditor.mockActionEditor.modeLabel')}</Label>
         <Select value={action.mode} onValueChange={changeMode}><SelectTrigger id="mock-mode"><SelectValue /></SelectTrigger><SelectContent>{Object.values(MockResponseMode).map((mode) => <SelectItem key={mode} value={mode}>{labels.MOCK_RESPONSE_MODE_LABELS[mode]}</SelectItem>)}</SelectContent></Select>
-      </div>
-      {/* 基于真实响应时状态码来自服务端，隐藏输入框避免用户以为填了会生效 */}
-      {!isPassthrough && <div className="space-y-1">
+      </div>}
+      {/* 基于真实响应时状态码来自服务端；SSE 固定 200，均隐藏输入框避免产生无效配置。 */}
+      {!isPassthrough && !isSse && <div className="space-y-1">
         <Label className="text-xs text-muted-foreground" htmlFor="mock-status-code">{t('ruleEditor.mockActionEditor.statusCodeLabel')}</Label>
         <Input id="mock-status-code" type="number" value={action.statusCode} onChange={(event) => onChange({ ...action, statusCode: Number(event.target.value) })} />
       </div>}
     </div>
     {/* 「基于真实响应」只在动态模式可用：静态模式发一次真实请求再整体丢弃没有意义 */}
-    {!isStatic && <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/40 px-3 py-2">
+    {!isSse && !isStatic && <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/40 px-3 py-2">
       <Label className="flex items-center gap-1.5 text-xs font-medium" htmlFor="mock-passthrough">
         {t('ruleEditor.mockActionEditor.passthroughLabel')}
         {/* 开关语义一句话说不完，收进 info 图标的悬停气泡，避免长文案把这一行撑高 */}
@@ -1350,8 +1401,12 @@ function MockActionEditor({ action, onChange }: { action: Extract<RuleAction, { 
       </Label>
       <Switch id="mock-passthrough" checked={isPassthrough} onCheckedChange={(checked) => onChange({ ...action, passthrough: checked ? true : undefined, functionCode: swapDefaultMockFunctionCode(action.functionCode, checked) })} />
     </div>}
-    {/* 静态模式：把响应体类型下拉塞进编辑器左上角（替代语言名标签），切换后同步驱动高亮与交付时的 Content-Type */}
-    <CodeEditor
+    {isSse
+      ? <SseEventsEditor
+          events={sseEvents}
+          onEventsChange={(sseEvents) => onChange({ ...action, sseEvents })}
+        />
+      : <CodeEditor
       language={editorLanguage}
       value={isStatic ? action.body : action.functionCode ?? ''}
       onChange={(next) => onChange(isStatic ? { ...action, body: next } : { ...action, functionCode: next })}
@@ -1362,9 +1417,170 @@ function MockActionEditor({ action, onChange }: { action: Extract<RuleAction, { 
           </Select>
         : undefined}
       headerEnd={isStatic ? <DynamicVariableHint /> : undefined}
-    />
-    {invalidJsonBody && <p className="text-xs text-warning">{t('ruleEditor.mockActionEditor.invalidJsonHint')}</p>}
-    {!isStatic && <p className="text-xs text-muted-foreground">{isPassthrough ? t('ruleEditor.mockActionEditor.passthroughFunctionHint') : t('ruleEditor.mockActionEditor.dynamicHint')}</p>}
+    />}
+    {!isSse && invalidJsonBody && <p className="text-xs text-warning">{t('ruleEditor.mockActionEditor.invalidJsonHint')}</p>}
+    {!isSse && !isStatic && <p className="text-xs text-muted-foreground">{isPassthrough ? t('ruleEditor.mockActionEditor.passthroughFunctionHint') : t('ruleEditor.mockActionEditor.dynamicHint')}</p>}
+  </div>;
+}
+
+interface SseEventsEditorProps {
+  /** 按发送顺序排列的 SSE 事件。 */
+  events: SseEvent[];
+  /** 事件列表变化回调。 */
+  onEventsChange: (events: SseEvent[]) => void;
+}
+
+/**
+ * 把数字输入框的字符串值收敛为可选的非负数。
+ * @param value 输入框原值
+ * @returns 空值或非法值返回 undefined，其余返回非负数
+ */
+function parseOptionalNonNegativeNumber(value: string): number | undefined {
+  if (value === '') {
+    return undefined;
+  }
+  /** 输入框解析出的数值。 */
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? Math.max(0, numberValue) : undefined;
+}
+
+/**
+ * SSE 事件序列编辑器。
+ * @param props 事件列表、结束行为及其变更回调
+ */
+function SseEventsEditor({ events, onEventsChange }: SseEventsEditorProps) {
+  const { t } = useTranslation();
+  /** 当前处于折叠状态的事件下标。 */
+  const [collapsedEventIndexes, setCollapsedEventIndexes] = useState<Set<number>>(() => new Set());
+  /** 批量导入对话框是否打开。 */
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  /** 待解析的原始 text/event-stream 文本。 */
+  const [importSource, setImportSource] = useState('');
+  /** 批量导入解析失败时的提示。 */
+  const [importError, setImportError] = useState<string | null>(null);
+  /** 事件正文区域 ID 的稳定前缀。 */
+  const eventContentIdPrefix = useId();
+  /**
+   * 更新指定下标的一条事件。
+   * @param index 事件下标
+   * @param patch 要合并的字段
+   */
+  const updateEvent = (index: number, patch: Partial<SseEvent>): void => {
+    onEventsChange(events.map((event, eventIndex) => eventIndex === index ? { ...event, ...patch } : event));
+  };
+  /** 新增事件时使用的默认内容。 */
+  const appendEvent = (): void => onEventsChange([...events, { data: '' }]);
+  /** 打开批量导入对话框并清理上次的临时内容。 */
+  const openImportDialog = (): void => {
+    setImportSource('');
+    setImportError(null);
+    setImportDialogOpen(true);
+  };
+  /**
+   * 解析粘贴内容，并用导入结果替换当前事件列表。
+   */
+  const importEvents = (): void => {
+    /** 从原始响应解析出的事件列表。 */
+    const importedEvents = parseSseEventStream(importSource);
+    if (importedEvents.length === 0) {
+      setImportError(t('ruleEditor.mockActionEditor.sseImportInvalid'));
+      return;
+    }
+    onEventsChange(importedEvents);
+    // 新列表默认折叠，避免一次导入大量事件后把规则编辑页撑得过长。
+    setCollapsedEventIndexes(new Set(importedEvents.map((_, index) => index)));
+    setImportDialogOpen(false);
+  };
+  /**
+   * 切换指定事件卡片的折叠状态。
+   * @param index 事件下标
+   */
+  const toggleEvent = (index: number): void => {
+    setCollapsedEventIndexes((currentIndexes) => {
+      /** 下一次渲染使用的折叠下标集合。 */
+      const nextIndexes = new Set(currentIndexes);
+      if (nextIndexes.has(index)) {
+        nextIndexes.delete(index);
+      } else {
+        nextIndexes.add(index);
+      }
+      return nextIndexes;
+    });
+  };
+  /**
+   * 删除指定事件，并同步后续卡片的折叠状态下标。
+   * @param index 事件下标
+   */
+  const removeEvent = (index: number): void => {
+    onEventsChange(events.filter((_, eventIndex) => eventIndex !== index));
+    setCollapsedEventIndexes((currentIndexes) => {
+      /** 删除事件后重新对齐的折叠下标集合。 */
+      const nextIndexes = new Set<number>();
+      currentIndexes.forEach((collapsedIndex) => {
+        if (collapsedIndex < index) {
+          nextIndexes.add(collapsedIndex);
+        } else if (collapsedIndex > index) {
+          nextIndexes.add(collapsedIndex - 1);
+        }
+      });
+      return nextIndexes;
+    });
+  };
+  return <div className="space-y-3">
+    <div className="flex justify-end">
+      <Button type="button" size="sm" variant="outline" onClick={openImportDialog}><ClipboardPaste />{t('ruleEditor.mockActionEditor.sseImport')}</Button>
+    </div>
+    {events.map((event, index) => {
+      /** 当前事件卡片是否折叠。 */
+      const collapsed = collapsedEventIndexes.has(index);
+      /** 当前事件正文区域 ID。 */
+      const contentId = `${eventContentIdPrefix}-event-${index}`;
+      return <div key={index} className="overflow-hidden rounded-md border border-border bg-muted/20">
+        <div className="flex items-center gap-1.5 px-1.5 py-1">
+          <button type="button" className="flex min-w-0 flex-1 items-center gap-1.5 rounded-sm px-0.5 py-0.5 text-left hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-expanded={!collapsed} aria-controls={contentId} onClick={() => toggleEvent(index)}>
+            <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform ${collapsed ? '-rotate-90' : ''}`} />
+            <span className="truncate text-xs font-medium">{t('ruleEditor.mockActionEditor.sseEventTitle', { index: index + 1 })}</span>
+          </button>
+          <Button type="button" size="xs" className="size-7 shrink-0 p-0" variant="ghost" aria-label={t('ruleEditor.mockActionEditor.sseRemoveEvent')} disabled={events.length <= 1} onClick={() => removeEvent(index)}><Trash2 className="size-3.5" /></Button>
+        </div>
+        {!collapsed && <div id={contentId} className="space-y-1.5 border-t border-border p-2">
+          <div className="grid grid-cols-2 gap-1.5">
+            <Input value={event.event ?? ''} aria-label={t('ruleEditor.mockActionEditor.sseEventName')} placeholder={t('ruleEditor.mockActionEditor.sseEventName')} onChange={(changeEvent) => updateEvent(index, { event: changeEvent.target.value || undefined })} />
+            <Input value={event.id ?? ''} aria-label={t('ruleEditor.mockActionEditor.sseEventId')} placeholder={t('ruleEditor.mockActionEditor.sseEventId')} onChange={(changeEvent) => updateEvent(index, { id: changeEvent.target.value || undefined })} />
+            <Input type="number" min={0} value={event.retryMs ?? ''} aria-label={t('ruleEditor.mockActionEditor.sseRetryMs')} placeholder={t('ruleEditor.mockActionEditor.sseRetryMs')} onChange={(changeEvent) => updateEvent(index, { retryMs: parseOptionalNonNegativeNumber(changeEvent.target.value) })} />
+            <Input type="number" min={0} value={event.delayMs ?? ''} aria-label={t('ruleEditor.mockActionEditor.sseDelayMs')} placeholder={t('ruleEditor.mockActionEditor.sseDelayMs', { defaultDelayMs: DEFAULT_SSE_EVENT_DELAY_MS })} onChange={(changeEvent) => updateEvent(index, { delayMs: parseOptionalNonNegativeNumber(changeEvent.target.value) })} />
+          </div>
+          <CodeEditor language="text" value={event.data} onChange={(data) => updateEvent(index, { data })} headerStart={<span className="px-1 text-[11px] font-medium text-muted-foreground">data</span>} headerEnd={<DynamicVariableHint />} />
+        </div>}
+      </div>;
+    })}
+    <Button type="button" className="w-full" size="sm" variant="outline" onClick={appendEvent}>{t('ruleEditor.mockActionEditor.sseAddEvent')}</Button>
+    <p className="text-xs text-muted-foreground">{t('ruleEditor.mockActionEditor.sseHint')}</p>
+    <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{t('ruleEditor.mockActionEditor.sseImportTitle')}</DialogTitle>
+        </DialogHeader>
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-5 py-5">
+          <p className="text-xs text-muted-foreground">{t('ruleEditor.mockActionEditor.sseImportHint')}</p>
+          <CodeEditor
+            language="text"
+            value={importSource}
+            onChange={(value) => {
+              setImportSource(value);
+              setImportError(null);
+            }}
+            ariaLabel={t('ruleEditor.mockActionEditor.sseImportAriaLabel')}
+            placeholder={t('ruleEditor.mockActionEditor.sseImportPlaceholder')}
+          />
+          {importError && <p className="text-xs text-destructive">{importError}</p>}
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => setImportDialogOpen(false)}>{t('ruleEditor.cancel')}</Button>
+          <Button type="button" disabled={!importSource.trim()} onClick={importEvents}>{t('ruleEditor.mockActionEditor.sseImportConfirm')}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>;
 }
 

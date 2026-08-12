@@ -14,11 +14,14 @@
 | --- | --- |
 | `statusCode` | 响应状态码 |
 | `mode` | `static` 为静态响应体；`dynamic` 为 JavaScript 动态生成 |
+| `delivery` | `buffered` 为普通响应；`sse` 为按事件逐块发送的 SSE 流，可选，缺省为普通响应 |
 | `body` | 静态模式的响应体字符串（JSON 请自行序列化） |
 | `functionCode` | 动态模式的 JavaScript 函数体，使用 `req` 并返回响应体 |
 | `passthrough` | 是否先发出真实请求、再由函数改写响应体，可选；仅动态模式可用 |
 | `responseHeaders` | 附加响应头，默认 `Content-Type: application/json` |
 | `delayMs` | 返回前的额外延迟（毫秒），可选 |
+| `sseEvents` | SSE 模式的事件列表，每项可配置 `event`、`data`、`id`、`retryMs` 与发送前 `delayMs` |
+| `sseEndBehavior` | 事件发完后关闭、保持连接或循环发送 |
 
 ## 示例
 
@@ -63,6 +66,48 @@ function mock(req) {
 
 动态函数抛出异常时，Req Freedom 会在页面控制台输出错误，并返回一个包含错误信息的 JSON 响应体，方便调试。
 
+## SSE 事件流
+
+响应方式选择 **SSE 事件流** 后，Mock 不再一次性返回完整文本，而是把事件序列编码成
+`text/event-stream; charset=utf-8`，按每条事件的延迟逐块发送。以下两种页面调用方式均可命中：
+
+```js
+const source = new EventSource('/api/events');
+source.addEventListener('message', (event) => console.log(event.data));
+
+const response = await fetch('/api/events');
+const reader = response.body.getReader();
+```
+
+每条事件支持：
+
+- `event`：自定义事件名；留空时为 `message`
+- `data`：事件正文，支持多行和动态变量
+- `id`：事件 ID
+- `retryMs`：写入 SSE 的 `retry` 字段，供真实客户端的重连策略使用
+- `delayMs`：发送本事件前等待的时间；留空时默认 `1000ms`
+
+已有真实接口响应时，不必逐条创建事件。点击事件列表上方的 **批量导入**，直接粘贴从浏览器
+Network Response 或控制台复制的原始 `text/event-stream` 内容，即可按空行拆分并识别 `event`、
+`data`、`id` 与 `retry` 字段。导入会替换当前事件列表；原始响应没有 `delayMs` 概念，因此每条
+导入事件的发送前延迟保持为空，并在运行时使用默认值。
+
+```text
+id: 1
+event: task.queued
+data: {"seq":1,"type":"task.queued"}
+
+id: 2
+event: task.started
+data: {"seq":2,"type":"task.started"}
+```
+
+事件发完后可以关闭连接、保持连接打开，或从第一条开始循环。原生 `EventSource` Mock 会模拟
+`CONNECTING / OPEN / CLOSED`、`open`、`message`、自定义事件及 `close()`；未命中 SSE Mock 时完全回落浏览器原生实现。
+
+SSE 当前只支持静态事件序列，状态码固定为 `200`，不能与「基于真实响应」组合。XHR 没有可替换的增量响应流，
+因此 XHR 请求会忽略 SSE Mock；需要验证流式消费时请使用 `fetch` 或 `EventSource`。
+
 ## 基于真实响应改写
 
 默认的 Mock 是**短路**的：请求不会发到服务端，响应完全由规则构造。适合后端还没写完、要模拟错误码、或者接口有副作用不能真调的场景。
@@ -102,5 +147,6 @@ function mock(req, res) {
 - **开关只在动态模式下可用**。静态模式发一次真实请求再把结果整体丢弃没有意义，因此编辑器不显示该开关，导入配置时也会直接判为不合法。
 - **状态码输入框会隐藏**。既然状态码来自服务端，规则里再填一个只会误导；需要自定义状态码，说明你要的本来就是短路 Mock。
 - **不透明响应（`no-cors`）原样放行**。这类响应读不到 body 也无法重建，函数不会被调用。
+- **SSE 不支持基于真实响应改写**。现有改写流程需要先把真实响应完整读取成文本；SSE 可能长期不结束，读取会永久等待并破坏流式语义。
 
 > 实现说明：XHR 侧无法「放行后再改」——原生的 `load` / `readystatechange` 是同步派发的，会抢在异步函数返回前把响应交给页面代码。因此页面持有的那个 XHR 全程不会真正 `send`，真实请求由一个内部的影子实例承载，等函数返回后才把外层伪造成完成态。这是 Requestly、xhook 等工具共同采用的做法。

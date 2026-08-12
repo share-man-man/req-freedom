@@ -167,6 +167,7 @@
       }
     },
     "describeAction": {
+      "mockResponseSse": "SSE mock · {{count}} events",
       "block": "Bloquear: solicitud bloqueada",
       "redirect": "Redirigir → {{url}}",
       "injectParams": "Inyectar parámetros: {{params}}",
@@ -183,6 +184,7 @@
       "separator": "; "
     },
     "validation": {
+      "sseEventsRequired": "An SSE mock requires at least one event",
       "actionsRequired": "Selecciona al menos una acción",
       "nameRequired": "El nombre de la regla no puede estar vacío",
       "patternRequired": "El patrón no puede estar vacío",
@@ -239,6 +241,28 @@
       "limitedHint": "{{emptyHint}}; los ID de objeto duran una sesión y deben seleccionarse de nuevo al reiniciar el navegador."
     },
     "mockActionEditor": {
+      "deliveryLabel": "Delivery",
+      "deliveryBuffered": "Regular response",
+      "deliverySse": "SSE event stream",
+      "sseEndBehaviorLabel": "After all events",
+      "sseEndClose": "Close connection",
+      "sseEndKeepOpen": "Keep connection open",
+      "sseEndLoop": "Loop events",
+      "sseAddEvent": "Add event",
+      "sseImport": "Bulk import",
+      "sseImportTitle": "Import from an SSE response",
+      "sseImportHint": "Paste raw text/event-stream content copied from Network Response or the console. Importing replaces the current event list; omitted delays keep the default value.",
+      "sseImportAriaLabel": "Raw SSE response text",
+      "sseImportPlaceholder": "id: 1\nevent: task.started\ndata: {\"status\":\"running\"}\n\nid: 2\nevent: task.completed\ndata: {\"status\":\"completed\"}",
+      "sseImportConfirm": "Import and replace",
+      "sseImportInvalid": "No SSE events with a data field were found. Check the pasted content.",
+      "sseEventTitle": "Event {{index}}",
+      "sseRemoveEvent": "Remove event",
+      "sseEventName": "Event name (message by default)",
+      "sseEventId": "Event ID (optional)",
+      "sseRetryMs": "Reconnect delay ms",
+      "sseDelayMs": "Delay before event ms (default: {{defaultDelayMs}})",
+      "sseHint": "Events are streamed in order as UTF-8. Multi-line data and dynamic variables work with native EventSource and fetch streams.",
       "modeLabel": "Modo",
       "statusCodeLabel": "Código de estado",
       "bodyTypeAriaLabel": "Tipo de cuerpo de respuesta",

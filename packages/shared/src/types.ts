@@ -7,6 +7,7 @@ import type {
   InsertScriptTiming,
   MatchType,
   MockBodyType,
+  MockResponseDelivery,
   MockResponseMode,
   NetworkThrottlePreset,
   RequestBodyMode,
@@ -16,6 +17,7 @@ import type {
   RuleHitOutcome,
   RuleHitSkipReason,
   RuleScopeType,
+  SseEndBehavior,
 } from './enums';
 
 /**
@@ -80,6 +82,20 @@ interface ModifyHeadersAction {
   headers: HeaderModification[];
 }
 
+/** SSE Mock 中按顺序发送的一条事件。 */
+export interface SseEvent {
+  /** 自定义事件名；缺省时派发 message 事件。 */
+  event?: string;
+  /** 事件数据；多行内容会编码为多条 data 字段。 */
+  data: string;
+  /** 可选的事件 ID；EventSource 重连时可用于恢复进度。 */
+  id?: string;
+  /** 可选的浏览器重连等待时间（毫秒）。 */
+  retryMs?: number;
+  /** 发送本事件前等待的时间（毫秒）；缺省时使用默认延迟。 */
+  delayMs?: number;
+}
+
 /**
  * 返回值 Mock 规则
  */
@@ -88,6 +104,8 @@ export interface MockResponseAction {
   type: RuleActionType.MockResponse;
   /** 响应体生成方式：静态文本 / 动态 JavaScript 函数 */
   mode: MockResponseMode;
+  /** 响应交付方式；缺省为一次性交付，兼容历史规则。SSE 仅支持静态 Mock。 */
+  delivery?: MockResponseDelivery;
   /** 响应状态码 */
   statusCode: number;
   /** 可选的 HTTP 状态说明；HAR 导入时保留原始 statusText，缺省为空字符串 */
@@ -109,6 +127,10 @@ export interface MockResponseAction {
    * 仅 `MockResponseMode.Dynamic` 有效——静态模式下发真实请求再整体丢弃没有意义。
    */
   passthrough?: boolean;
+  /** SSE 模式下按顺序发送的事件列表。 */
+  sseEvents?: SseEvent[];
+  /** SSE 事件发送完毕后的行为；缺省关闭。 */
+  sseEndBehavior?: SseEndBehavior;
   /** 返回前的额外延迟（毫秒） */
   delayMs?: number;
 }

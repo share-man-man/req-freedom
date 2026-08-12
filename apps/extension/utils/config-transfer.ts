@@ -1,5 +1,5 @@
 import type { TFunction } from 'i18next';
-import type { BodyMatcher, ConfigurationExport, HeaderModification, Rule, RuleAction, RuleGroup, RuleScope, ScopeTarget } from '@req-freedom/shared';
+import type { BodyMatcher, ConfigurationExport, HeaderModification, Rule, RuleAction, RuleGroup, RuleScope, ScopeTarget, SseEvent } from '@req-freedom/shared';
 import {
   BodyMatchType,
   CONFIG_EXPORT_FILE_NAME_PREFIX,
@@ -11,6 +11,7 @@ import {
   InsertScriptTiming,
   MatchType,
   MockBodyType,
+  MockResponseDelivery,
   MockResponseMode,
   NetworkThrottlePreset,
   RequestBodyMode,
@@ -18,6 +19,7 @@ import {
   RuleActionType,
   RuleExecutionChannel,
   RuleScopeType,
+  SseEndBehavior,
 } from '@req-freedom/shared';
 
 /** 运行时待校验的普通对象。 */
@@ -224,6 +226,47 @@ function parseBodyMatch(t: TFunction, value: unknown, ruleId: string, channel: R
 }
 
 /**
+ * 校验 SSE Mock 的事件列表。
+ * @param t 当前语言下的翻译函数
+ * @param value 待校验事件列表
+ * @param ruleId 所属规则 ID
+ * @returns 已净化的非空事件列表
+ */
+function parseSseEvents(t: TFunction, value: unknown, ruleId: string): SseEvent[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new Error(t('configTransfer.invalidMockConfig', { ruleId }));
+  }
+  return value.map((item) => {
+    /** 单条 SSE 事件对象。 */
+    const event = requireRecord(t, item, t('configTransfer.label.nthActionInRule', { ruleId, n: 1 }));
+    if (typeof event.data !== 'string') {
+      throw new Error(t('configTransfer.invalidMockConfig', { ruleId }));
+    }
+    if (event.event !== undefined && typeof event.event !== 'string') {
+      throw new Error(t('configTransfer.invalidMockConfig', { ruleId }));
+    }
+    if (event.id !== undefined && typeof event.id !== 'string') {
+      throw new Error(t('configTransfer.invalidMockConfig', { ruleId }));
+    }
+    /** 发送事件前的等待时间。 */
+    const delayMs = event.delayMs === undefined
+      ? 0
+      : requireNumber(t, event.delayMs, t('configTransfer.label.mockDelay'));
+    /** 浏览器重连等待时间。 */
+    const retryMs = event.retryMs === undefined
+      ? undefined
+      : requireNumber(t, event.retryMs, t('configTransfer.label.mockDelay'));
+    return {
+      data: event.data,
+      delayMs,
+      ...(event.event ? { event: event.event } : {}),
+      ...(event.id ? { id: event.id } : {}),
+      ...(retryMs === undefined ? {} : { retryMs }),
+    };
+  });
+}
+
+/**
  * 校验单个规则动作。
  * @param value 待校验动作
  * @param ruleId 所属规则 ID
@@ -247,11 +290,22 @@ function parseAction(t: TFunction, value: unknown, ruleId: string, index: number
     case RuleActionType.ModifyHeaders: return { type, headers: parseHeaders(t, action.headers) };
     case RuleActionType.MockResponse:
       if (!Object.values(MockResponseMode).includes(action.mode as MockResponseMode) || typeof action.statusCode !== 'number' || action.statusCode < 100 || action.statusCode > 599 || typeof action.body !== 'string') throw new Error(t('configTransfer.invalidMockConfig', { ruleId }));
+      if (action.delivery !== undefined && !Object.values(MockResponseDelivery).includes(action.delivery as MockResponseDelivery)) throw new Error(t('configTransfer.invalidMockConfig', { ruleId }));
+      /** Mock 的响应交付方式，缺省为历史的一次性交付。 */
+      const delivery = (action.delivery as MockResponseDelivery | undefined) ?? MockResponseDelivery.Buffered;
       if (action.mode === MockResponseMode.Dynamic && (typeof action.functionCode !== 'string' || !action.functionCode.trim())) throw new Error(t('configTransfer.dynamicMockFunctionRequired', { ruleId }));
       if (action.passthrough !== undefined && typeof action.passthrough !== 'boolean') throw new Error(t('configTransfer.invalidMockPassthrough', { ruleId }));
       // 基于真实响应改写依赖动态函数的 res 入参，静态模式发真实请求再整体丢弃没有意义
       if (action.passthrough === true && action.mode !== MockResponseMode.Dynamic) throw new Error(t('configTransfer.mockPassthroughRequiresDynamic', { ruleId }));
-      return { type, mode: action.mode as MockResponseMode, statusCode: action.statusCode, ...(typeof action.statusText === 'string' ? { statusText: action.statusText } : {}), body: action.body, ...(Object.values(MockBodyType).includes(action.bodyType as MockBodyType) ? { bodyType: action.bodyType as MockBodyType } : {}), ...(typeof action.functionCode === 'string' ? { functionCode: action.functionCode } : {}), ...(action.passthrough === true ? { passthrough: true } : {}), ...(typeof action.delayMs === 'number' ? { delayMs: requireNumber(t, action.delayMs, t('configTransfer.label.mockDelay')) } : {}), ...(action.responseHeaders ? { responseHeaders: parseStringRecord(t, action.responseHeaders, t('configTransfer.label.mockResponseHeaders')) } : {}) };
+      /** SSE 模式下已校验并净化的事件列表。 */
+      const sseEvents = delivery === MockResponseDelivery.Sse
+        ? parseSseEvents(t, action.sseEvents, ruleId)
+        : undefined;
+      if (delivery === MockResponseDelivery.Sse) {
+        if (action.mode !== MockResponseMode.Static || action.passthrough === true || action.statusCode !== 200) throw new Error(t('configTransfer.invalidMockConfig', { ruleId }));
+        if (action.sseEndBehavior !== undefined && !Object.values(SseEndBehavior).includes(action.sseEndBehavior as SseEndBehavior)) throw new Error(t('configTransfer.invalidMockConfig', { ruleId }));
+      }
+      return { type, mode: action.mode as MockResponseMode, ...(delivery === MockResponseDelivery.Sse ? { delivery, sseEvents, sseEndBehavior: (action.sseEndBehavior as SseEndBehavior | undefined) ?? SseEndBehavior.Close } : {}), statusCode: action.statusCode, ...(typeof action.statusText === 'string' ? { statusText: action.statusText } : {}), body: action.body, ...(Object.values(MockBodyType).includes(action.bodyType as MockBodyType) ? { bodyType: action.bodyType as MockBodyType } : {}), ...(typeof action.functionCode === 'string' ? { functionCode: action.functionCode } : {}), ...(action.passthrough === true ? { passthrough: true } : {}), ...(typeof action.delayMs === 'number' ? { delayMs: requireNumber(t, action.delayMs, t('configTransfer.label.mockDelay')) } : {}), ...(action.responseHeaders ? { responseHeaders: parseStringRecord(t, action.responseHeaders, t('configTransfer.label.mockResponseHeaders')) } : {}) };
     case RuleActionType.Delay:
       if (!Object.values(NetworkThrottlePreset).includes(action.throttlePreset as NetworkThrottlePreset)) throw new Error(t('configTransfer.invalidThrottlePreset', { ruleId }));
       return { type, throttlePreset: action.throttlePreset as NetworkThrottlePreset, latencyMs: requireNumber(t, action.latencyMs, t('configTransfer.label.networkLatency')), downloadKbps: requireNumber(t, action.downloadKbps, t('configTransfer.label.downloadBandwidth')), uploadKbps: requireNumber(t, action.uploadKbps, t('configTransfer.label.uploadBandwidth')) };

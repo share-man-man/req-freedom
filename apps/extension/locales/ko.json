@@ -167,6 +167,7 @@
       }
     },
     "describeAction": {
+      "mockResponseSse": "SSE mock · {{count}} events",
       "block": "차단: 요청을 즉시 차단",
       "redirect": "리디렉션 → {{url}}",
       "injectParams": "매개변수 삽입: {{params}}",
@@ -183,6 +184,7 @@
       "separator": "; "
     },
     "validation": {
+      "sseEventsRequired": "An SSE mock requires at least one event",
       "actionsRequired": "작업을 하나 이상 선택하세요",
       "nameRequired": "규칙 이름은 비워 둘 수 없습니다",
       "patternRequired": "일치 패턴은 비워 둘 수 없습니다",
@@ -239,6 +241,28 @@
       "limitedHint": "{{emptyHint}}. 객체 ID는 세션 동안만 유효하므로 브라우저를 다시 시작하면 다시 선택해야 합니다."
     },
     "mockActionEditor": {
+      "deliveryLabel": "Delivery",
+      "deliveryBuffered": "Regular response",
+      "deliverySse": "SSE event stream",
+      "sseEndBehaviorLabel": "After all events",
+      "sseEndClose": "Close connection",
+      "sseEndKeepOpen": "Keep connection open",
+      "sseEndLoop": "Loop events",
+      "sseAddEvent": "Add event",
+      "sseImport": "Bulk import",
+      "sseImportTitle": "Import from an SSE response",
+      "sseImportHint": "Paste raw text/event-stream content copied from Network Response or the console. Importing replaces the current event list; omitted delays keep the default value.",
+      "sseImportAriaLabel": "Raw SSE response text",
+      "sseImportPlaceholder": "id: 1\nevent: task.started\ndata: {\"status\":\"running\"}\n\nid: 2\nevent: task.completed\ndata: {\"status\":\"completed\"}",
+      "sseImportConfirm": "Import and replace",
+      "sseImportInvalid": "No SSE events with a data field were found. Check the pasted content.",
+      "sseEventTitle": "Event {{index}}",
+      "sseRemoveEvent": "Remove event",
+      "sseEventName": "Event name (message by default)",
+      "sseEventId": "Event ID (optional)",
+      "sseRetryMs": "Reconnect delay ms",
+      "sseDelayMs": "Delay before event ms (default: {{defaultDelayMs}})",
+      "sseHint": "Events are streamed in order as UTF-8. Multi-line data and dynamic variables work with native EventSource and fetch streams.",
       "modeLabel": "생성 방식",
       "statusCodeLabel": "상태 코드",
       "bodyTypeAriaLabel": "응답 본문 유형",

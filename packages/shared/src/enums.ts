@@ -68,6 +68,24 @@ export enum MockResponseMode {
   Dynamic = 'dynamic',
 }
 
+/** Mock 响应向页面交付内容的方式。 */
+export enum MockResponseDelivery {
+  /** 一次性交付完整响应体（历史默认行为）。 */
+  Buffered = 'buffered',
+  /** 按 Server-Sent Events 协议逐事件交付。 */
+  Sse = 'sse',
+}
+
+/** SSE Mock 发送完事件列表后的行为。 */
+export enum SseEndBehavior {
+  /** 关闭响应流。 */
+  Close = 'close',
+  /** 保持连接打开，不再发送数据。 */
+  KeepOpen = 'keep-open',
+  /** 从第一条事件开始循环发送。 */
+  Loop = 'loop',
+}
+
 /**
  * 静态 Mock 响应体的内容类型
  *

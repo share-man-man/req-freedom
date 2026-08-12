@@ -167,6 +167,7 @@
       }
     },
     "describeAction": {
+      "mockResponseSse": "SSE mock · {{count}} events",
       "block": "攔截：請求被直接阻斷",
       "redirect": "重定向 → {{url}}",
       "injectParams": "注入引數：{{params}}",
@@ -183,6 +184,7 @@
       "separator": "；"
     },
     "validation": {
+      "sseEventsRequired": "An SSE mock requires at least one event",
       "actionsRequired": "至少選擇一個動作",
       "nameRequired": "規則名稱不能為空",
       "patternRequired": "匹配內容不能為空",
@@ -239,6 +241,28 @@
       "limitedHint": "{{emptyHint}}；物件 ID 為會話級，瀏覽器重啟後需重新選擇。"
     },
     "mockActionEditor": {
+      "deliveryLabel": "Delivery",
+      "deliveryBuffered": "Regular response",
+      "deliverySse": "SSE event stream",
+      "sseEndBehaviorLabel": "After all events",
+      "sseEndClose": "Close connection",
+      "sseEndKeepOpen": "Keep connection open",
+      "sseEndLoop": "Loop events",
+      "sseAddEvent": "Add event",
+      "sseImport": "批次匯入",
+      "sseImportTitle": "從 SSE 回應批次匯入",
+      "sseImportHint": "貼上從 Network Response 或主控台複製的原始 text/event-stream 內容。匯入後會取代目前事件列表；未提供的傳送前延遲沿用預設值。",
+      "sseImportAriaLabel": "原始 SSE 回應文字",
+      "sseImportPlaceholder": "id: 1\nevent: task.started\ndata: {\"status\":\"running\"}\n\nid: 2\nevent: task.completed\ndata: {\"status\":\"completed\"}",
+      "sseImportConfirm": "匯入並取代",
+      "sseImportInvalid": "未辨識到包含 data 欄位的 SSE 事件，請檢查貼上內容。",
+      "sseEventTitle": "Event {{index}}",
+      "sseRemoveEvent": "Remove event",
+      "sseEventName": "Event name (message by default)",
+      "sseEventId": "Event ID (optional)",
+      "sseRetryMs": "Reconnect delay ms",
+      "sseDelayMs": "Delay before event ms (default: {{defaultDelayMs}})",
+      "sseHint": "Events are streamed in order as UTF-8. Multi-line data and dynamic variables work with native EventSource and fetch streams.",
       "modeLabel": "產生方式",
       "statusCodeLabel": "狀態碼",
       "bodyTypeAriaLabel": "響應體型別",

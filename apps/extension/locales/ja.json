@@ -167,6 +167,7 @@
       }
     },
     "describeAction": {
+      "mockResponseSse": "SSE mock · {{count}} events",
       "block": "ブロック：リクエストを直接遮断",
       "redirect": "リダイレクト → {{url}}",
       "injectParams": "パラメータ注入：{{params}}",
@@ -183,6 +184,7 @@
       "separator": "；"
     },
     "validation": {
+      "sseEventsRequired": "An SSE mock requires at least one event",
       "actionsRequired": "1 つ以上のアクションを選択してください",
       "nameRequired": "ルール名は空にできません",
       "patternRequired": "マッチパターンは空にできません",
@@ -239,6 +241,28 @@
       "limitedHint": "{{emptyHint}}。オブジェクト ID はセッション単位のため、ブラウザ再起動後に再選択が必要です。"
     },
     "mockActionEditor": {
+      "deliveryLabel": "Delivery",
+      "deliveryBuffered": "Regular response",
+      "deliverySse": "SSE event stream",
+      "sseEndBehaviorLabel": "After all events",
+      "sseEndClose": "Close connection",
+      "sseEndKeepOpen": "Keep connection open",
+      "sseEndLoop": "Loop events",
+      "sseAddEvent": "Add event",
+      "sseImport": "Bulk import",
+      "sseImportTitle": "Import from an SSE response",
+      "sseImportHint": "Paste raw text/event-stream content copied from Network Response or the console. Importing replaces the current event list; omitted delays keep the default value.",
+      "sseImportAriaLabel": "Raw SSE response text",
+      "sseImportPlaceholder": "id: 1\nevent: task.started\ndata: {\"status\":\"running\"}\n\nid: 2\nevent: task.completed\ndata: {\"status\":\"completed\"}",
+      "sseImportConfirm": "Import and replace",
+      "sseImportInvalid": "No SSE events with a data field were found. Check the pasted content.",
+      "sseEventTitle": "Event {{index}}",
+      "sseRemoveEvent": "Remove event",
+      "sseEventName": "Event name (message by default)",
+      "sseEventId": "Event ID (optional)",
+      "sseRetryMs": "Reconnect delay ms",
+      "sseDelayMs": "Delay before event ms (default: {{defaultDelayMs}})",
+      "sseHint": "Events are streamed in order as UTF-8. Multi-line data and dynamic variables work with native EventSource and fetch streams.",
       "modeLabel": "生成方式",
       "statusCodeLabel": "ステータスコード",
       "bodyTypeAriaLabel": "レスポンスボディの種類",

@@ -1,6 +1,7 @@
 import {
   DynamicVariableName,
   MockBodyType,
+  MockResponseDelivery,
   MockResponseMode,
   NetworkThrottlePreset,
   RequestBodySourceMode,
@@ -106,6 +107,12 @@ export const DEFAULT_PASSTHROUGH_MOCK_FUNCTION_CODE = `function mock(req, res) {
 
 /** 新建 Mock 规则时采用的默认响应模式。 */
 export const DEFAULT_MOCK_RESPONSE_MODE = MockResponseMode.Static;
+
+/** 新建 Mock 规则时采用的默认响应交付方式。 */
+export const DEFAULT_MOCK_RESPONSE_DELIVERY = MockResponseDelivery.Buffered;
+
+/** SSE 事件未填写发送前延迟时采用的默认毫秒数。 */
+export const DEFAULT_SSE_EVENT_DELAY_MS = 1000;
 
 /** 新建动态改请求体规则时预填的函数示例（完整命名函数，运行时以 req 调用）。 */
 export const DEFAULT_DYNAMIC_REQUEST_BODY_FUNCTION_CODE = `function modify(req) {
