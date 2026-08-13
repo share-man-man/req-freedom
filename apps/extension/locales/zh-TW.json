@@ -76,7 +76,7 @@
     "invalidRuleMethods": "規則「{{id}}」的請求方法不合法。",
     "ruleActionsRequired": "規則「{{id}}」至少需要一個動作。",
     "invalidRuleRegex": "規則「{{id}}」的正規表示式語法錯誤。",
-    "exclusiveActionsConflict": "規則「{{id}}」不能同時配置攔截、重定向和引數注入。",
+    "exclusiveActionsConflict": "規則「{{id}}」不能同時配置攔截、重定向和參數注入。",
     "getHeadCannotModifyBody": "規則「{{id}}」的 GET / HEAD 不能改請求體。",
     "invalidScopeType": "規則「{{ruleId}}」的作用域型別不合法。",
     "scopeTargetsRequired": "規則「{{ruleId}}」的作用域至少需要一個目標物件。",
@@ -111,7 +111,7 @@
       "ruleBodyMatchValue": "規則「{{ruleId}}」的請求體匹配值",
       "nthActionInRule": "規則「{{ruleId}}」的第 {{n}} 個動作",
       "redirectUrl": "重定向地址",
-      "params": "引數",
+      "params": "參數",
       "mockDelay": "Mock 延遲",
       "mockResponseHeaders": "Mock 響應頭",
       "networkLatency": "網路延遲",
@@ -142,7 +142,7 @@
     "actionDescription": {
       "block": "直接阻斷匹配到的請求",
       "redirect": "把請求轉發到另一個地址",
-      "injectParams": "向 URL 查詢串追加或覆蓋引數",
+      "injectParams": "向 URL 查詢串追加或覆蓋參數",
       "modifyHeaders": "增刪改請求頭或響應頭",
       "mockResponse": "攔截請求並返回自定義響應",
       "delay": "為請求注入延遲與頻寬限制",
@@ -158,7 +158,7 @@
       "dnr": {
         "title": "網路層",
         "hint": "作用於全部請求（含頁面導航、靜態資源），但讀不到請求體",
-        "note": "攔截 / 重定向 / 引數注入三選一，Header 改寫可疊加"
+        "note": "攔截 / 重定向 / 參數注入三選一，Header 改寫可疊加"
       },
       "pagePatch": {
         "title": "頁面內補丁",
@@ -170,7 +170,7 @@
       "mockResponseSse": "SSE mock · {{count}} events",
       "block": "攔截：請求被直接阻斷",
       "redirect": "重定向 → {{url}}",
-      "injectParams": "注入引數：{{params}}",
+      "injectParams": "注入參數：{{params}}",
       "empty": "（空）",
       "modifyHeaders": "改寫 Header：{{count}} 項",
       "mockResponse": "Mock 返回 HTTP {{statusCode}}",
@@ -198,7 +198,7 @@
         "window": "視窗",
         "tabGroup": "標籤組"
       },
-      "exclusiveDnrActions": "攔截、重定向和引數注入只能選擇其中一項",
+      "exclusiveDnrActions": "攔截、重定向和參數注入只能選擇其中一項",
       "redirectUrlRequired": "重定向目標不能為空",
       "redirectUrlAbsolute": "重定向目標需為絕對地址，如 http://127.0.0.1:4317/api/redirect-target.json",
       "insertScriptCodeRequired": "注入程式碼不能為空",
@@ -443,7 +443,7 @@
   "dashboard": {
     "header": {
       "title": "Req Freedom 規則管理",
-      "subtitle": "攔截 · 重定向 · 引數注入 · Header · Mock · 延遲 · 指令碼注入 · 改請求體",
+      "subtitle": "攔截 · 重定向 · 參數注入 · Header · Mock · 延遲 · 指令碼注入 · 改請求體",
       "globalToggle": "全域性開關",
       "globalEnabled": "規則生效中",
       "globalDisabled": "已全域性停用",
@@ -516,7 +516,7 @@
     "ruleActionType": {
       "block": "攔截請求",
       "redirect": "重定向",
-      "injectParams": "引數注入",
+      "injectParams": "參數注入",
       "modifyHeaders": "Header 改寫",
       "mockResponse": "返回值 Mock",
       "delay": "網路限速",

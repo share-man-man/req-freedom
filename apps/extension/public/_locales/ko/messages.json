@@ -3,6 +3,6 @@
     "message": "Req Freedom"
   },
   "extDescription": {
-    "message": "요청 디버깅 도구: 차단, 리디렉션, 매개변수 삽입, 헤더 수정, Mock, 지연 시뮬레이션"
+    "message": "요청 디버깅 도구: 차단, 리디렉션, 매개변수 삽입, 헤더 수정, 응답 Mock, 네트워크 제한, 본문 수정, 스크립트 삽입"
   }
 }

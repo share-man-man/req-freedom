@@ -3,6 +3,6 @@
     "message": "Req Freedom"
   },
   "extDescription": {
-    "message": "Ferramentas para depurar requisições: bloquear, redirecionar, injetar parâmetros, alterar cabeçalhos, simular respostas e latência"
+    "message": "Depuração de requisições: bloquear, redirecionar, parâmetros, cabeçalhos, simular respostas, limitar rede, corpo, scripts"
   }
 }

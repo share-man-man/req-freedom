@@ -3,6 +3,6 @@
     "message": "Req Freedom"
   },
   "extDescription": {
-    "message": "Request debugging toolkit: block, redirect, inject params, rewrite headers, mock responses, simulate latency"
+    "message": "Request debugging: block, redirect, inject params, modify headers, mock responses, throttle, modify body, insert script"
   }
 }
