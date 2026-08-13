@@ -1,0 +1,4 @@
+interface:
+  display_name: "发布 Chrome 扩展"
+  short_description: "判断语义化版本并完成扩展提交、打标签、推送与发布验证"
+  default_prompt: "Use $release-extension to publish the Chrome extension."
