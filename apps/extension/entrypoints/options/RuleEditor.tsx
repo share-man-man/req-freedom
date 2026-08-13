@@ -427,7 +427,7 @@ export function validateRule(t: TFunction, rule: Rule): ValidationError | null {
  */
 export function normalizeRuleDraft(rule: Rule): Rule {
   /** 待归一化的规则副本。 */
-  const normalized = { ...rule };
+  const normalized = { ...rule, pattern: rule.pattern.trim() };
   /** 当前动作组合是否支持请求体匹配。 */
   const supportsBodyMatch =
     rule.channel === RuleExecutionChannel.PagePatch &&
