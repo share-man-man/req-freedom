@@ -36,8 +36,10 @@ import {
   getGroups,
   saveConfiguration,
   saveGroups,
+  takePendingRuleHighlight,
   watchDnrIssues,
   watchHitTabsChanged,
+  watchPendingRuleHighlight,
 } from '@/utils/storage';
 import { fetchHitTabSummaries, sumHitRecords } from '@/utils/rule-hit-client';
 import {
@@ -830,6 +832,23 @@ export default function App() {
   const [dnrIssues, setDnrIssues] = useState<DnrRegistrationIssues>({});
   /** 各标签页合计的命中记录条数，统计卡片据此展示并作为请求日志入口。 */
   const [hitRecordCount, setHitRecordCount] = useState(0);
+
+  // 复用同一个 options 标签页时，通过 session 中的一次性请求接收 popup 发来的规则定位。
+  useEffect(() => {
+    /** 将外部定位请求切回规则视图并交给既有的展开、滚动和高亮流程。 */
+    const highlightRule = (ruleId: string): void => {
+      setView(OPTIONS_VIEW.Rules);
+      setHighlightedRuleId(ruleId);
+    };
+    /** 先订阅再读取，避免页面挂载期间遗漏刚写入的定位请求。 */
+    const unwatch = watchPendingRuleHighlight(highlightRule);
+    void takePendingRuleHighlight().then((ruleId) => {
+      if (ruleId) {
+        highlightRule(ruleId);
+      }
+    });
+    return unwatch;
+  }, []);
 
   // 初始加载分组
   useEffect(() => {

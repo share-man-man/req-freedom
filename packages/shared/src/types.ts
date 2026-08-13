@@ -356,6 +356,14 @@ export interface RuleHitTabSummary {
   lastHitAt: number;
 }
 
+/** popup 通过 storage.session 交给 options 页的一次性规则定位请求。 */
+export interface RuleHighlightRequest {
+  /** 要定位的业务规则 ID。 */
+  ruleId: string;
+  /** 每次请求的唯一标识，确保连续定位同一规则也能产生 storage 变更。 */
+  requestId: string;
+}
+
 /**
  * 一条规则在 DNR 注册阶段被浏览器拒绝的记录。
  *

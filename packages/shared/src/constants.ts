@@ -63,6 +63,9 @@ export const STORAGE_KEY_DNR_ISSUES = 'req-freedom:dnr-issues';
 /** options 页面用于定位并高亮规则的查询参数名。 */
 export const RULE_HIGHLIGHT_QUERY_PARAM = 'highlightRuleId';
 
+/** storage.session 中暂存 options 页面待处理规则定位请求的键名。 */
+export const STORAGE_KEY_PENDING_RULE_HIGHLIGHT = 'req-freedom:pending-rule-highlight';
+
 /** declarativeNetRequest 动态规则 ID 起始偏移，避免与其他来源的规则 ID 冲突 */
 export const DNR_RULE_ID_OFFSET = 1000;
 

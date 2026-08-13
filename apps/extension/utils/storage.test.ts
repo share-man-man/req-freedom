@@ -1,16 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RuleHitSummary } from '@req-freedom/shared';
-import { RuleActionType, RuleHitOutcome, STORAGE_KEY_RULE_HITS } from '@req-freedom/shared';
+import {
+  RuleActionType,
+  RuleHitOutcome,
+  STORAGE_KEY_PENDING_RULE_HIGHLIGHT,
+  STORAGE_KEY_RULE_HITS,
+} from '@req-freedom/shared';
 
 /** 由 mock 与用例共享的 storage.onChanged 假实现状态。 */
 const storage = vi.hoisted(() => ({
   /** 已注册的变更监听器。 */
   listeners: [] as ((changes: Record<string, { newValue?: unknown }>, area: string) => void)[],
+  /** 被移除的 session storage 键。 */
+  removedKeys: [] as string[],
 }));
 
 vi.mock('wxt/browser', () => ({
   browser: {
     storage: {
+      session: {
+        remove: async (key: string): Promise<void> => {
+          storage.removedKeys.push(key);
+        },
+      },
       onChanged: {
         addListener: (
           listener: (changes: Record<string, { newValue?: unknown }>, area: string) => void,
@@ -30,7 +42,7 @@ vi.mock('wxt/browser', () => ({
     },
   },
 }));
-import { watchTabHitSummary } from './storage';
+import { watchPendingRuleHighlight, watchTabHitSummary } from './storage';
 
 /**
  * 模拟一次 storage 变更派发。
@@ -65,6 +77,46 @@ const HIT = {
 
 beforeEach(() => {
   storage.listeners.length = 0;
+  storage.removedKeys.length = 0;
+});
+
+describe('watchPendingRuleHighlight', () => {
+  it('收到合法请求后定位并消费一次性状态', () => {
+    /** 收到的规则 ID。 */
+    const received: string[] = [];
+    watchPendingRuleHighlight((ruleId) => received.push(ruleId));
+
+    emit({
+      [STORAGE_KEY_PENDING_RULE_HIGHLIGHT]: {
+        newValue: { ruleId: 'rule-a', requestId: 'request-a' },
+      },
+    });
+
+    expect(received).toEqual(['rule-a']);
+    expect(storage.removedKeys).toEqual([STORAGE_KEY_PENDING_RULE_HIGHLIGHT]);
+  });
+
+  it('忽略删除事件、格式错误的请求与其他存储区', () => {
+    /** 收到的规则 ID。 */
+    const received: string[] = [];
+    watchPendingRuleHighlight((ruleId) => received.push(ruleId));
+
+    emit({ [STORAGE_KEY_PENDING_RULE_HIGHLIGHT]: {} });
+    emit({
+      [STORAGE_KEY_PENDING_RULE_HIGHLIGHT]: { newValue: { ruleId: 'rule-a' } },
+    });
+    emit(
+      {
+        [STORAGE_KEY_PENDING_RULE_HIGHLIGHT]: {
+          newValue: { ruleId: 'rule-a', requestId: 'request-a' },
+        },
+      },
+      'local',
+    );
+
+    expect(received).toEqual([]);
+    expect(storage.removedKeys).toEqual([]);
+  });
 });
 
 describe('watchTabHitSummary', () => {

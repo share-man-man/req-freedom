@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import type { DnrRegistrationIssues, RuleGroup, RuleHitSummary } from '@req-freedom/shared';
 import { RuleHitSkipReason } from '@req-freedom/shared';
 import {
-  RULE_HIGHLIGHT_QUERY_PARAM,
   RUNTIME_MSG_CLEAR_RULE_HITS,
   RUNTIME_MSG_GET_RULE_HIT_SUMMARY,
 } from '@req-freedom/shared';
@@ -17,6 +16,7 @@ import {
   getGroups,
   saveGroups,
   setEnabled,
+  setPendingRuleHighlight,
   watchDnrIssues,
   watchTabHitSummary,
 } from '@/utils/storage';
@@ -163,11 +163,8 @@ export default function App() {
    * @param ruleId 要定位的业务规则 ID
    */
   const handleJumpToRule = (ruleId: string): void => {
-    /** 带目标规则查询参数的 options 页面地址。 */
-    const url = browser.runtime.getURL(
-      `/options.html?${RULE_HIGHLIGHT_QUERY_PARAM}=${encodeURIComponent(ruleId)}`,
-    );
-    void browser.tabs.create({ url });
+    // openOptionsPage 会复用已有配置页；session 请求让新页面和已打开页面都能完成定位。
+    void setPendingRuleHighlight(ruleId).then(() => browser.runtime.openOptionsPage());
   };
 
   /**
