@@ -444,6 +444,9 @@
     "header": {
       "title": "Gestionnaire de règles Req Freedom",
       "subtitle": "Blocage · Redirection · Paramètres · En-têtes · Mock · Limitation · Script · Modification du corps",
+      "globalToggle": "Interrupteur global",
+      "globalEnabled": "Règles actives",
+      "globalDisabled": "Désactivé globalement",
       "import": "Importer les règles",
       "export": "Exporter les règles",
       "theme": "Thème",

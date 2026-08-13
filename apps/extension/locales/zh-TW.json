@@ -444,6 +444,9 @@
     "header": {
       "title": "Req Freedom 規則管理",
       "subtitle": "攔截 · 重定向 · 引數注入 · Header · Mock · 延遲 · 指令碼注入 · 改請求體",
+      "globalToggle": "全域性開關",
+      "globalEnabled": "規則生效中",
+      "globalDisabled": "已全域性停用",
       "import": "匯入規則",
       "export": "匯出規則",
       "theme": "主題",

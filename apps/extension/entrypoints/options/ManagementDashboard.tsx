@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { changeLocale, SUPPORTED_LOCALES, type SupportedLocale } from '@/utils/i18n';
 import { getThemeMode, setTheme } from '@/utils/theme';
 
@@ -360,6 +361,10 @@ export const OPTIONS_VIEW = {
 export type OptionsView = (typeof OPTIONS_VIEW)[keyof typeof OPTIONS_VIEW];
 
 interface OptionsPageHeaderProps {
+  /** 全局开关状态，与 popup 顶部的开关同源。 */
+  enabled: boolean;
+  /** 切换全局开关后的回调。 */
+  onToggleEnabled: (next: boolean) => void;
   /** 点击导入配置后的回调。 */
   onImportConfig: () => void;
   /** 点击 cURL 导入后的回调。 */
@@ -375,6 +380,8 @@ interface OptionsPageHeaderProps {
  * @param props 顶栏交互回调
  */
 export function OptionsPageHeader({
+  enabled,
+  onToggleEnabled,
   onImportConfig,
   onImportCurl,
   onImportHar,
@@ -394,6 +401,23 @@ export function OptionsPageHeader({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {/* 全局开关与 popup 顶部同源：停用时下方所有规则都不生效，用红色状态文案强调 */}
+          <div className="flex items-center gap-2 rounded-full border border-border/70 bg-card/60 px-3 py-1.5">
+            <span
+              className={`text-xs font-medium ${
+                enabled ? 'text-muted-foreground' : 'text-destructive'
+              }`}
+            >
+              {enabled
+                ? t('dashboard.header.globalEnabled')
+                : t('dashboard.header.globalDisabled')}
+            </span>
+            <Switch
+              checked={enabled}
+              onCheckedChange={onToggleEnabled}
+              aria-label={t('dashboard.header.globalToggle')}
+            />
+          </div>
           <MoreMenu
             onImportConfig={onImportConfig}
             onImportCurl={onImportCurl}

@@ -36,8 +36,11 @@ import {
   getGroups,
   saveConfiguration,
   saveGroups,
+  setEnabled,
   takePendingRuleHighlight,
   watchDnrIssues,
+  watchEnabled,
+  watchGroups,
   watchHitTabsChanged,
   watchPendingRuleHighlight,
 } from '@/utils/storage';
@@ -799,6 +802,8 @@ export default function App() {
   const { t } = useTranslation();
   /** 规则分组列表 */
   const [groups, setGroups] = useState<RuleGroup[]>([]);
+  /** 全局开关状态，与 popup 顶部开关共用同一份 storage */
+  const [globalEnabled, setGlobalEnabled] = useState(true);
   /** 规则编辑对话框状态，null 表示关闭 */
   const [ruleDialog, setRuleDialog] = useState<RuleDialogState | null>(null);
   /** 模板库对话框的目标分组 ID：非 null 即打开，选用模板后规则落到该分组（可为默认分组占位）。 */
@@ -850,9 +855,43 @@ export default function App() {
     return unwatch;
   }, []);
 
-  // 初始加载分组
+  // 初始加载分组，并订阅后续变化：popup 里切换全局/分组/规则开关后，长驻的管理页随之刷新
   useEffect(() => {
-    void getGroups().then(setGroups);
+    /** 应用外部写入的分组；与当前内容一致时保持原引用，避免本页自身写入的回声引发无谓重渲染。 */
+    const applyExternalGroups = (nextGroups: RuleGroup[]): void => {
+      setGroups((previousGroups) =>
+        JSON.stringify(previousGroups) === JSON.stringify(nextGroups) ? previousGroups : nextGroups,
+      );
+    };
+    /** 订阅是否已送来更新的分组，用于丢弃随后才返回的首次读取结果。 */
+    let hasReceivedUpdate = false;
+    /** 先订阅再读取，避免首次读取与订阅之间的写入被漏掉。 */
+    const unwatch = watchGroups((nextGroups) => {
+      hasReceivedUpdate = true;
+      applyExternalGroups(nextGroups);
+    });
+    void getGroups().then((initialGroups) => {
+      if (!hasReceivedUpdate) {
+        applyExternalGroups(initialGroups);
+      }
+    });
+    return unwatch;
+  }, []);
+
+  // 全局开关同样订阅：popup 切换或导入配置整体覆盖后，顶栏开关立即反映最新状态
+  useEffect(() => {
+    /** 订阅是否已送来新的开关值，用于丢弃随后才返回的首次读取结果。 */
+    let hasReceivedUpdate = false;
+    const unwatch = watchEnabled((nextEnabled) => {
+      hasReceivedUpdate = true;
+      setGlobalEnabled(nextEnabled);
+    });
+    void getEnabled().then((initialEnabled) => {
+      if (!hasReceivedUpdate) {
+        setGlobalEnabled(initialEnabled);
+      }
+    });
+    return unwatch;
   }, []);
 
   // 注册失败记录由 background 每轮同步后写入 storage.session，这里读取一次并订阅后续变化
@@ -937,6 +976,15 @@ export default function App() {
     );
     setGroups(groupsWithUpdatedAt);
     await saveGroups(groupsWithUpdatedAt);
+  };
+
+  /**
+   * 切换全局开关并持久化：关闭后所有规则都不生效，与 popup 顶部开关是同一份状态。
+   * @param next 切换后的开关值
+   */
+  const handleToggleGlobalEnabled = (next: boolean): void => {
+    setGlobalEnabled(next);
+    void setEnabled(next);
   };
 
   /**
@@ -1388,6 +1436,8 @@ export default function App() {
         onChange={(event) => void handleImport(event)}
       />
       <OptionsPageHeader
+        enabled={globalEnabled}
+        onToggleEnabled={handleToggleGlobalEnabled}
         onImportConfig={handleImportClick}
         onImportCurl={() => handleOpenCurlImport(null)}
         onImportHar={() => setRuleImportDialog('har')}

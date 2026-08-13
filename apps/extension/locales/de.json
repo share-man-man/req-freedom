@@ -444,6 +444,9 @@
     "header": {
       "title": "Req Freedom Regelverwaltung",
       "subtitle": "Blockieren · Umleiten · Parameter · Header · Mock · Drosseln · Skript · Body ändern",
+      "globalToggle": "Globaler Schalter",
+      "globalEnabled": "Regeln aktiv",
+      "globalDisabled": "Global deaktiviert",
       "import": "Regeln importieren",
       "export": "Regeln exportieren",
       "theme": "Design",

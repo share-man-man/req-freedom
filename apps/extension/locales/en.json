@@ -444,6 +444,9 @@
     "header": {
       "title": "Req Freedom Rule Manager",
       "subtitle": "Block · Redirect · Inject params · Headers · Mock · Throttle · Insert script · Modify body",
+      "globalToggle": "Global toggle",
+      "globalEnabled": "Rules active",
+      "globalDisabled": "Globally disabled",
       "import": "Import rules",
       "export": "Export rules",
       "theme": "Theme",

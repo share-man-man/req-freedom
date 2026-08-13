@@ -444,6 +444,9 @@
     "header": {
       "title": "Administrador de reglas de Req Freedom",
       "subtitle": "Bloquear · Redirigir · Inyectar parámetros · Encabezados · Simular · Limitar · Inyectar scripts · Modificar cuerpo",
+      "globalToggle": "Interruptor global",
+      "globalEnabled": "Reglas activas",
+      "globalDisabled": "Desactivado globalmente",
       "import": "Importar reglas",
       "export": "Exportar reglas",
       "theme": "Tema",

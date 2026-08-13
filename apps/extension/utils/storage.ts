@@ -53,6 +53,29 @@ export async function saveGroups(groups: RuleGroup[]): Promise<void> {
 }
 
 /**
+ * 订阅规则分组的变化。
+ *
+ * popup 与 options 是两个独立的页面上下文，一方写入 storage 后另一方不会自动重渲染；
+ * 长驻的 options 页面靠这里跟随 popup 的启停改动，而不是只在挂载时读一次。
+ * @param onChange 分组变化时的回调；分组被清空时收到空数组
+ * @returns 取消订阅的函数
+ */
+export function watchGroups(onChange: (groups: RuleGroup[]) => void): () => void {
+  /** storage 变更监听器。 */
+  const listener = (
+    changes: Record<string, { newValue?: unknown }>,
+    area: string,
+  ): void => {
+    if (area !== 'local' || !(STORAGE_KEY_GROUPS in changes)) {
+      return;
+    }
+    onChange((changes[STORAGE_KEY_GROUPS]?.newValue as RuleGroup[] | undefined) ?? []);
+  };
+  browser.storage.onChanged.addListener(listener);
+  return () => browser.storage.onChanged.removeListener(listener);
+}
+
+/**
  * 读取全局开关状态
  * @returns 是否启用，默认 true
  */
@@ -68,6 +91,29 @@ export async function getEnabled(): Promise<boolean> {
  */
 export async function setEnabled(enabled: boolean): Promise<void> {
   await browser.storage.local.set({ [STORAGE_KEY_ENABLED]: enabled });
+}
+
+/**
+ * 订阅全局开关状态的变化。
+ *
+ * 与 watchGroups 同理：popup 与 options 各自持有一份状态，长驻的管理页靠这里跟随
+ * popup 的全局启停，导入配置整体覆盖时也会走到这里。
+ * @param onChange 开关变化时的回调；被清除时回落到默认的启用态
+ * @returns 取消订阅的函数
+ */
+export function watchEnabled(onChange: (enabled: boolean) => void): () => void {
+  /** storage 变更监听器。 */
+  const listener = (
+    changes: Record<string, { newValue?: unknown }>,
+    area: string,
+  ): void => {
+    if (area !== 'local' || !(STORAGE_KEY_ENABLED in changes)) {
+      return;
+    }
+    onChange((changes[STORAGE_KEY_ENABLED]?.newValue as boolean | undefined) ?? true);
+  };
+  browser.storage.onChanged.addListener(listener);
+  return () => browser.storage.onChanged.removeListener(listener);
 }
 
 /**
