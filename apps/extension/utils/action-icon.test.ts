@@ -28,6 +28,7 @@ beforeEach(async () => {
   action.badgeColorCalls.length = 0;
   await setActionIconEnabled(true);
   action.badgeTextCalls.length = 0;
+  action.badgeColorCalls.length = 0;
 });
 
 describe('action icon badge', () => {
@@ -36,11 +37,12 @@ describe('action icon badge', () => {
     await vi.waitFor(() => expect(action.badgeColorCalls).toEqual([{ color: '#7c3aed' }]));
   });
 
-  it('全局停用后默认与逐标签页徽标均显示 OFF', async () => {
+  it('全局停用后默认与逐标签页徽标均显示警告色 OFF', async () => {
     await setActionIconEnabled(false);
     await setActionIconState(7, true);
     await setActionIconState(8, false);
 
+    expect(action.badgeColorCalls).toEqual([{ color: '#e89c00' }]);
     expect(action.badgeTextCalls).toEqual([
       { text: 'OFF' },
       { tabId: 7, text: 'OFF' },
@@ -56,6 +58,10 @@ describe('action icon badge', () => {
     await setActionIconState(7, true);
     await setActionIconState(8, false);
 
+    expect(action.badgeColorCalls).toEqual([
+      { color: '#e89c00' },
+      { color: '#7c3aed' },
+    ]);
     expect(action.badgeTextCalls).toEqual([
       { text: '' },
       { tabId: 7, text: '•' },

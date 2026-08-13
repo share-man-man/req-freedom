@@ -13,6 +13,9 @@ const DISABLED_BADGE_TEXT = 'OFF';
 /** 徽标背景色，与产品主色一致。 */
 const ACTIVE_BADGE_COLOR = '#7c3aed';
 
+/** 全局停用时的徽标背景色，与界面警告色一致。 */
+const DISABLED_BADGE_COLOR = '#e89c00';
+
 /** 当前全局开关状态，供标签页级刷新时决定徽标文本。 */
 let globallyEnabled = true;
 
@@ -36,7 +39,12 @@ export function initActionIcon(): void {
 export async function setActionIconEnabled(enabled: boolean): Promise<void> {
   globallyEnabled = enabled;
   try {
-    await browser.action.setBadgeText({ text: enabled ? '' : DISABLED_BADGE_TEXT });
+    await Promise.all([
+      browser.action.setBadgeText({ text: enabled ? '' : DISABLED_BADGE_TEXT }),
+      browser.action.setBadgeBackgroundColor({
+        color: enabled ? ACTIVE_BADGE_COLOR : DISABLED_BADGE_COLOR,
+      }),
+    ]);
   } catch (error) {
     console.error('[req-freedom] 设置全局徽标状态失败：', error);
   }
