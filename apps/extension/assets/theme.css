@@ -1,5 +1,5 @@
 /**
- * Req Freedom 全局主题：Tailwind v4 + shadcn 设计令牌
+ * ReqFreedom 全局主题：Tailwind v4 + shadcn 设计令牌
  *
  * - 颜色令牌用 oklch，跟随 shadcn 默认中性色板
  * - 亮/暗两套通过 prefers-color-scheme 自动切换（与 color-scheme: light dark 对齐）

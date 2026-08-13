@@ -348,7 +348,7 @@
   },
   "ruleImport": {
     "menu": {
-      "config": "Import Req Freedom configuration",
+      "config": "Import ReqFreedom configuration",
       "curl": "Create from cURL",
       "har": "Create mocks from HAR"
     },
@@ -442,7 +442,7 @@
   },
   "dashboard": {
     "header": {
-      "title": "Req Freedom ルール管理",
+      "title": "ReqFreedom ルール管理",
       "subtitle": "ブロック · リダイレクト · パラメータ注入 · ヘッダー · モック · 帯域制限 · スクリプト注入 · ボディ変更",
       "globalToggle": "全体スイッチ",
       "globalEnabled": "ルールが有効",

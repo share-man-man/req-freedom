@@ -1,6 +1,6 @@
 ---
 name: release-extension
-description: 判断并发布 Req Freedom Chrome 扩展版本。用户提出“发布扩展”“扩展发版”“发一个新版本”“推送 Chrome 新版本”，或明确要求完成扩展版本提交、打标签、推送及 Chrome Web Store 发布时使用。
+description: 判断并发布 ReqFreedom Chrome 扩展版本。用户提出“发布扩展”“扩展发版”“发一个新版本”“推送 Chrome 新版本”，或明确要求完成扩展版本提交、打标签、推送及 Chrome Web Store 发布时使用。
 ---
 
 # 发布 Chrome 扩展

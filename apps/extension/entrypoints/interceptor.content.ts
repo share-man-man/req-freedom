@@ -480,11 +480,11 @@ export default defineContentScript({
       } catch (error) {
         /** 便于开发者在页面控制台定位函数执行错误。 */
         const message = error instanceof Error ? error.message : String(error);
-        console.error('[Req Freedom] 动态 Mock 函数执行失败：', error);
+        console.error('[ReqFreedom] 动态 Mock 函数执行失败：', error);
         if (response) {
           return response.body;
         }
-        return JSON.stringify({ error: 'Req Freedom dynamic mock execution failed', message });
+        return JSON.stringify({ error: 'ReqFreedom dynamic mock execution failed', message });
       }
     };
 
@@ -627,7 +627,7 @@ export default defineContentScript({
         const serialized = JSON.stringify(result);
         return serialized ?? originalBody;
       } catch (error) {
-        console.error('[Req Freedom] 动态改请求体函数执行失败：', error);
+        console.error('[ReqFreedom] 动态改请求体函数执行失败：', error);
         return originalBody;
       }
     };
@@ -1165,7 +1165,7 @@ export default defineContentScript({
       if (requestMetadata && !requestMetadata.isAsync) {
         if (candidateRules.length > 0) {
           console.warn(
-            '[Req Freedom] 同步 XMLHttpRequest 不支持页面补丁规则，已原样放行：',
+            '[ReqFreedom] 同步 XMLHttpRequest 不支持页面补丁规则，已原样放行：',
             url,
           );
           reportRuleHits(resolveSyncXhrSkippedHits(candidateRules, url, method, Date.now()));

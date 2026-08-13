@@ -38,7 +38,7 @@ const LOCALE_DISPLAY_NAMES: Record<SupportedLocale, string> = {
 };
 
 interface MoreMenuProps {
-  /** 点击导入 Req Freedom 配置后的回调。 */
+  /** 点击导入 ReqFreedom 配置后的回调。 */
   onImportConfig: () => void;
   /** 点击从 cURL 创建规则后的回调。 */
   onImportCurl: () => void;

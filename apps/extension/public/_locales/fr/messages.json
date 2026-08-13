@@ -1,6 +1,6 @@
 {
   "extName": {
-    "message": "Req Freedom"
+    "message": "ReqFreedom"
   },
   "extDescription": {
     "message": "Débogage des requêtes : blocage, redirection, paramètres, en-têtes, réponses simulées, limitation du débit, corps, scripts"

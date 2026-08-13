@@ -270,7 +270,7 @@
         "methods": ["GET"],
         "matchType": "contains",
         "pattern": "127.0.0.1:4317",
-        "actions": [{ "type": "insert-script", "codeType": "js", "timing": "document_end", "code": "window.__REQ_FREEDOM_LAB__ = '已由 Req Freedom 注入'; document.documentElement.dataset.reqFreedom = 'enabled';" }]
+        "actions": [{ "type": "insert-script", "codeType": "js", "timing": "document_end", "code": "window.__REQ_FREEDOM_LAB__ = '已由 ReqFreedom 注入'; document.documentElement.dataset.reqFreedom = 'enabled';" }]
       }]
     }
   ]

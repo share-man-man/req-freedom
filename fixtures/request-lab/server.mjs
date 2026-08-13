@@ -46,7 +46,7 @@ const labServer = createServer(
 const crossOriginServer = createServer(createRequestHandler({ routes: crossOriginRoutes }));
 
 labServer.listen(port, HOST, () => {
-  console.log(`\n  Req Freedom Request Lab\n  http://${HOST}:${port}`);
+  console.log(`\n  ReqFreedom Request Lab\n  http://${HOST}:${port}`);
   console.log('\n  动态端点：');
   for (const route of labRoutes) {
     console.log(`    ${route.method.padEnd(5)} ${route.path.padEnd(20)} ${route.description}`);

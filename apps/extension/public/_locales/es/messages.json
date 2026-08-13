@@ -1,6 +1,6 @@
 {
   "extName": {
-    "message": "Req Freedom"
+    "message": "ReqFreedom"
   },
   "extDescription": {
     "message": "Depuración de solicitudes: bloquear, redirigir, parámetros, encabezados, simular respuestas, limitar red, cuerpo, scripts"

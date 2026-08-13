@@ -1,6 +1,6 @@
 {
   "extName": {
-    "message": "Req Freedom"
+    "message": "ReqFreedom"
   },
   "extDescription": {
     "message": "Request-Diagnose: blockieren, umleiten, Parameter, Header ändern, Antworten simulieren, drosseln, Body ändern, Skripte"

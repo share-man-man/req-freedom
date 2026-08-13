@@ -348,7 +348,7 @@
   },
   "ruleImport": {
     "menu": {
-      "config": "Import Req Freedom configuration",
+      "config": "Import ReqFreedom configuration",
       "curl": "Create from cURL",
       "har": "Create mocks from HAR"
     },
@@ -442,7 +442,7 @@
   },
   "dashboard": {
     "header": {
-      "title": "Gestionnaire de règles Req Freedom",
+      "title": "Gestionnaire de règles ReqFreedom",
       "subtitle": "Blocage · Redirection · Paramètres · En-têtes · Mock · Limitation · Script · Modification du corps",
       "globalToggle": "Interrupteur global",
       "globalEnabled": "Règles actives",

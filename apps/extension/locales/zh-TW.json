@@ -348,7 +348,7 @@
   },
   "ruleImport": {
     "menu": {
-      "config": "匯入 Req Freedom 設定",
+      "config": "匯入 ReqFreedom 設定",
       "curl": "從 cURL 建立規則",
       "har": "從 HAR 批次建立 Mock"
     },
@@ -442,7 +442,7 @@
   },
   "dashboard": {
     "header": {
-      "title": "Req Freedom 規則管理",
+      "title": "ReqFreedom 規則管理",
       "subtitle": "攔截 · 重定向 · 參數注入 · Header · Mock · 延遲 · 指令碼注入 · 改請求體",
       "globalToggle": "全域性開關",
       "globalEnabled": "規則生效中",

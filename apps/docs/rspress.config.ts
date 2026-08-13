@@ -9,7 +9,7 @@ export default defineConfig({
   globalStyles: path.join(__dirname, 'styles/index.css'),
   // GitHub Pages 项目站点部署在仓库同名子路径下
   base: '/req-freedom/',
-  title: 'Req Freedom',
+  title: 'ReqFreedom',
   description: '浏览器请求调试插件：拦截、重定向、参数注入、Header 改写、Mock、延迟模拟',
   themeConfig: {
     socialLinks: [

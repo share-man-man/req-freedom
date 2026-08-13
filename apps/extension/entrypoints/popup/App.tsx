@@ -268,7 +268,7 @@ export default function App() {
             <LogoMark className="size-3.5" />
           </span>
           <div className="leading-tight">
-            <h1 className="text-sm font-semibold">Req Freedom</h1>
+            <h1 className="text-sm font-semibold">ReqFreedom</h1>
             <p className="text-[11px] text-muted-foreground">
               {enabled ? t('popup.activeCount', { count: activeCount }) : t('popup.globallyDisabled')}
             </p>

@@ -348,7 +348,7 @@
   },
   "ruleImport": {
     "menu": {
-      "config": "Import Req Freedom configuration",
+      "config": "Import ReqFreedom configuration",
       "curl": "Create from cURL",
       "har": "Create mocks from HAR"
     },
@@ -442,7 +442,7 @@
   },
   "dashboard": {
     "header": {
-      "title": "Req Freedom 규칙 관리자",
+      "title": "ReqFreedom 규칙 관리자",
       "subtitle": "차단 · 리디렉션 · 매개변수 삽입 · 헤더 · Mock · 네트워크 제한 · 스크립트 삽입 · 본문 수정",
       "globalToggle": "전체 스위치",
       "globalEnabled": "규칙 활성화됨",

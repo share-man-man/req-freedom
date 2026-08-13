@@ -1,6 +1,6 @@
 {
   "extName": {
-    "message": "Req Freedom"
+    "message": "ReqFreedom"
   },
   "extDescription": {
     "message": "Request debugging: block, redirect, inject params, modify headers, mock responses, throttle, modify body, insert script"

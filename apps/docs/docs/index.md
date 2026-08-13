@@ -2,7 +2,7 @@
 pageType: home
 
 hero:
-  name: Req Freedom
+  name: ReqFreedom
   text: 浏览器请求调试插件
   tagline: 请求拦截、重定向、参数注入、Header 改写、返回值 Mock、延迟模拟、脚本注入、改请求体，一站式全链路能力
   actions:

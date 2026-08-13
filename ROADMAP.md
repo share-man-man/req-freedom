@@ -1,4 +1,4 @@
-# Req Freedom 能力待办
+# ReqFreedom 能力待办
 
 对标 Requestly / ModHeader / XSwitch / Resource Override / tweak 的调研结论，拆成可逐项实现的清单。
 

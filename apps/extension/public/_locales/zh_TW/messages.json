@@ -1,6 +1,6 @@
 {
   "extName": {
-    "message": "Req Freedom"
+    "message": "ReqFreedom"
   },
   "extDescription": {
     "message": "請求偵錯工具：攔截請求、重定向、參數注入、Header 改寫、返回值 Mock、網路限速、改請求體、指令碼注入"
