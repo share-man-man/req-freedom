@@ -3,7 +3,7 @@
  * 设计取自 vercel/turborepo 文档站实测源码，核心三件事：
  * 1) 令牌：实心卡片 + 低透明度细边 + 单一 Vercel 蓝强调；浅/深两套，跟随系统自动切换
  * 2) 背景：两坨大半径、重度模糊（blur 120px）的低透明度光斑（蓝 + 品紫），即 turborepo 的 side lights
- * 3) 流光：卡片描边用「旋转的锥形渐变」（蓝→紫→品红），经 mask 只留 1px 边环，即 turborepo 的 counter-border
+ * 3) 流光：卡片描边用「旋转的锥形渐变」（蓝→紫→品红），经背景裁剪只在 1px 边框区显形，即 turborepo 的 counter-border
  */
 @import '../../assets/theme.css';
 
@@ -264,63 +264,88 @@ body::after {
 }
 
 /**
- * 卡片描边流光（counter-border）：::before 是一整圈锥形渐变，用 mask 掏空内部只留 1px 边环。
+ * 描边流光强度：0 = 完全被卡片底色盖住，1 = 渐变原色。
+ * 注册为 <number> 后可直接参与 transition，用于 hover 时把常态的淡描边推到满色。
+ */
+@property --glow-strength {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 1;
+}
+
+/**
+ * 卡片内部实底色：背景裁剪画法里 padding-box 那层用它，默认卡片色。
+ * 注册为 <color> 才能补间，供可点击卡片 hover 变底色时平滑过渡。
+ */
+@property --surface-bg {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: transparent;
+}
+
+/**
+ * 卡片描边流光（counter-border）：1px 边框区由整圈锥形渐变直接充当，走「背景裁剪」画法。
  *
- * 关键：去掉 Card 自带的灰边（border: 0），让「流光描边」直接充当卡片边框 —— 否则灰边在最外、
- * 流光环在 padding-box（内 1px），两者圆角半径不同，转角处会错位留缝，即所见「流光线条与阴影间隔」。
- * 去掉灰边后 ::before 的 inset:0 即落在卡片真实边缘，与外扩阴影齐平、无缝。
- * 常态即有可见渐变描边（opacity .4）；hover 时转亮并旋转，同时外扩一层柔和光晕向背景发光。
+ * 不要退回 ::before + mask-composite 掏环：内外两条遮罩边只隔 1px，圆角弧线上同一物理像素同时
+ * 落进两条边的抗锯齿过渡带，而 exclude 的 a+b-2ab 并不等于几何差集，实测圆角处的覆盖率会掉到直边的
+ * 76%（父级再有 overflow:hidden 的圆角裁剪则掉到 66%）且逐行抖动，肉眼即锯齿。
+ * 背景裁剪没有这个问题：padding-box 铺卡片实底盖住内部、border-box 铺渐变，1px 边框区即渐变本身，
+ * 圆角覆盖率与真实 border 齐平；且边框区不在 overflow 裁剪范围内，不会被二次削边。
+ *
+ * 边框仍要占 1px 宽但不着色（border-color: transparent），否则 Card 自带的灰边会盖住渐变。
+ * 常态描边由一层同底色薄纱压淡（--glow-strength）；hover 时薄纱褪去转亮并旋转，同时外扩柔和光晕。
  */
 .glow-surface {
   position: relative;
-  isolation: isolate;
-  border: 0;
-  transition: box-shadow 0.4s ease;
-}
-
-.glow-surface::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  padding: 1px;
-  border-radius: inherit;
-  pointer-events: none;
-  opacity: var(--glow-rest-opacity, 0.4);
-  transition: opacity 0.4s ease;
-  /* 整圈无断口的渐变，作为卡片唯一的边（颜色随明暗主题切换） */
-  background: conic-gradient(
-    from var(--glow-angle),
-    var(--glow-blue),
-    var(--glow-violet),
-    var(--glow-rose),
-    var(--glow-violet),
-    var(--glow-blue)
+  --surface-bg: var(--card);
+  --glow-strength: var(--glow-rest-opacity, 0.4);
+  /* 薄纱色：同底色、透明度取描边强度的补数，随 --glow-strength / --surface-bg 一起补间 */
+  --surface-veil: color-mix(
+    in srgb,
+    var(--surface-bg) calc((1 - var(--glow-strength)) * 100%),
+    transparent
   );
-  /* 只在 1px 边框区域显示：内容盒与边框盒两层遮罩相减 */
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
+  border: 1px solid transparent;
+  background:
+    /* 顶层：padding-box 内的卡片实底，遮住渐变的内部，只把 1px 边框区留给渐变 */
+    linear-gradient(var(--surface-bg), var(--surface-bg)) padding-box,
+    /* 中层：同底色薄纱，按 --glow-strength 压淡边框区的渐变（等价于旧写法的 opacity） */
+      linear-gradient(var(--surface-veil), var(--surface-veil)) border-box,
+    /* 底层：整圈无断口的锥形渐变，即卡片唯一的边（颜色随明暗主题切换） */
+      conic-gradient(
+        from var(--glow-angle),
+        var(--glow-blue),
+        var(--glow-violet),
+        var(--glow-rose),
+        var(--glow-violet),
+        var(--glow-blue)
+      )
+      border-box;
+  transition:
+    box-shadow 0.4s ease,
+    --glow-strength 0.4s ease,
+    --surface-bg 0.2s ease;
 }
 
 .glow-surface:hover {
   /* 仅一层柔和外发光（不再叠加紧贴 1px 蓝环，避免与流光描边形成第二条错位线） */
   box-shadow: 0 16px 64px -28px var(--glow-shadow);
-}
-
-.glow-surface:hover::before {
-  opacity: 1;
+  --glow-strength: 1;
   animation: glow-rotate 6s linear infinite;
 }
 
-/* 仅 hover 才显描边的变体（用于规则类型这种成组的可点卡片，静态时保持干净）。 */
-.glow-surface--hover::before {
-  opacity: 0;
+/* 可点击的统计卡：hover 换内部底色（背景已被上面的分层接管，Tailwind 的 bg-* 工具类在此不生效） */
+.glow-surface--clickable:hover {
+  --surface-bg: color-mix(in srgb, var(--muted) 40%, var(--card));
 }
 
-/* 去掉真实边后，这类卡片静态时用内描边维持边界（浅色下 bg-secondary 对比很弱，需要它） */
+/**
+ * 仅 hover 才显描边的变体（用于规则类型这种成组的可点卡片，静态时保持干净）。
+ * 内部底色若非卡片色，由调用方改写 --surface-bg，不要再加 bg-* 工具类。
+ */
 .glow-surface--hover {
+  --glow-strength: 0;
+  /* 去掉真实边后，这类卡片静态时用内描边维持边界（浅色下 bg-secondary 对比很弱，需要它） */
   box-shadow: inset 0 0 0 1px var(--border);
 }
 
@@ -374,12 +399,11 @@ body::after {
 
 /* 尊重减少动效偏好：停掉描边旋转与过渡 */
 @media (prefers-reduced-motion: reduce) {
-  .glow-surface,
-  .glow-surface::before {
+  .glow-surface {
     transition: none;
   }
 
-  .glow-surface:hover::before,
+  .glow-surface:hover,
   [role='dialog'] {
     animation: none;
   }

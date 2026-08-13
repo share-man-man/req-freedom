@@ -534,7 +534,7 @@ function StatisticCard({
   const content = (
     <Card
       className={`glow-surface h-full border-border/80 shadow-sm ${
-        onClick ? 'transition-colors hover:bg-muted/40' : ''
+        onClick ? 'glow-surface--clickable' : ''
       }`}
     >
       <CardContent className="flex items-center gap-4 p-5">
