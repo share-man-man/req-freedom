@@ -295,10 +295,10 @@
     },
     "relativeTime": {
       "none": "記録なし",
-      "justNow": "たった今更新",
-      "minutesAgo": "{{count}} 分前に更新",
-      "hoursAgo": "{{count}} 時間前に更新",
-      "daysAgo": "{{count}} 日前に更新"
+      "justNow": "たった今",
+      "minutesAgo": "{{count}} 分前",
+      "hoursAgo": "{{count}} 時間前",
+      "daysAgo": "{{count}} 日前"
     },
     "groupNamePlaceholder": "グループ名",
     "dragToReorder": "ドラッグして並べ替え",

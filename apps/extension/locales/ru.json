@@ -295,10 +295,10 @@
     },
     "relativeTime": {
       "none": "Нет записей",
-      "justNow": "Обновлено только что",
-      "minutesAgo": "Обновлено {{count}} мин. назад",
-      "hoursAgo": "Обновлено {{count}} ч. назад",
-      "daysAgo": "Обновлено {{count}} дн. назад"
+      "justNow": "только что",
+      "minutesAgo": "{{count}} мин. назад",
+      "hoursAgo": "{{count}} ч. назад",
+      "daysAgo": "{{count}} дн. назад"
     },
     "groupNamePlaceholder": "Название группы",
     "dragToReorder": "Перетащите для сортировки",

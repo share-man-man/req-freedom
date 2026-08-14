@@ -295,10 +295,10 @@
     },
     "relativeTime": {
       "none": "기록 없음",
-      "justNow": "방금 업데이트됨",
-      "minutesAgo": "{{count}}분 전에 업데이트됨",
-      "hoursAgo": "{{count}}시간 전에 업데이트됨",
-      "daysAgo": "{{count}}일 전에 업데이트됨"
+      "justNow": "방금 전",
+      "minutesAgo": "{{count}}분 전",
+      "hoursAgo": "{{count}}시간 전",
+      "daysAgo": "{{count}}일 전"
     },
     "groupNamePlaceholder": "그룹 이름",
     "dragToReorder": "드래그하여 순서 변경",

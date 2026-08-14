@@ -295,10 +295,10 @@
     },
     "relativeTime": {
       "none": "Aucun historique",
-      "justNow": "Mis à jour à l’instant",
-      "minutesAgo": "Mis à jour il y a {{count}} min",
-      "hoursAgo": "Mis à jour il y a {{count}} h",
-      "daysAgo": "Mis à jour il y a {{count}} j"
+      "justNow": "à l’instant",
+      "minutesAgo": "il y a {{count}} min",
+      "hoursAgo": "il y a {{count}} h",
+      "daysAgo": "il y a {{count}} j"
     },
     "groupNamePlaceholder": "Nom du groupe",
     "dragToReorder": "Faire glisser pour réorganiser",

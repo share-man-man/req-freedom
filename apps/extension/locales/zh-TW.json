@@ -294,11 +294,11 @@
       "title": "{{scopeLabel}} · {{count}} 個物件"
     },
     "relativeTime": {
-      "none": "暫無記錄",
-      "justNow": "剛剛更新",
-      "minutesAgo": "{{count}} 分鐘前更新",
-      "hoursAgo": "{{count}} 小時前更新",
-      "daysAgo": "{{count}} 天前更新"
+      "none": "暫無",
+      "justNow": "剛剛",
+      "minutesAgo": "{{count}} 分鐘前",
+      "hoursAgo": "{{count}} 小時前",
+      "daysAgo": "{{count}} 天前"
     },
     "groupNamePlaceholder": "分組名稱",
     "dragToReorder": "拖拽排序",

@@ -295,10 +295,10 @@
     },
     "relativeTime": {
       "none": "Kein Eintrag",
-      "justNow": "Gerade aktualisiert",
-      "minutesAgo": "Vor {{count}} Min. aktualisiert",
-      "hoursAgo": "Vor {{count}} Std. aktualisiert",
-      "daysAgo": "Vor {{count}} Tagen aktualisiert"
+      "justNow": "Gerade eben",
+      "minutesAgo": "Vor {{count}} Min.",
+      "hoursAgo": "Vor {{count}} Std.",
+      "daysAgo": "Vor {{count}} Tagen"
     },
     "groupNamePlaceholder": "Gruppenname",
     "dragToReorder": "Zum Sortieren ziehen",

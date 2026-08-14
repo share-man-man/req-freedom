@@ -294,11 +294,11 @@
       "title": "{{scopeLabel}} · {{count}} 个对象"
     },
     "relativeTime": {
-      "none": "暂无记录",
-      "justNow": "刚刚更新",
-      "minutesAgo": "{{count}} 分钟前更新",
-      "hoursAgo": "{{count}} 小时前更新",
-      "daysAgo": "{{count}} 天前更新"
+      "none": "暂无",
+      "justNow": "刚刚",
+      "minutesAgo": "{{count}} 分钟前",
+      "hoursAgo": "{{count}} 小时前",
+      "daysAgo": "{{count}} 天前"
     },
     "groupNamePlaceholder": "分组名称",
     "dragToReorder": "拖拽排序",

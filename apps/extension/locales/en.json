@@ -294,11 +294,11 @@
       "title": "{{scopeLabel}} · {{count}} objects"
     },
     "relativeTime": {
-      "none": "No record",
-      "justNow": "Updated just now",
-      "minutesAgo": "Updated {{count}}m ago",
-      "hoursAgo": "Updated {{count}}h ago",
-      "daysAgo": "Updated {{count}}d ago"
+      "none": "never",
+      "justNow": "just now",
+      "minutesAgo": "{{count}}m ago",
+      "hoursAgo": "{{count}}h ago",
+      "daysAgo": "{{count}}d ago"
     },
     "groupNamePlaceholder": "Group name",
     "dragToReorder": "Drag to reorder",
