@@ -92,6 +92,20 @@ STORE_ASSETS_SKIP_BUILD=1 .agents/skills/store-assets/scripts/prepare.sh
 
 写进 `config.json` 的 `path` 时记得对参数值做 URL 编码。
 
+## 页面需要拉取外部文件时
+
+阅读器、预览器一类的扩展常靠 `?src=<url>` 拉一份真实文件再渲染。把示例文件放进
+`.store-assets/pages/`，在 `path` 里用 `{{baseUrl}}` 引用——站点端口是每次运行临时
+分配的，写不了绝对地址：
+
+```json
+{ "path": "/viewer.html?src={{baseUrl}}/pages/sample.md" }
+```
+
+站点会按扩展名回 `text/markdown`、`text/plain` 等类型。页面若按 `Content-Type`
+判断要不要接管渲染，类型给错就会走进"不支持的格式"分支——这时先确认服务器
+回的类型在页面的白名单里。
+
 ## 素材本身的要求
 
 - 尺寸必须**精确**。主截图 1280x800 优先，640x400 在高分屏会糊。

@@ -56,6 +56,13 @@ const CONTENT_TYPES = {
   '.jpg': 'image/jpeg',
   '.svg': 'image/svg+xml',
   '.woff2': 'font/woff2',
+  // 扩展常要拉一份真实素材文件来渲染（阅读器、预览器一类），
+  // Content-Type 必须给对，否则页面会按"类型不支持"走错误分支
+  '.md': 'text/markdown; charset=utf-8',
+  '.markdown': 'text/markdown; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
+  '.csv': 'text/csv; charset=utf-8',
+  '.xml': 'application/xml; charset=utf-8',
 };
 
 /**
@@ -226,8 +233,13 @@ async function waitForReady(session) {
  * @returns 实际导航使用的完整 URL
  */
 function buildUrl(path, baseUrl) {
+  // 站点端口是每次运行临时分配的，配置里写不了绝对地址。页面需要把站点上的
+  // 另一个文件当成外部资源去 fetch 时（阅读器类扩展的 ?src= 就是这样），
+  // 在 config.json 里写 {{baseUrl}}，这里替换成本次的真实地址。
+  /** 展开 {{baseUrl}} 之后的路径。 */
+  const resolvedPath = path.replaceAll('{{baseUrl}}', baseUrl);
   /** 基于演示站点解析出的可写 URL 对象。 */
-  const url = new URL(path, baseUrl);
+  const url = new URL(resolvedPath, baseUrl);
   for (const [key, value] of Object.entries(config.defaultParams ?? {})) {
     url.searchParams.set(key, String(value));
   }
