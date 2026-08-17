@@ -1,5 +1,10 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignore": [
+    ".agents/skills/**",
+    ".claude/skills/**",
+    ".store-assets/**"
+  ],
   "workspaces": {
     "apps/extension": {
       "entry": ["components/ui/**"]
