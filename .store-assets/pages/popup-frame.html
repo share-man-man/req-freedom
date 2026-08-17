@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>ReqFreedom popup</title>
+    <style>
+      /* 商店素材画布：固定 1280x800，左侧一句说明，右侧放等比放大的真实 popup */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        width: 1280px;
+        height: 800px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        gap: 72px;
+        padding: 0 88px;
+        background: radial-gradient(120% 120% at 15% 0%, #f4f1ff 0%, #ffffff 55%, #f7f5ff 100%);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        color: #1e1b2e;
+      }
+      .copy {
+        flex: 1;
+        max-width: 480px;
+      }
+      .copy h1 {
+        font-size: 44px;
+        line-height: 1.15;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      .copy p {
+        margin-top: 20px;
+        font-size: 20px;
+        line-height: 1.55;
+        color: #5b5470;
+      }
+      .copy ul {
+        margin-top: 32px;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .copy li {
+        font-size: 18px;
+        color: #3d3552;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .copy li::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: #7c4dff;
+        flex: none;
+      }
+      /* 真实 popup 以 iframe 引入，等比放大到画布上易读的尺寸 */
+      .popup-stage {
+        width: 408px;
+        height: 720px;
+        flex: none;
+        position: relative;
+      }
+      .popup-stage iframe {
+        width: 340px;
+        height: 600px;
+        border: 0;
+        border-radius: 14px;
+        background: #fff;
+        transform: scale(1.2);
+        transform-origin: top left;
+        box-shadow: 0 24px 60px rgba(43, 26, 92, 0.18), 0 2px 8px rgba(43, 26, 92, 0.08);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="copy">
+      <h1>Flip any rule on or off, right from the tab you're debugging.</h1>
+      <p>The popup shows which rules actually fired on the current page, so you never wonder whether a rule is live.</p>
+      <ul>
+        <li>Global kill switch for every rule</li>
+        <li>Per-group and per-rule toggles</li>
+        <li>Live hit markers for the current tab</li>
+      </ul>
+    </div>
+    <div class="popup-stage">
+      <iframe src="/popup.html" title="ReqFreedom popup"></iframe>
+    </div>
+    <script>
+      // 与 demo-autoview.js 一致的就绪标记，供截图脚本判断何时可以拍
+      window.__assetReady = false;
+
+      /** popup 的放大倍率，与 CSS 中的 transform: scale 保持一致。 */
+      const POPUP_SCALE = 1.2;
+
+      window.addEventListener('load', () => {
+        /** 承载真实 popup 的 iframe。 */
+        const frame = document.querySelector('.popup-stage iframe');
+        /** iframe 的定位容器。 */
+        const stage = document.querySelector('.popup-stage');
+        // React 渲染是异步的，等内容稳定后再按真实高度收紧 iframe，
+        // 否则卡片底部会留出一段空白
+        setTimeout(() => {
+          /** popup 文档。 */
+          const doc = frame.contentDocument;
+          // popup 的根容器会撑满 iframe，scrollHeight 量不出内容高度；
+          // 改成取最靠下的可见元素底边，再补一点内边距
+          const contentBottom = [...doc.querySelectorAll('body *')].reduce((lowest, element) => {
+            /** 元素的可视矩形。 */
+            const rect = element.getBoundingClientRect();
+            if (rect.height === 0 || rect.width === 0) return lowest;
+            // 撑满 iframe 的布局容器本身不算内容
+            if (rect.height >= frame.clientHeight - 1) return lowest;
+            return Math.max(lowest, rect.bottom);
+          }, 0);
+          /** popup 内容的自然高度（含底部内边距）。 */
+          const contentHeight = Math.ceil(contentBottom) + 12;
+          frame.style.height = `${contentHeight}px`;
+          stage.style.height = `${contentHeight * POPUP_SCALE}px`;
+          setTimeout(() => {
+            window.__assetReady = true;
+          }, 500);
+        }, 1200);
+      });
+    </script>
+  </body>
+</html>

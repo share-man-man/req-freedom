@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>ReqFreedom promo tile B</title>
+    <style>
+      /* 方向 B：深色 + 双通道分流母题。在一排白底图块里靠明度反差跳出来 */
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        width: 440px;
+        height: 280px;
+        overflow: hidden;
+        position: relative;
+        background: #14111f;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        color: #fff;
+      }
+      /* 右侧的流光辉光，给分流母题打底 */
+      body::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(70% 70% at 96% 78%, rgba(139, 92, 246, 0.36), transparent 70%),
+          radial-gradient(48% 50% at 88% 58%, rgba(42, 138, 246, 0.28), transparent 72%),
+          radial-gradient(48% 50% at 92% 100%, rgba(233, 42, 103, 0.24), transparent 72%);
+      }
+      .motif {
+        position: absolute;
+        inset: 0;
+      }
+      /* 文案压在上半区，把整幅宽度让给下方的分流曲线 */
+      .copy {
+        position: absolute;
+        left: 34px;
+        top: 34px;
+      }
+      .mark svg { width: 40px; height: 40px; }
+      .wordmark {
+        margin-top: 16px;
+        font-size: 34px;
+        font-weight: 700;
+        letter-spacing: -0.025em;
+      }
+      .tagline {
+        margin-top: 9px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.62);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 母题：一条请求进来，被规则节点分流到 DNR / 页面补丁两条通道 -->
+    <svg class="motif" viewBox="0 0 440 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="track" x1="150" y1="212" x2="416" y2="176" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#8b5cf6" />
+          <stop offset="1" stop-color="#2a8af6" />
+        </linearGradient>
+        <linearGradient id="track2" x1="150" y1="212" x2="416" y2="250" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#8b5cf6" />
+          <stop offset="1" stop-color="#e92a67" />
+        </linearGradient>
+      </defs>
+      <!-- 入口请求 -->
+      <path d="M28 212 H120" stroke="rgba(255,255,255,0.4)" stroke-width="3" stroke-linecap="round" />
+      <!-- 上行通道：DNR，实线 -->
+      <path d="M152 204 C230 204 250 176 316 176 H414" stroke="url(#track)" stroke-width="3.5" stroke-linecap="round" />
+      <!-- 下行通道：页面补丁，虚线 -->
+      <path d="M152 220 C230 220 250 250 316 250 H414" stroke="url(#track2)" stroke-width="3.5" stroke-linecap="round" stroke-dasharray="9 8" />
+      <!-- 规则节点 -->
+      <rect x="122" y="194" width="28" height="36" rx="9" fill="#14111f" stroke="rgba(255,255,255,0.85)" stroke-width="3" />
+      <circle cx="28" cy="212" r="5" fill="rgba(255,255,255,0.7)" />
+      <circle cx="414" cy="176" r="5.5" fill="#2a8af6" />
+      <circle cx="414" cy="250" r="5.5" fill="#e92a67" />
+    </svg>
+    <div class="copy">
+      <div class="mark">
+        <svg viewBox="18 18 92 92" fill="none" stroke="#fff" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M29 28 L29 100" />
+          <path d="M29 28 L49 28 C65 28 65 54 49 54 L29 54" />
+          <path d="M43 54 L63 100" />
+          <path d="M75 28 L75 100" />
+          <path d="M75 28 L99 28" />
+          <path d="M75 58 L93 58" />
+        </svg>
+      </div>
+      <div class="wordmark">ReqFreedom</div>
+      <div class="tagline">Intercept · Mock · Throttle</div>
+    </div>
+    <script>
+      window.__assetReady = false;
+      // 等字体真正可用再拍，否则可能拍到回退字体的排版
+      document.fonts.ready.then(() => {
+        setTimeout(() => {
+          window.__assetReady = true;
+        }, 200);
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Popup frame</title>
+    <style>
+      /*
+       * 把真实 popup 合成到 1280x800 画布上的模板。
+       *
+       * 扩展 popup 通常只有 300-400px 宽，直接截远小于商店要求的截图尺寸，
+       * 单独放大又会糊。这里用 iframe 引真实 popup 再等比放大，
+       * 左侧留一段说明把画布填满。文案和配色请按项目自行替换。
+       */
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        width: 1280px;
+        height: 800px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        gap: 72px;
+        padding: 0 88px;
+        background: #f7f7fb;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        color: #1e1e28;
+      }
+      .copy { flex: 1; max-width: 480px; }
+      .copy h1 {
+        font-size: 44px;
+        line-height: 1.15;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      .copy p {
+        margin-top: 20px;
+        font-size: 20px;
+        line-height: 1.55;
+        color: #5b5866;
+      }
+      .popup-stage {
+        width: 408px;
+        flex: none;
+        position: relative;
+      }
+      .popup-stage iframe {
+        border: 0;
+        border-radius: 14px;
+        background: #fff;
+        transform-origin: top left;
+        box-shadow: 0 24px 60px rgba(30, 26, 60, 0.18), 0 2px 8px rgba(30, 26, 60, 0.08);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="copy">
+      <h1>一句话说清 popup 解决什么问题</h1>
+      <p>补一句展开说明，控制在两行以内。</p>
+    </div>
+    <div class="popup-stage">
+      <iframe title="popup"></iframe>
+    </div>
+    <script>
+      /** 真实 popup 的地址，可用 ?src= 覆盖。 */
+      const POPUP_SRC = new URLSearchParams(location.search).get('src') || '/popup.html';
+      /** popup 的自然宽度（px），与扩展 popup 的 body 宽度一致。 */
+      const POPUP_WIDTH = 340;
+      /** 放大倍率；放大后宽度不要超过 .popup-stage 的宽度。 */
+      const POPUP_SCALE = 1.2;
+      /** 等 popup 内部渲染稳定的时间（毫秒）。框架渲染慢的项目可以调大。 */
+      const RENDER_SETTLE_MS = 1200;
+
+      window.__assetReady = false;
+
+      /** 承载真实 popup 的 iframe。 */
+      const frame = document.querySelector('.popup-stage iframe');
+      /** iframe 的定位容器。 */
+      const stage = document.querySelector('.popup-stage');
+      frame.style.width = `${POPUP_WIDTH}px`;
+      // 先给一个足够大的高度让 popup 完整渲染，稍后再按真实内容收紧
+      frame.style.height = '900px';
+      frame.style.transform = `scale(${POPUP_SCALE})`;
+      frame.src = POPUP_SRC;
+
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          /** popup 文档。 */
+          const doc = frame.contentDocument;
+          // popup 的根容器往往会撑满 iframe，scrollHeight 量不出内容高度；
+          // 改成取最靠下的可见元素底边，否则卡片下方会留一大段空白
+          const contentBottom = [...doc.querySelectorAll('body *')].reduce((lowest, element) => {
+            /** 元素的可视矩形。 */
+            const rect = element.getBoundingClientRect();
+            if (rect.height === 0 || rect.width === 0) return lowest;
+            if (rect.height >= frame.clientHeight - 1) return lowest;
+            return Math.max(lowest, rect.bottom);
+          }, 0);
+          /** popup 内容的自然高度（含底部内边距）。 */
+          const contentHeight = Math.ceil(contentBottom) + 12;
+          frame.style.height = `${contentHeight}px`;
+          stage.style.height = `${contentHeight * POPUP_SCALE}px`;
+          setTimeout(() => {
+            window.__assetReady = true;
+          }, 500);
+        }, RENDER_SETTLE_MS);
+      });
+    </script>
+  </body>
+</html>

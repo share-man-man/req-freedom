@@ -1,0 +1,4 @@
+interface:
+  display_name: "生成 Chrome 商店素材"
+  short_description: "构建扩展、注入 chrome API 垫片，按精确尺寸渲染主截图与宣传图块"
+  default_prompt: "Use $store-assets to generate Chrome Web Store assets."

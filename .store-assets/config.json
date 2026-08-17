@@ -1,0 +1,58 @@
+{
+  "buildCommand": "mise exec -- pnpm --filter @req-freedom/extension build",
+  "buildDir": "apps/extension/.output/chrome-mv3",
+  "workDir": "apps/extension/.output/store-assets",
+  "pages": ["options.html", "popup.html"],
+  "defaultParams": { "locale": "en", "theme": "light" },
+  "shots": [
+    {
+      "file": "01-rule-list.png",
+      "path": "/options.html",
+      "width": 1280,
+      "height": 800,
+      "note": "规则管理主页：统计卡 + 三个分组，动作徽章尽量铺开"
+    },
+    {
+      "file": "02-editor-mock.png",
+      "path": "/options.html?clickIn=Mock%20empty%20order%20list%3A%3AEdit&ready=%5Brole%3D%22dialog%22%5D",
+      "width": 1280,
+      "height": 800,
+      "note": "规则编辑器 · 页面补丁通道：静态 Mock 与 JSON 编辑器"
+    },
+    {
+      "file": "03-editor-headers.png",
+      "path": "/options.html?clickIn=Allow%20CORS%20on%20staging%20API%3A%3AEdit&ready=%5Brole%3D%22dialog%22%5D",
+      "width": 1280,
+      "height": 800,
+      "note": "规则编辑器 · 网络层通道：Header 改写与动态变量"
+    },
+    {
+      "file": "04-request-log.png",
+      "path": "/options.html?click=View%20log&ready=table",
+      "width": 1280,
+      "height": 800,
+      "note": "请求日志：含一条『匹配上但未应用』的记录"
+    },
+    {
+      "file": "05-popup.png",
+      "path": "/pages/popup-frame.html",
+      "width": 1280,
+      "height": 800,
+      "note": "Popup 合成页：真实 popup 放大后配一句说明"
+    },
+    {
+      "file": "promo-tile.png",
+      "path": "/pages/promo-tile.html",
+      "width": 440,
+      "height": 280,
+      "note": "小型宣传图块（设计稿，非截图）"
+    },
+    {
+      "file": "promo-marquee.png",
+      "path": "/pages/promo-marquee.html",
+      "width": 1400,
+      "height": 560,
+      "note": "Marquee 宣传图块（设计稿，非截图）"
+    }
+  ]
+}

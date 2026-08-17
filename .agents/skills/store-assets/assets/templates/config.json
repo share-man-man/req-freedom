@@ -1,0 +1,36 @@
+{
+  "$comment": "商店素材出图配置。由 store-assets skill 读取，放在仓库根的 .store-assets/config.json。",
+
+  "buildCommand": "pnpm build",
+  "$comment_buildCommand": "构建扩展的命令，在仓库根执行。项目若用 mise/nvm 锁版本，这里要带上前缀，例如 'mise exec -- pnpm --filter @acme/extension build'。",
+
+  "buildDir": "dist",
+  "$comment_buildDir": "构建产物目录（含 manifest.json 与各 HTML 页面），相对仓库根。",
+
+  "workDir": "dist/.store-assets",
+  "$comment_workDir": "出图工作区，会被清空重建。请放在已被 .gitignore 忽略的路径下。",
+
+  "pages": ["options.html", "popup.html"],
+  "$comment_pages": "需要注入垫片的扩展页面，相对 buildDir。",
+
+  "defaultParams": {},
+  "$comment_defaultParams": "追加到每个页面 URL 的查询参数，由 seed.js 自行解读，例如 { \"locale\": \"en\" }。可用环境变量 STORE_ASSETS_PARAMS 覆盖。",
+
+  "shots": [
+    {
+      "file": "01-main.png",
+      "path": "/options.html",
+      "width": 1280,
+      "height": 800,
+      "note": "主界面"
+    },
+    {
+      "file": "promo-tile.png",
+      "path": "/pages/promo-tile.html",
+      "width": 440,
+      "height": 280,
+      "note": "小型宣传图块"
+    }
+  ],
+  "$comment_shots": "每张素材的输出文件名、页面路径与画布尺寸。path 以 / 开头，相对演示站点根；.store-assets/pages/ 下的文件会挂在 /pages/ 下。"
+}
