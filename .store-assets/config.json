@@ -2,8 +2,14 @@
   "buildCommand": "mise exec -- pnpm --filter @req-freedom/extension build",
   "buildDir": "apps/extension/.output/chrome-mv3",
   "workDir": "apps/extension/.output/store-assets",
-  "pages": ["options.html", "popup.html"],
-  "defaultParams": { "locale": "en", "theme": "light" },
+  "pages": [
+    "options.html",
+    "popup.html"
+  ],
+  "defaultParams": {
+    "locale": "en",
+    "theme": "light"
+  },
   "shots": [
     {
       "file": "01-rule-list.png",
@@ -28,7 +34,7 @@
     },
     {
       "file": "04-request-log.png",
-      "path": "/options.html?click=View%20log&ready=table",
+      "path": "/options.html?click=View%20log&ready=%5Bid%5E%3D%22request-log-date-%22%5D",
       "width": 1280,
       "height": 800,
       "note": "请求日志：含一条『匹配上但未应用』的记录"

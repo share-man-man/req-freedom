@@ -105,10 +105,14 @@
   function findClickable(name, scope = document) {
     /** 目标名称的小写形式。 */
     const needle = name.toLowerCase();
+    /** 范围内所有可点击控件。 */
+    const candidates = [...scope.querySelectorAll('button, a, [role="button"], [role="tab"]')];
+    // 先要精确匹配：开关类控件常有一对互为反义的名字（"Contents" / "Close contents"），
+    // 只做子串匹配会命中反义的那个，把本来就展开的面板又点回去
     return (
-      [...scope.querySelectorAll('button, a, [role="button"], [role="tab"]')].find((element) =>
-        accessibleName(element).includes(needle),
-      ) ?? null
+      candidates.find((element) => accessibleName(element) === needle) ??
+      candidates.find((element) => accessibleName(element).includes(needle)) ??
+      null
     );
   }
 
@@ -163,8 +167,11 @@
       }
       await new Promise((resolve) => setTimeout(resolve, settleMs));
     } catch (error) {
-      // 就绪标记照常置位：拍一张能看出哪里不对的图，比让脚本干等到超时有用
+      // 照常置就绪：拍一张能看出哪里不对的图，比让脚本干等到超时有用。
+      // 但必须把失败留痕——否则点击没生效、等待条件写错时，截图脚本会把
+      // 一张内容不对的图标成成功，人不看就发到商店了。
       console.error(error);
+      window.__assetError = String(error?.message ?? error);
     }
     window.__assetReady = true;
   }

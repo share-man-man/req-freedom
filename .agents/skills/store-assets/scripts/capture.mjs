@@ -220,10 +220,19 @@ async function waitForReady(session) {
       expression: 'window.__assetReady === true',
       returnByValue: true,
     });
-    if (result?.result?.value === true) return true;
+    if (result?.result?.value === true) {
+      // autoview 即使交互失败也会置就绪（拍张能看出问题的图好过干等），
+      // 失败原因留在 __assetError 里。这里必须读出来向上报，
+      // 否则一张内容不对的图会被标成成功。
+      const failure = await session.send('Runtime.evaluate', {
+        expression: 'window.__assetError ?? null',
+        returnByValue: true,
+      });
+      return { ready: true, error: failure?.result?.value ?? null };
+    }
     await sleep(200);
   }
-  return false;
+  return { ready: false, error: '等待就绪超时' };
 }
 
 /**
@@ -276,8 +285,8 @@ async function capture(shot, context) {
     });
     await session.send('Page.navigate', { url: buildUrl(shot.path, context.baseUrl) });
 
-    /** 页面是否在超时前自报就绪。 */
-    const ready = await waitForReady(session);
+    /** 就绪结果：是否就绪，以及页面自报的失败原因。 */
+    const outcome = await waitForReady(session);
     await sleep(SETTLE_MS);
 
     /** 截图结果（base64 PNG）。 */
@@ -286,7 +295,7 @@ async function capture(shot, context) {
       captureBeyondViewport: false,
     });
     writeFileSync(join(outDir, shot.file), Buffer.from(screenshot.data, 'base64'));
-    return ready;
+    return outcome;
   } finally {
     session.close();
     await fetch(`http://127.0.0.1:${context.cdpPort}/json/close/${target.id}`);
@@ -315,19 +324,21 @@ mkdirSync(outDir, { recursive: true });
 const { server, port } = await startServer(siteDir);
 /** 无头 Chrome 进程、调试端口与临时 profile。 */
 const chrome = await startChrome();
-/** 未在超时前自报就绪的素材，可能拍到了半成品。 */
-const notReady = [];
+/** 有问题的素材：没等到就绪，或页面报告交互失败。 */
+const problems = [];
 
 try {
   for (const shot of shots) {
-    /** 该张是否就绪。 */
-    const ready = await capture(shot, {
+    /** 该张的就绪结果。 */
+    const outcome = await capture(shot, {
       cdpPort: chrome.port,
       baseUrl: `http://127.0.0.1:${port}`,
     });
-    if (!ready) notReady.push(shot.file);
+    /** 本张是否可信。 */
+    const ok = outcome.ready && !outcome.error;
+    if (!ok) problems.push(`${shot.file}：${outcome.error ?? '未就绪'}`);
     console.log(
-      `${ready ? '✓' : '!'} ${shot.file}  ${shot.width}x${shot.height}  ${shot.note ?? ''}`,
+      `${ok ? '✓' : '!'} ${shot.file}  ${shot.width}x${shot.height}  ${shot.note ?? ''}`,
     );
   }
 } finally {
@@ -338,7 +349,7 @@ try {
 }
 
 console.log(`\n输出目录：${outDir}`);
-if (notReady.length > 0) {
-  console.error(`\n以下素材等待就绪超时，务必人工核对：\n  ${notReady.join('\n  ')}`);
+if (problems.length > 0) {
+  console.error(`\n以下素材可能拍到了错误内容，务必人工核对：\n  ${problems.join('\n  ')}`);
   process.exit(1);
 }
