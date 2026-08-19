@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 2,
+  "exportedAt": "2026-08-19T08:00:00.000Z",
+  "enabled": true,
+  "groups": [
+    {
+      "id": "group-api-mocks",
+      "name": "API Mock",
+      "enabled": true,
+      "updatedAt": "2026-08-19T08:00:00.000Z",
+      "rules": [
+        {
+          "id": "rule-user-profile-mock",
+          "name": "Mock 用户资料",
+          "enabled": true,
+          "channel": "page-patch",
+          "methods": ["GET"],
+          "matchType": "equals",
+          "pattern": "https://api.example.com/v1/profile",
+          "actions": [
+            {
+              "type": "mock-response",
+              "mode": "static",
+              "delivery": "buffered",
+              "statusCode": 200,
+              "bodyType": "json",
+              "body": "{\"id\":1,\"name\":\"ReqFreedom\"}",
+              "responseHeaders": {
+                "x-mock-source": "req-freedom"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

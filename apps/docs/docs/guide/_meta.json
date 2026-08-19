@@ -2,6 +2,7 @@
   "getting-started",
   "architecture",
   "import-export",
+  "configuration-format",
   {
     "type": "dir",
     "name": "features",

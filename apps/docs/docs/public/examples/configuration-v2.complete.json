@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 2,
+  "exportedAt": "2026-08-19T08:00:00.000Z",
+  "enabled": true,
+  "groups": [
+    {
+      "id": "group-network",
+      "name": "网络层规则",
+      "enabled": true,
+      "updatedAt": "2026-08-19T08:00:00.000Z",
+      "rules": [
+        {
+          "id": "rule-block-tracker",
+          "name": "阻止统计请求",
+          "enabled": true,
+          "channel": "dnr",
+          "methods": [],
+          "matchType": "wildcard",
+          "pattern": "*://analytics.example.com/*",
+          "actions": [{ "type": "block" }]
+        },
+        {
+          "id": "rule-redirect-assets",
+          "name": "映射本地资源并添加响应头",
+          "enabled": true,
+          "channel": "dnr",
+          "methods": ["GET"],
+          "matchType": "regex",
+          "pattern": "^https://cdn\\.example\\.com/(.*)$",
+          "actions": [
+            { "type": "redirect", "redirectUrl": "http://localhost:5173/\\1" },
+            {
+              "type": "modify-headers",
+              "headers": [
+                { "target": "response", "operation": "set", "header": "cache-control", "value": "no-store" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "rule-inject-query",
+          "name": "注入调试参数",
+          "enabled": false,
+          "channel": "dnr",
+          "methods": ["GET"],
+          "matchType": "contains",
+          "pattern": "api.example.com",
+          "actions": [{ "type": "inject-params", "params": { "debug": "1", "requestId": "{{uuid}}" } }]
+        }
+      ]
+    },
+    {
+      "id": "group-page-patch",
+      "name": "页面补丁规则",
+      "enabled": true,
+      "updatedAt": "2026-08-19T08:00:00.000Z",
+      "rules": [
+        {
+          "id": "rule-mock-orders",
+          "name": "Mock GraphQL 订单",
+          "enabled": true,
+          "channel": "page-patch",
+          "methods": ["POST"],
+          "matchType": "equals",
+          "pattern": "https://api.example.com/graphql",
+          "bodyMatch": { "type": "graphql-operation", "value": "GetOrders" },
+          "actions": [
+            {
+              "type": "mock-response",
+              "mode": "static",
+              "statusCode": 200,
+              "bodyType": "json",
+              "body": "{\"data\":{\"orders\":[]}}",
+              "responseHeaders": { "x-mock-source": "req-freedom" }
+            },
+            {
+              "type": "delay",
+              "throttlePreset": "custom",
+              "latencyMs": 300,
+              "downloadKbps": 0,
+              "uploadKbps": 0
+            }
+          ]
+        },
+        {
+          "id": "rule-rewrite-request",
+          "name": "改写提交参数",
+          "enabled": true,
+          "channel": "page-patch",
+          "methods": ["POST", "PUT", "PATCH"],
+          "matchType": "contains",
+          "pattern": "/v1/orders",
+          "actions": [
+            {
+              "type": "modify-request-body",
+              "sourceMode": "static",
+              "mode": "merge-json",
+              "content": "{\"source\":\"local-debug\"}"
+            }
+          ]
+        },
+        {
+          "id": "rule-insert-debug-style",
+          "name": "注入调试样式",
+          "enabled": false,
+          "channel": "page-patch",
+          "methods": ["GET"],
+          "matchType": "wildcard",
+          "pattern": "https://app.example.com/*",
+          "actions": [
+            {
+              "type": "insert-script",
+              "codeType": "css",
+              "timing": "document_end",
+              "code": "body::before { content: 'DEBUG'; position: fixed; z-index: 999999; }"
+            }
+          ]
+        },
+        {
+          "id": "rule-sse-progress",
+          "name": "Mock SSE 进度",
+          "enabled": false,
+          "channel": "page-patch",
+          "methods": ["GET"],
+          "matchType": "equals",
+          "pattern": "https://api.example.com/v1/progress",
+          "actions": [
+            {
+              "type": "mock-response",
+              "mode": "static",
+              "delivery": "sse",
+              "statusCode": 200,
+              "body": "",
+              "sseEvents": [
+                { "event": "progress", "data": "{\"percent\":50}", "id": "1", "delayMs": 100 },
+                { "event": "progress", "data": "{\"percent\":100}", "id": "2", "delayMs": 100 }
+              ],
+              "sseEndBehavior": "close"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

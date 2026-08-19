@@ -8,16 +8,16 @@
 
 ## 功能
 
-| 能力 | 通道 | 说明 |
-| --- | --- | --- |
-| [请求拦截](https://share-man-man.github.io/req-freedom/guide/features/block) | DNR | 按 URL 匹配直接阻断请求，验证降级与兜底逻辑 |
-| [重定向](https://share-man-man.github.io/req-freedom/guide/features/redirect) | DNR | 把线上接口指向本地或测试环境，支持正则捕获组替换 |
-| [参数注入](https://share-man-man.github.io/req-freedom/guide/features/inject-params) | DNR | 向命中请求的 URL 追加或覆盖查询参数 |
-| [Header 改写](https://share-man-man.github.io/req-freedom/guide/features/modify-headers) | DNR | 请求头 / 响应头的设置、追加、移除，处理鉴权与 CORS 调试 |
-| [返回值 Mock](https://share-man-man.github.io/req-freedom/guide/features/mock) | 页面补丁 | 返回静态响应体或 JavaScript 动态生成的响应，另支持 SSE 逐事件交付 |
-| [网络限速](https://share-man-man.github.io/req-freedom/guide/features/delay) | 页面补丁 | 注入人为延迟与上下行带宽限制，验证 loading 态与超时处理 |
-| [改请求体](https://share-man-man.github.io/req-freedom/guide/features/modify-request-body) | 页面补丁 | 请求发出前静态替换、JSON 深合并或动态生成请求体 |
-| [脚本注入](https://share-man-man.github.io/req-freedom/guide/features/insert-script) | 页面补丁 | 按页面 URL 注入自定义 JS / CSS，可选 `document_start` / `document_end` 时机 |
+| 能力                                                                                       | 通道     | 说明                                                                        |
+| ------------------------------------------------------------------------------------------ | -------- | --------------------------------------------------------------------------- |
+| [请求拦截](https://share-man-man.github.io/req-freedom/guide/features/block)               | DNR      | 按 URL 匹配直接阻断请求，验证降级与兜底逻辑                                 |
+| [重定向](https://share-man-man.github.io/req-freedom/guide/features/redirect)              | DNR      | 把线上接口指向本地或测试环境，支持正则捕获组替换                            |
+| [参数注入](https://share-man-man.github.io/req-freedom/guide/features/inject-params)       | DNR      | 向命中请求的 URL 追加或覆盖查询参数                                         |
+| [Header 改写](https://share-man-man.github.io/req-freedom/guide/features/modify-headers)   | DNR      | 请求头 / 响应头的设置、追加、移除，处理鉴权与 CORS 调试                     |
+| [返回值 Mock](https://share-man-man.github.io/req-freedom/guide/features/mock)             | 页面补丁 | 返回静态响应体或 JavaScript 动态生成的响应，另支持 SSE 逐事件交付           |
+| [网络限速](https://share-man-man.github.io/req-freedom/guide/features/delay)               | 页面补丁 | 注入人为延迟与上下行带宽限制，验证 loading 态与超时处理                     |
+| [改请求体](https://share-man-man.github.io/req-freedom/guide/features/modify-request-body) | 页面补丁 | 请求发出前静态替换、JSON 深合并或动态生成请求体                             |
+| [脚本注入](https://share-man-man.github.io/req-freedom/guide/features/insert-script)       | 页面补丁 | 按页面 URL 注入自定义 JS / CSS，可选 `document_start` / `document_end` 时机 |
 
 配套能力：
 
@@ -28,6 +28,13 @@
 - [模板库](https://share-man-man.github.io/req-freedom/guide/features/template-library)：解除 CORS、禁用缓存、强制 HTTPS、移动端 UA 等一键预设
 - [cURL / HAR 导入](https://share-man-man.github.io/req-freedom/guide/features/curl-har-import) 与[配置导入导出](https://share-man-man.github.io/req-freedom/guide/import-export)
 - 界面支持 10 种语言与明暗主题
+
+## 让 AI 生成配置
+
+```text
+请先阅读 ReqFreedom 配置文件协议，并按协议生成可直接导入的完整 JSON 配置：
+https://share-man-man.github.io/req-freedom/guide/configuration-format
+```
 
 ## 安装
 
