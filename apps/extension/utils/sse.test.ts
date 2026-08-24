@@ -7,6 +7,8 @@ import {
   SseEndBehavior,
 } from '@req-freedom/shared';
 import {
+  createManualMockEventSource,
+  createManualSseReadableStream,
   createMockEventSource,
   createSseReadableStream,
   formatSseEvent,
@@ -135,6 +137,62 @@ describe('createSseReadableStream', () => {
   });
 });
 
+describe('createManualSseReadableStream', () => {
+  it('收到 send 前不输出，并且每次只写入一条最新事件', async () => {
+    /** 动态变量每次解析时使用的当前值。 */
+    let currentValue = 'first';
+    /** 由测试逐条控制的 SSE 字节流。 */
+    const handle = createManualSseReadableStream((value) =>
+      value.replace('{{value}}', currentValue),
+    );
+    /** 流读取器。 */
+    const reader = handle.stream.getReader();
+    /** 首次读取是否已经完成。 */
+    let firstReadSettled = false;
+    /** 在 send 前发起、应保持挂起的首次读取。 */
+    const firstRead = reader.read().then((result) => {
+      firstReadSettled = true;
+      return result;
+    });
+
+    await Promise.resolve();
+    expect(firstReadSettled).toBe(false);
+    expect(handle.send({ data: '{{value}}', delayMs: 60_000 })).toBe(true);
+    await expect(firstRead).resolves.toMatchObject({ done: false });
+
+    currentValue = 'second';
+    expect(handle.send({ event: 'update', data: '{{value}}' })).toBe(true);
+    /** 第二次读取到的事件数据块。 */
+    const secondRead = await reader.read();
+    expect(new TextDecoder().decode(secondRead.value)).toBe(
+      'event: update\ndata: second\n\n',
+    );
+
+    expect(handle.close()).toBe(true);
+    await expect(reader.read()).resolves.toEqual({ done: true, value: undefined });
+    expect(handle.send({ data: 'late' })).toBe(false);
+  });
+
+  it('消费方取消流时只通知一次并拒绝后续写入', async () => {
+    /** 取消回调的执行次数。 */
+    let cancelCount = 0;
+    /** 带取消回调的受控流。 */
+    const handle = createManualSseReadableStream((value) => value, {
+      onCancel: () => {
+        cancelCount += 1;
+      },
+    });
+    /** 用于模拟 fetch 消费方的读取器。 */
+    const reader = handle.stream.getReader();
+
+    await reader.cancel();
+
+    expect(cancelCount).toBe(1);
+    expect(handle.send({ data: 'late' })).toBe(false);
+    expect(handle.close()).toBe(false);
+  });
+});
+
 describe('createMockEventSource', () => {
   it('派发 open、message 与自定义事件，并在发送完成后关闭', async () => {
     /** 两条事件组成的 EventSource 动作。 */
@@ -164,5 +222,72 @@ describe('createMockEventSource', () => {
 
     expect(received).toEqual(['open', 'message:hello:1', 'done:complete']);
     expect(source.readyState).toBe(source.CLOSED);
+  });
+
+  it('手动连接在 open 后只派发显式 send 的事件', async () => {
+    /** 两条事件组成、但不应自动派发的 EventSource 动作。 */
+    const action = sseAction({
+      sseEvents: [
+        { data: 'configured', delayMs: 0 },
+        { event: 'done', data: 'configured-done', delayMs: 0 },
+      ],
+    });
+    /** 实际收到的事件记录。 */
+    const received: string[] = [];
+    /** 连接关闭回调次数。 */
+    let closeCount = 0;
+    /** 被测手动 Mock EventSource 与控制句柄。 */
+    const handle = createManualMockEventSource(
+      'https://example.com/events',
+      undefined,
+      action,
+      (value) => value.replace('{{value}}', 'latest'),
+      { onClose: () => { closeCount += 1; } },
+    );
+    /** 页面可观察到的 EventSource 对象。 */
+    const source = handle.eventSource;
+    /** 等待异步 open 事件。 */
+    const opened = new Promise<void>((resolve) => source.addEventListener('open', () => resolve()));
+    source.addEventListener('message', (event) => received.push(String(event.data)));
+
+    await opened;
+    expect(received).toEqual([]);
+    expect(handle.send({ data: '{{value}}', delayMs: 60_000 })).toBe(true);
+    expect(received).toEqual(['latest']);
+    expect(handle.close()).toBe(true);
+    expect(handle.close()).toBe(false);
+    expect(closeCount).toBe(1);
+    expect(source.readyState).toBe(source.CLOSED);
+  });
+
+  it('页面在 open 监听器中同步关闭时不登记可控制会话', async () => {
+    /** 手动会话打开回调的次数。 */
+    let openCallbackCount = 0;
+    /** 手动会话关闭回调的次数。 */
+    let closeCallbackCount = 0;
+    /** 被测手动 Mock EventSource 与控制句柄。 */
+    const handle = createManualMockEventSource(
+      'https://example.com/events',
+      undefined,
+      sseAction(),
+      (value) => value,
+      {
+        onOpen: () => { openCallbackCount += 1; },
+        onClose: () => { closeCallbackCount += 1; },
+      },
+    );
+    /** open 监听器完成同步关闭后解除的等待。 */
+    const closedOnOpen = new Promise<void>((resolve) => {
+      handle.eventSource.addEventListener('open', () => {
+        handle.eventSource.close();
+        resolve();
+      });
+    });
+
+    await closedOnOpen;
+
+    expect(openCallbackCount).toBe(0);
+    expect(closeCallbackCount).toBe(1);
+    expect(handle.eventSource.readyState).toBe(handle.eventSource.CLOSED);
   });
 });

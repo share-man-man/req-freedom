@@ -4,16 +4,17 @@ ReqFreedom 配置文件使用带版本号的 JSON 协议。人或 AI 生成配�
 
 ## 协议资源
 
-- [最小 Mock 示例](https://share-man-man.github.io/req-freedom/examples/configuration-v2.mock.json)
-- [覆盖全部动作的完整示例](https://share-man-man.github.io/req-freedom/examples/configuration-v2.complete.json)
+- [最小 Mock 示例](https://share-man-man.github.io/req-freedom/examples/configuration-v3.mock.json)
+- [覆盖全部动作的完整示例](https://share-man-man.github.io/req-freedom/examples/configuration-v3.complete.json)
+- [v2 兼容示例](https://share-man-man.github.io/req-freedom/examples/configuration-v2.mock.json)
 
-当前协议版本为 `schemaVersion: 2`。未来协议结构变化时会递增版本号，不会原地改变 v2 的字段语义。
+当前导出协议版本为 `schemaVersion: 3`。v3 增加 SSE 手动单步发送配置；导入器继续接受 v2，并把缺少发送方式的 SSE 规则迁移为自动发送。未来协议结构变化时会继续递增版本号，不会原地改变旧版本字段的语义。
 
 ## 顶层结构
 
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "exportedAt": "2026-08-19T08:00:00.000Z",
   "enabled": true,
   "groups": []
@@ -22,7 +23,7 @@ ReqFreedom 配置文件使用带版本号的 JSON 协议。人或 AI 生成配�
 
 | 字段 | 必填 | 说明 |
 | --- | --- | --- |
-| `schemaVersion` | 是 | v2 固定为数字 `2` |
+| `schemaVersion` | 是 | 当前导出为数字 `3`；导入兼容 `2` |
 | `exportedAt` | 是 | ISO 8601 日期时间 |
 | `enabled` | 是 | 全局规则开关 |
 | `groups` | 是 | 按展示和匹配顺序排列的规则分组 |
@@ -110,6 +111,26 @@ ReqFreedom 配置文件使用带版本号的 JSON 协议。人或 AI 生成配�
 - `passthrough` 不能为 `true`
 - `sseEvents` 至少包含一个事件
 - `sseEndBehavior` 可为 `close`、`keep-open` 或 `loop`
+- `sseSendMode` 可为 `auto` 或 `manual`，缺省为 `auto`
+- `manual` 模式不允许搭配 `sseEndBehavior: "loop"`
+
+手动单步示例：
+
+```json
+{
+  "type": "mock-response",
+  "mode": "static",
+  "delivery": "sse",
+  "statusCode": 200,
+  "body": "",
+  "sseSendMode": "manual",
+  "sseEndBehavior": "close",
+  "sseEvents": [
+    { "event": "message", "data": "{\"step\":1}" },
+    { "event": "message", "data": "{\"step\":2}" }
+  ]
+}
+```
 
 静态响应的 `bodyType` 可为 `json`、`text`、`html`、`xml`、`javascript` 或 `css`。即使内容是 JSON，`body` 仍然是字符串，需要在外层 JSON 中转义。
 

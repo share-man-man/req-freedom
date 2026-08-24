@@ -16,6 +16,16 @@ export enum ThemeMode {
   Dark = 'dark',
 }
 
+/** 通用异步数据加载状态。 */
+export enum LoadStatus {
+  /** 正在读取数据。 */
+  Loading = 'loading',
+  /** 数据已经成功读取。 */
+  Ready = 'ready',
+  /** 数据读取失败。 */
+  Error = 'error',
+}
+
 /** 通道内可组合的动作类型；仅用于统一规则模型与执行分发。 */
 export enum RuleActionType {
   Block = 'block',
@@ -84,6 +94,54 @@ export enum SseEndBehavior {
   KeepOpen = 'keep-open',
   /** 从第一条事件开始循环发送。 */
   Loop = 'loop',
+}
+
+/** SSE Mock 的事件发送方式。 */
+export enum SseSendMode {
+  /** 按每条事件的延迟自动发送。 */
+  Auto = 'auto',
+  /** 建立连接后等待用户逐条发送。 */
+  Manual = 'manual',
+}
+
+/** 手动 SSE 调试连接的客户端类型。 */
+export enum SseDebugClient {
+  /** 由 fetch ReadableStream 消费的连接。 */
+  Fetch = 'fetch',
+  /** 由 EventSource 消费的连接。 */
+  EventSource = 'event-source',
+}
+
+/** 手动 SSE 调试连接的运行状态。 */
+export enum SseDebugSessionStatus {
+  /** 响应已建立，正在等待用户发送下一条事件。 */
+  Connected = 'connected',
+  /** 全部事件已发送，响应流已正常结束。 */
+  Completed = 'completed',
+  /** 全部预设事件已发送，响应流仍保持打开并可接收自定义事件。 */
+  KeptOpen = 'kept-open',
+  /** 用户、客户端或页面生命周期已结束连接。 */
+  Closed = 'closed',
+}
+
+/** popup 发给手动 SSE 连接的事件来源。 */
+export enum SseDebugSendKind {
+  /** 按规则中预设事件的游标发送。 */
+  Preset = 'preset',
+  /** 预设事件发完并保持连接后，发送临时自定义事件。 */
+  Custom = 'custom',
+}
+
+/** 手动 SSE 命令未执行的原因。 */
+export enum SseDebugCommandFailureReason {
+  /** 找不到指定的运行时会话。 */
+  NotFound = 'not-found',
+  /** UI 携带的事件游标已经落后于运行时状态。 */
+  StaleEventIndex = 'stale-event-index',
+  /** 命令携带的事件或结束配置不合法。 */
+  InvalidCommand = 'invalid-command',
+  /** 目标页面、私有端口或会话当前不可用。 */
+  Unavailable = 'unavailable',
 }
 
 /**

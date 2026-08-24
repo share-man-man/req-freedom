@@ -252,6 +252,9 @@
       "deliveryLabel": "响应方式",
       "deliveryBuffered": "普通响应",
       "deliverySse": "SSE 事件流",
+      "sseSendModeLabel": "发送方式",
+      "sseSendAuto": "自动发送",
+      "sseSendManual": "手动单步",
       "sseEndBehaviorLabel": "发送完成后",
       "sseEndClose": "关闭连接",
       "sseEndKeepOpen": "保持连接",
@@ -270,7 +273,8 @@
       "sseEventId": "事件 ID（可选）",
       "sseRetryMs": "重连间隔 ms",
       "sseDelayMs": "发送前延迟 ms（默认 {{defaultDelayMs}}）",
-      "sseHint": "事件按顺序以 UTF-8 流式发送；data 支持多行及动态变量。原生 EventSource 与 fetch 流均可命中。"
+      "sseHint": "事件按顺序以 UTF-8 流式发送；data 支持多行及动态变量。原生 EventSource 与 fetch 流均可命中。",
+      "sseManualHint": "手动模式忽略每条事件的发送前延迟；规则命中后在扩展 popup 中点击“下一条”逐条发送已保存事件，发送时解析动态变量。"
     },
     "delayActionEditor": {
       "preset": "网络档位",
@@ -422,7 +426,18 @@
     "ruleMatched": "该规则在本页命中过",
     "hitsTruncated": "仅显示最近的命中记录，更早的已丢弃。",
     "hitSummaryUnavailable": "规则命中统计加载失败。",
-    "retry": "重试"
+    "retry": "重试",
+    "sseWaiting": "等待连接",
+    "sseSending": "发送中",
+    "sseSendNext": "下一条",
+    "sseSendCustom": "发送",
+    "sseCompleted": "已发完",
+    "sseSendNextAriaLabel": "发送下一条 SSE 事件",
+    "sseSendFailed": "发送失败，连接可能已失效，请重试。",
+    "sseToggleConnections": "展开或收起 SSE 连接",
+    "sseSentProgress": "已发送 {{sent}} / {{total}}",
+    "sseMessageInput": "下一条 SSE 消息",
+    "sseCustomMessageInput": "输入自定义 SSE 消息"
   },
   "dynamicVariableHint": {
     "title": "查看可用的动态变量",

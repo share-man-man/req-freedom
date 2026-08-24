@@ -3,6 +3,10 @@ window.__REQ_FREEDOM_LAB__ = window.__REQ_FREEDOM_LAB__ ?? '页面默认值';
 
 /** 请求日志的最大保留条数，避免长时间测试导致页面无限增长。 */
 const MAX_LOG_ITEMS = 30;
+/** SSE 卡片最多保留的事件条数，避免重复调试时列表无限增长。 */
+const MAX_SSE_EVENT_ITEMS = 50;
+/** 手动 SSE Mock 规则命中的固定请求路径。 */
+const MANUAL_SSE_PATH = './api/manual-sse';
 /** 用于上行带宽测试的 JSON 请求体大小（字符数近似字节数）。 */
 const UPLOAD_PAYLOAD_SIZE = 16 * 1024;
 /**
@@ -52,6 +56,14 @@ const CARD_TEST_BY_ACTION = {
 };
 /** 跨域验证服务的基地址，由 /api/config 在初始化时下发。 */
 let crossOriginBaseUrl = '';
+/** 当前仍在读取的 Fetch SSE 请求控制器。 */
+let sseFetchAbortController = null;
+/** 当前 Fetch SSE 响应体的读取器，用于停止时取消自定义 Mock 流。 */
+let sseFetchReader = null;
+/** 当前仍保持打开的 EventSource 实例。 */
+let sseEventSource = null;
+/** 本次页面会话累计收到的 SSE 事件数量。 */
+let sseReceivedEventCount = 0;
 
 /** 请求日志所在的 DOM 容器。 */
 const logList = document.querySelector('#log-list');
@@ -65,6 +77,25 @@ const injectionValue = document.querySelector('#injection-value');
 const assetPreview = document.querySelector('#asset-preview');
 /** 跨域卡片上用于展示实际跨域地址的元素。 */
 const crossOriginBaseElement = document.querySelector('#cors-base');
+/** Fetch SSE 启动按钮。 */
+const sseFetchStartButton = document.querySelector('#sse-fetch-start');
+/** Fetch SSE 停止按钮。 */
+const sseFetchStopButton = document.querySelector('#sse-fetch-stop');
+/** EventSource 启动按钮。 */
+const sseEventSourceStartButton = document.querySelector('#sse-event-source-start');
+/** EventSource 停止按钮。 */
+const sseEventSourceStopButton = document.querySelector('#sse-event-source-stop');
+/** SSE 事件逐条展示列表。 */
+const sseEventList = document.querySelector('#sse-event-list');
+/** SSE 累计事件数量展示元素。 */
+const sseEventCount = document.querySelector('#sse-event-count');
+
+/**
+ * @typedef {Object} ParsedSseEvent
+ * @property {string} event SSE 事件类型。
+ * @property {string} data 合并多行后的事件数据。
+ * @property {string} id 事件 ID；未提供时为空字符串。
+ */
 
 /**
  * 获取当前页面所在目录对应的 API 资源 URL。
@@ -100,6 +131,315 @@ async function loadLabConfig() {
  */
 function getCrossOriginUrl(path) {
   return crossOriginBaseUrl ? `${crossOriginBaseUrl}${path}` : '';
+}
+
+/**
+ * 更新指定 SSE 客户端的连接状态文案。
+ * @param {'fetch' | 'event-source'} client 要更新的客户端。
+ * @param {'idle' | 'connecting' | 'connected' | 'error'} state 状态对应的视觉样式。
+ * @param {string} text 用户可见的状态文案。
+ * @returns {void}
+ */
+function setSseClientStatus(client, state, text) {
+  /** 当前客户端对应的状态元素。 */
+  const status = document.querySelector(`[data-sse-client-status="${client}"]`);
+  if (!status) return;
+  status.dataset.state = state;
+  status.textContent = text;
+}
+
+/**
+ * 根据两路 SSE 客户端的活动状态切换启停按钮。
+ * @returns {void}
+ */
+function updateSseControlButtons() {
+  /** Fetch 流是否仍由页面持有。 */
+  const isFetchActive = sseFetchAbortController !== null;
+  /** EventSource 是否仍由页面持有。 */
+  const isEventSourceActive = sseEventSource !== null;
+  sseFetchStartButton.disabled = isFetchActive;
+  sseFetchStopButton.disabled = !isFetchActive;
+  sseEventSourceStartButton.disabled = isEventSourceActive;
+  sseEventSourceStopButton.disabled = !isEventSourceActive;
+}
+
+/**
+ * 将一条收到的 SSE 事件追加到卡片中。
+ * @param {'Fetch stream' | 'EventSource'} client 事件来源客户端。
+ * @param {ParsedSseEvent} event 解析后的事件。
+ * @returns {void}
+ */
+function appendSseEvent(client, event) {
+  /** 初始空状态元素。 */
+  const emptyState = sseEventList.querySelector('[data-sse-event-empty]');
+  emptyState?.remove();
+  sseReceivedEventCount += 1;
+
+  /** 新事件的列表项。 */
+  const item = document.createElement('li');
+  /** 事件来源、类型和 ID 元信息。 */
+  const meta = document.createElement('div');
+  /** 事件数据正文。 */
+  const data = document.createElement('div');
+  /** 当前事件来源对应的接收时间展示元素。 */
+  const receivedTime = document.querySelector(
+    `[data-sse-received-time="${client === 'Fetch stream' ? 'fetch' : 'event-source'}"]`,
+  );
+  /** 当前事件到达页面的时间。 */
+  const receivedAt = new Date();
+  item.className = 'sse-event-item';
+  meta.className = 'sse-event-meta';
+  data.className = 'sse-event-data';
+  meta.textContent = `#${sseReceivedEventCount} · ${client} · ${event.event}${event.id ? ` · id ${event.id}` : ''}`;
+  data.textContent = event.data || '(空 data)';
+  if (receivedTime) {
+    receivedTime.textContent = receivedAt.toLocaleTimeString('zh-CN', { hour12: false });
+    receivedTime.setAttribute('datetime', receivedAt.toISOString());
+  }
+  item.append(meta, data);
+  sseEventList.append(item);
+  while (sseEventList.children.length > MAX_SSE_EVENT_ITEMS) {
+    sseEventList.firstElementChild?.remove();
+  }
+  sseEventCount.textContent = `${sseReceivedEventCount} 条`;
+  item.scrollIntoView({ block: 'nearest' });
+}
+
+/**
+ * 解析一段以空行分隔的 SSE 协议块。
+ * @param {string} block 单条事件的原始协议文本。
+ * @returns {ParsedSseEvent | null} 可展示的事件；只有注释或控制字段时返回 null。
+ */
+function parseSseEventBlock(block) {
+  /** 协议块中的每一行。 */
+  const lines = block.split(/\r?\n/);
+  /** data 字段的多行内容。 */
+  const dataLines = [];
+  /** 事件类型，协议缺省值为 message。 */
+  let eventType = 'message';
+  /** 事件 ID，未提供时保持为空。 */
+  let eventId = '';
+  /** 是否至少读取到一个 data 字段。 */
+  let hasData = false;
+
+  // 逐行读取协议字段；冒号开头的心跳注释直接忽略
+  for (const line of lines) {
+    if (!line || line.startsWith(':')) continue;
+    /** 当前行第一个冒号的位置。 */
+    const colonIndex = line.indexOf(':');
+    /** 当前协议字段名。 */
+    const field = colonIndex === -1 ? line : line.slice(0, colonIndex);
+    /** 当前协议字段值；规范允许冒号后有一个可选空格。 */
+    const rawValue = colonIndex === -1 ? '' : line.slice(colonIndex + 1);
+    /** 去掉协议可选前导空格后的字段值。 */
+    const value = rawValue.startsWith(' ') ? rawValue.slice(1) : rawValue;
+    if (field === 'data') {
+      hasData = true;
+      dataLines.push(value);
+    } else if (field === 'event') {
+      eventType = value || 'message';
+    } else if (field === 'id' && !value.includes('\0')) {
+      eventId = value;
+    }
+  }
+
+  if (!hasData) return null;
+  return { event: eventType, data: dataLines.join('\n'), id: eventId };
+}
+
+/**
+ * 从累计文本中拆出下一段完整 SSE 事件。
+ * @param {string} buffer 尚未解析的流文本。
+ * @returns {{block: string, rest: string} | null} 拆出的协议块与剩余文本。
+ */
+function takeNextSseEventBlock(buffer) {
+  /** SSE 事件结尾的空行分隔符。 */
+  const boundary = /\r?\n\r?\n/.exec(buffer);
+  if (!boundary || boundary.index === undefined) return null;
+  /** 分隔符结束后的剩余文本起点。 */
+  const restIndex = boundary.index + boundary[0].length;
+  return { block: buffer.slice(0, boundary.index), rest: buffer.slice(restIndex) };
+}
+
+/**
+ * 通过 Fetch + ReadableStream 建立手动 SSE 连接并持续读取事件。
+ * @returns {Promise<void>} 流结束、被停止或请求失败后完成。
+ */
+async function startSseFetch() {
+  if (sseFetchAbortController) return;
+  /** 只控制本次 Fetch 流的中止器。 */
+  const abortController = new AbortController();
+  sseFetchAbortController = abortController;
+  setSseClientStatus('fetch', 'connecting', '连接中…');
+  updateSseControlButtons();
+
+  try {
+    /** 命中手动 SSE Mock 规则的请求地址。 */
+    const url = getApiUrl(MANUAL_SSE_PATH);
+    /** 由页面补丁返回的 SSE 响应。 */
+    const response = await fetch(url, {
+      headers: { Accept: 'text/event-stream' },
+      signal: abortController.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    if (!response.body) {
+      throw new Error('响应没有可读取的流');
+    }
+    if (sseFetchAbortController !== abortController) {
+      // 页面在 Mock Response 建立前已停止时，主动取消其响应体以释放扩展侧会话
+      await response.body.cancel().catch(() => undefined);
+      return;
+    }
+    setSseClientStatus('fetch', 'connected', '已连接，等待发送');
+
+    /** SSE 响应体的字节读取器。 */
+    const reader = response.body.getReader();
+    sseFetchReader = reader;
+    /** 按 UTF-8 增量解码 SSE 字节。 */
+    const decoder = new TextDecoder();
+    /** 跨网络分块保留的未解析文本。 */
+    let pendingText = '';
+    try {
+      while (true) {
+        /** 本次从 ReadableStream 读取的结果。 */
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        pendingText += decoder.decode(chunk.value, { stream: true });
+        /** 当前可从缓存中拆出的完整事件块。 */
+        let nextBlock = takeNextSseEventBlock(pendingText);
+        while (nextBlock) {
+          /** 完整协议块解析出的事件。 */
+          const parsedEvent = parseSseEventBlock(nextBlock.block);
+          if (parsedEvent) {
+            appendSseEvent('Fetch stream', parsedEvent);
+          }
+          pendingText = nextBlock.rest;
+          nextBlock = takeNextSseEventBlock(pendingText);
+        }
+      }
+      pendingText += decoder.decode();
+      if (pendingText.trim()) {
+        /** 流末尾没有空行时尽量保留的最后一条事件。 */
+        const trailingEvent = parseSseEventBlock(pendingText);
+        if (trailingEvent) {
+          appendSseEvent('Fetch stream', trailingEvent);
+        }
+      }
+    } finally {
+      if (sseFetchReader === reader) {
+        sseFetchReader = null;
+      }
+      reader.releaseLock();
+    }
+    if (sseFetchAbortController === abortController) {
+      setSseClientStatus('fetch', 'idle', '连接已结束');
+    }
+  } catch (error) {
+    if (sseFetchAbortController !== abortController) return;
+    /** 本次读取失败是否来自用户主动停止。 */
+    const aborted = error instanceof DOMException && error.name === 'AbortError';
+    setSseClientStatus(
+      'fetch',
+      aborted ? 'idle' : 'error',
+      aborted ? '已停止' : `失败：${error instanceof Error ? error.message : String(error)}`,
+    );
+  } finally {
+    if (sseFetchAbortController === abortController) {
+      sseFetchAbortController = null;
+      updateSseControlButtons();
+    }
+  }
+}
+
+/**
+ * 停止当前 Fetch SSE 流。
+ * @returns {void}
+ */
+function stopSseFetch() {
+  /** 当前仍由页面持有的 Fetch 中止器。 */
+  const abortController = sseFetchAbortController;
+  if (!abortController) return;
+  /** 当前自定义 SSE 响应流的读取器。 */
+  const reader = sseFetchReader;
+  sseFetchAbortController = null;
+  sseFetchReader = null;
+  // 自定义 Response 在 fetch 已返回后不会继续响应 AbortSignal，需直接取消读取器
+  void reader?.cancel().catch(() => {});
+  abortController.abort();
+  setSseClientStatus('fetch', 'idle', '已停止');
+  updateSseControlButtons();
+}
+
+/**
+ * 通过原生 EventSource 接口建立手动 SSE 连接。
+ * @returns {void}
+ */
+function startSseEventSource() {
+  if (sseEventSource) return;
+  /** 命中手动 SSE Mock 规则的 EventSource。 */
+  const source = new EventSource(getApiUrl(MANUAL_SSE_PATH));
+  sseEventSource = source;
+  setSseClientStatus('event-source', 'connecting', '连接中…');
+  updateSseControlButtons();
+
+  source.addEventListener('open', () => {
+    if (sseEventSource !== source) return;
+    setSseClientStatus('event-source', 'connected', '已连接，等待发送');
+  });
+  source.addEventListener('message', (event) => {
+    if (sseEventSource !== source) return;
+    /** EventSource 派发的标准消息事件。 */
+    const message = /** @type {MessageEvent} */ (event);
+    appendSseEvent('EventSource', {
+      event: message.type,
+      data: String(message.data),
+      id: message.lastEventId,
+    });
+  });
+  source.addEventListener('error', () => {
+    if (sseEventSource !== source) return;
+    /** 浏览器是否已确认该 EventSource 不会继续重连。 */
+    const closed = source.readyState === EventSource.CLOSED;
+    setSseClientStatus(
+      'event-source',
+      closed ? 'idle' : 'error',
+      closed ? '连接已结束' : '连接异常，等待重连…',
+    );
+    if (closed) {
+      sseEventSource = null;
+      updateSseControlButtons();
+    }
+  });
+}
+
+/**
+ * 停止当前 EventSource 连接。
+ * @returns {void}
+ */
+function stopSseEventSource() {
+  /** 当前仍由页面持有的 EventSource。 */
+  const source = sseEventSource;
+  if (!source) return;
+  sseEventSource = null;
+  source.close();
+  setSseClientStatus('event-source', 'idle', '已停止');
+  updateSseControlButtons();
+}
+
+/**
+ * 注册 SSE 卡片的独立启停操作。
+ *
+ * 这些按钮刻意不使用 data-action，因此不会被“运行全部请求”的通用队列收集。
+ * @returns {void}
+ */
+function initializeSseControls() {
+  sseFetchStartButton.addEventListener('click', () => void startSseFetch());
+  sseFetchStopButton.addEventListener('click', stopSseFetch);
+  sseEventSourceStartButton.addEventListener('click', startSseEventSource);
+  sseEventSourceStopButton.addEventListener('click', stopSseEventSource);
+  updateSseControlButtons();
 }
 
 /**
@@ -544,6 +884,7 @@ function initializeLab() {
   locationElement.textContent = window.location.href;
   void loadLabConfig();
   initializeCardRunStates();
+  initializeSseControls();
   injectionValue.textContent = `window.__REQ_FREEDOM_LAB__ = ${String(window.__REQ_FREEDOM_LAB__)}`;
   document.querySelectorAll('[data-action]').forEach((element) => {
     /** 已确认是 HTML 按钮的测试操作元素。 */

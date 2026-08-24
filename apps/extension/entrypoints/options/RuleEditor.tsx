@@ -17,7 +17,6 @@ import {
   DEFAULT_NETWORK_THROTTLE_PRESET,
   DEFAULT_PASSTHROUGH_MOCK_FUNCTION_CODE,
   DEFAULT_REQUEST_BODY_SOURCE_MODE,
-  DEFAULT_SSE_EVENT_DELAY_MS,
   HeaderOperation,
   HeaderTarget,
   HttpMethod,
@@ -38,10 +37,12 @@ import {
   RuleExecutionChannel,
   RuleScopeType,
   SseEndBehavior,
+  SseSendMode,
 } from '@req-freedom/shared';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { SseEventFields } from '@/components/sse-event-fields';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
@@ -684,7 +685,6 @@ export default function RuleEditor({
     ...(supportsBodyMatch && draft.bodyMatch ? [t('ruleEditor.bodyMatchLabel')] : []),
     ...(draft.scope ? [labels.RULE_SCOPE_TYPE_LABELS[draft.scope.type]] : []),
   ].join(' · ');
-
   return <div className={embedded ? 'min-w-0' : 'flex max-h-[82vh] min-h-0 flex-1 flex-col overflow-hidden'}>
     {!embedded && <DialogHeader><DialogTitle>{isNew ? t('ruleEditor.titleNew') : t('ruleEditor.titleEdit')}</DialogTitle></DialogHeader>}
     <div className={embedded ? 'space-y-6 px-4 py-4' : 'min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-5'}>
@@ -1315,6 +1315,8 @@ function MockActionEditor({ action, onChange }: { action: Extract<RuleAction, { 
   const isPassthrough = action.passthrough === true;
   /** 当前响应是否以 SSE 事件流方式交付。 */
   const isSse = action.delivery === MockResponseDelivery.Sse;
+  /** SSE 事件的发送方式；缺省自动发送以兼容已有规则。 */
+  const sseSendMode = action.sseSendMode ?? SseSendMode.Auto;
   /** SSE 事件发送完毕后的行为。 */
   const sseEndBehavior = action.sseEndBehavior ?? SseEndBehavior.Close;
   /** SSE 编辑器使用的事件列表。 */
@@ -1358,6 +1360,7 @@ function MockActionEditor({ action, onChange }: { action: Extract<RuleAction, { 
         mode: MockResponseMode.Static,
         statusCode: 200,
         passthrough: undefined,
+        sseSendMode: action.sseSendMode ?? SseSendMode.Auto,
         sseEndBehavior: action.sseEndBehavior ?? SseEndBehavior.Close,
         sseEvents: action.sseEvents?.length
           ? action.sseEvents
@@ -1369,18 +1372,40 @@ function MockActionEditor({ action, onChange }: { action: Extract<RuleAction, { 
       ...action,
       delivery,
       sseEvents: undefined,
+      sseSendMode: undefined,
       sseEndBehavior: undefined,
     });
   };
+  /**
+   * 切换 SSE 事件的发送方式。
+   * @param value 目标发送方式
+   */
+  const changeSseSendMode = (value: string): void => {
+    /** 切换后的发送方式。 */
+    const nextSendMode = value as SseSendMode;
+    // 手动模式第一版不支持循环；进入手动模式时把已有循环配置收敛为正常关闭。
+    onChange({
+      ...action,
+      sseSendMode: nextSendMode,
+      sseEndBehavior:
+        nextSendMode === SseSendMode.Manual && sseEndBehavior === SseEndBehavior.Loop
+          ? SseEndBehavior.Close
+          : sseEndBehavior,
+    });
+  };
   return <div className="space-y-3">
-    <div className={`grid gap-3 ${isSse ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-3'}`}>
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       <div className="space-y-1">
         <Label className="text-xs text-muted-foreground" htmlFor="mock-delivery">{t('ruleEditor.mockActionEditor.deliveryLabel')}</Label>
         <Select value={action.delivery ?? DEFAULT_MOCK_RESPONSE_DELIVERY} onValueChange={changeDelivery}><SelectTrigger id="mock-delivery"><SelectValue /></SelectTrigger><SelectContent><SelectItem value={MockResponseDelivery.Buffered}>{t('ruleEditor.mockActionEditor.deliveryBuffered')}</SelectItem><SelectItem value={MockResponseDelivery.Sse}>{t('ruleEditor.mockActionEditor.deliverySse')}</SelectItem></SelectContent></Select>
       </div>
       {isSse && <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground" htmlFor="sse-send-mode">{t('ruleEditor.mockActionEditor.sseSendModeLabel')}</Label>
+        <Select value={sseSendMode} onValueChange={changeSseSendMode}><SelectTrigger id="sse-send-mode"><SelectValue /></SelectTrigger><SelectContent><SelectItem value={SseSendMode.Auto}>{t('ruleEditor.mockActionEditor.sseSendAuto')}</SelectItem><SelectItem value={SseSendMode.Manual}>{t('ruleEditor.mockActionEditor.sseSendManual')}</SelectItem></SelectContent></Select>
+      </div>}
+      {isSse && <div className="space-y-1">
         <Label className="text-xs text-muted-foreground" htmlFor="sse-end-behavior">{t('ruleEditor.mockActionEditor.sseEndBehaviorLabel')}</Label>
-        <Select value={sseEndBehavior} onValueChange={(value) => onChange({ ...action, sseEndBehavior: value as SseEndBehavior })}><SelectTrigger id="sse-end-behavior"><SelectValue /></SelectTrigger><SelectContent><SelectItem value={SseEndBehavior.Close}>{t('ruleEditor.mockActionEditor.sseEndClose')}</SelectItem><SelectItem value={SseEndBehavior.KeepOpen}>{t('ruleEditor.mockActionEditor.sseEndKeepOpen')}</SelectItem><SelectItem value={SseEndBehavior.Loop}>{t('ruleEditor.mockActionEditor.sseEndLoop')}</SelectItem></SelectContent></Select>
+        <Select value={sseEndBehavior} onValueChange={(value) => onChange({ ...action, sseEndBehavior: value as SseEndBehavior })}><SelectTrigger id="sse-end-behavior"><SelectValue /></SelectTrigger><SelectContent><SelectItem value={SseEndBehavior.Close}>{t('ruleEditor.mockActionEditor.sseEndClose')}</SelectItem><SelectItem value={SseEndBehavior.KeepOpen}>{t('ruleEditor.mockActionEditor.sseEndKeepOpen')}</SelectItem>{sseSendMode === SseSendMode.Auto && <SelectItem value={SseEndBehavior.Loop}>{t('ruleEditor.mockActionEditor.sseEndLoop')}</SelectItem>}</SelectContent></Select>
       </div>}
       {!isSse && <div className="space-y-1">
         <Label className="text-xs text-muted-foreground" htmlFor="mock-mode">{t('ruleEditor.mockActionEditor.modeLabel')}</Label>
@@ -1404,6 +1429,7 @@ function MockActionEditor({ action, onChange }: { action: Extract<RuleAction, { 
     {isSse
       ? <SseEventsEditor
           events={sseEvents}
+          sendMode={sseSendMode}
           onEventsChange={(sseEvents) => onChange({ ...action, sseEvents })}
         />
       : <CodeEditor
@@ -1426,30 +1452,20 @@ function MockActionEditor({ action, onChange }: { action: Extract<RuleAction, { 
 interface SseEventsEditorProps {
   /** 按发送顺序排列的 SSE 事件。 */
   events: SseEvent[];
+  /** 当前 SSE 事件发送方式。 */
+  sendMode: SseSendMode;
   /** 事件列表变化回调。 */
   onEventsChange: (events: SseEvent[]) => void;
-}
-
-/**
- * 把数字输入框的字符串值收敛为可选的非负数。
- * @param value 输入框原值
- * @returns 空值或非法值返回 undefined，其余返回非负数
- */
-function parseOptionalNonNegativeNumber(value: string): number | undefined {
-  if (value === '') {
-    return undefined;
-  }
-  /** 输入框解析出的数值。 */
-  const numberValue = Number(value);
-  return Number.isFinite(numberValue) ? Math.max(0, numberValue) : undefined;
 }
 
 /**
  * SSE 事件序列编辑器。
  * @param props 事件列表、结束行为及其变更回调
  */
-function SseEventsEditor({ events, onEventsChange }: SseEventsEditorProps) {
+function SseEventsEditor({ events, sendMode, onEventsChange }: SseEventsEditorProps) {
   const { t } = useTranslation();
+  /** 当前是否启用手动单步发送。 */
+  const isManual = sendMode === SseSendMode.Manual;
   /** 当前处于折叠状态的事件下标。 */
   const [collapsedEventIndexes, setCollapsedEventIndexes] = useState<Set<number>>(() => new Set());
   /** 批量导入对话框是否打开。 */
@@ -1539,23 +1555,22 @@ function SseEventsEditor({ events, onEventsChange }: SseEventsEditorProps) {
         <div className="flex items-center gap-1.5 px-1.5 py-1">
           <button type="button" className="flex min-w-0 flex-1 items-center gap-1.5 rounded-sm px-0.5 py-0.5 text-left hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-expanded={!collapsed} aria-controls={contentId} onClick={() => toggleEvent(index)}>
             <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform ${collapsed ? '-rotate-90' : ''}`} />
-            <span className="truncate text-xs font-medium">{t('ruleEditor.mockActionEditor.sseEventTitle', { index: index + 1 })}</span>
+            <span className="truncate text-xs font-medium">{t('ruleEditor.mockActionEditor.sseEventTitle', { index: index + 1 })}{event.event ? ` · ${event.event}` : ''}</span>
           </button>
           <Button type="button" size="xs" className="size-7 shrink-0 p-0" variant="ghost" aria-label={t('ruleEditor.mockActionEditor.sseRemoveEvent')} disabled={events.length <= 1} onClick={() => removeEvent(index)}><Trash2 className="size-3.5" /></Button>
         </div>
         {!collapsed && <div id={contentId} className="space-y-1.5 border-t border-border p-2">
-          <div className="grid grid-cols-2 gap-1.5">
-            <Input value={event.event ?? ''} aria-label={t('ruleEditor.mockActionEditor.sseEventName')} placeholder={t('ruleEditor.mockActionEditor.sseEventName')} onChange={(changeEvent) => updateEvent(index, { event: changeEvent.target.value || undefined })} />
-            <Input value={event.id ?? ''} aria-label={t('ruleEditor.mockActionEditor.sseEventId')} placeholder={t('ruleEditor.mockActionEditor.sseEventId')} onChange={(changeEvent) => updateEvent(index, { id: changeEvent.target.value || undefined })} />
-            <Input type="number" min={0} value={event.retryMs ?? ''} aria-label={t('ruleEditor.mockActionEditor.sseRetryMs')} placeholder={t('ruleEditor.mockActionEditor.sseRetryMs')} onChange={(changeEvent) => updateEvent(index, { retryMs: parseOptionalNonNegativeNumber(changeEvent.target.value) })} />
-            <Input type="number" min={0} value={event.delayMs ?? ''} aria-label={t('ruleEditor.mockActionEditor.sseDelayMs')} placeholder={t('ruleEditor.mockActionEditor.sseDelayMs', { defaultDelayMs: DEFAULT_SSE_EVENT_DELAY_MS })} onChange={(changeEvent) => updateEvent(index, { delayMs: parseOptionalNonNegativeNumber(changeEvent.target.value) })} />
-          </div>
+          <SseEventFields
+            value={event}
+            showDelay={!isManual}
+            onChange={(patch) => updateEvent(index, patch)}
+          />
           <CodeEditor language="text" value={event.data} onChange={(data) => updateEvent(index, { data })} headerStart={<span className="px-1 text-[11px] font-medium text-muted-foreground">data</span>} headerEnd={<DynamicVariableHint />} />
         </div>}
       </div>;
     })}
     <Button type="button" className="w-full" size="sm" variant="outline" onClick={appendEvent}>{t('ruleEditor.mockActionEditor.sseAddEvent')}</Button>
-    <p className="text-xs text-muted-foreground">{t('ruleEditor.mockActionEditor.sseHint')}</p>
+    <p className="text-xs text-muted-foreground">{t(isManual ? 'ruleEditor.mockActionEditor.sseManualHint' : 'ruleEditor.mockActionEditor.sseHint')}</p>
     <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>

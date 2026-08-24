@@ -1,15 +1,25 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { browser } from 'wxt/browser';
 import { AlertTriangle, CheckCircle2, ChevronDown, CircleSlash, Settings2, Target } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { DnrRegistrationIssues, RuleGroup, RuleHitSummary } from '@req-freedom/shared';
-import { RuleHitSkipReason } from '@req-freedom/shared';
+import type { DnrRegistrationIssues, MockResponseAction, RuleGroup, RuleHitSummary, SseDebugSession, SseEvent } from '@req-freedom/shared';
+import { LoadStatus, RuleHitSkipReason } from '@req-freedom/shared';
 import {
   RUNTIME_MSG_CLEAR_RULE_HITS,
   RUNTIME_MSG_GET_RULE_HIT_SUMMARY,
 } from '@req-freedom/shared';
 import { collectActiveRules } from '@req-freedom/core';
 import { getLabels } from '@/utils/labels';
+import {
+  createSseSendNextCommand,
+  getManualSseMockAction,
+  listVisibleSseDebugSessions,
+} from '@/utils/sse-debug';
+import {
+  listSseDebugSessions,
+  sendNextSseDebugSession,
+  subscribeSseDebugSessions,
+} from '@/utils/sse-debug-client';
 import {
   getDnrIssues,
   getEnabled,
@@ -25,6 +35,7 @@ import { Button } from '@/components/ui/button';
 import { HoverHint } from '@/components/ui/hover-hint';
 import { Switch } from '@/components/ui/switch';
 import { LogoMark } from '@/components/logo-mark';
+import { SseConnectionList } from './SseConnectionList';
 
 /**
  * 判断分组在 popup 打开时是否应默认折叠。
@@ -53,6 +64,8 @@ export default function App() {
   const [groups, setGroups] = useState<RuleGroup[]>([]);
   /** 已折叠的分组 ID 集合，初值按 shouldCollapseByDefault 计算，仅保留在当前弹窗会话中 */
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
+  /** 当前 popup 会话中已展开连接列表的手动 SSE 规则 ID。 */
+  const [expandedSseRuleIds, setExpandedSseRuleIds] = useState<Set<string>>(new Set());
   /** 当前页面命中过的业务规则 ID，已按规则去重。 */
   const [hitRuleIds, setHitRuleIds] = useState<string[]>([]);
   /** 本页匹配上、但一次都没能应用的规则及其原因。 */
@@ -64,18 +77,41 @@ export default function App() {
   /** 各规则的 DNR 注册失败记录，用于标出「规则没生效」而非「没命中」。 */
   const [dnrIssues, setDnrIssues] = useState<DnrRegistrationIssues>({});
   /** 命中摘要的加载状态，用于区分“零命中”和“读取失败”。 */
-  const [hitSummaryStatus, setHitSummaryStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [hitSummaryStatus, setHitSummaryStatus] = useState<LoadStatus>(LoadStatus.Loading);
+  /** 当前标签页 bridge 保存的 SSE 调试连接快照。 */
+  const [sseDebugSessions, setSseDebugSessions] = useState<SseDebugSession[]>([]);
+  /** SSE 会话快照的读取状态，避免读取失败被误显示成“等待连接”。 */
+  const [sseDebugSessionStatus, setSseDebugSessionStatus] = useState<LoadStatus>(LoadStatus.Loading);
+  /** 当前正在执行单步发送的会话 ID。 */
+  const [pendingSseSessionId, setPendingSseSessionId] = useState<string | null>(null);
+  /** 最近一次单步命令失败的会话 ID，用于精确标出对应连接。 */
+  const [failedSseSessionId, setFailedSseSessionId] = useState<string | null>(null);
+
+  /**
+   * 从当前标签页 bridge 重新读取 SSE 调试会话。
+   * @param tabId popup 当前关联的标签页 ID
+   */
+  const loadSseDebugSessions = useCallback(async (tabId: number): Promise<void> => {
+    setSseDebugSessionStatus(LoadStatus.Loading);
+    try {
+      setSseDebugSessions(await listSseDebugSessions(tabId));
+      setSseDebugSessionStatus(LoadStatus.Ready);
+    } catch {
+      setSseDebugSessions([]);
+      setSseDebugSessionStatus(LoadStatus.Error);
+    }
+  }, []);
 
   /**
    * 读取当前活动标签页的命中摘要。
    */
   const loadRuleHitSummary = async (): Promise<void> => {
-    setHitSummaryStatus('loading');
+    setHitSummaryStatus(LoadStatus.Loading);
     try {
       /** popup 当前关联的活动标签页。 */
       const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true });
       if (activeTab?.id === undefined) {
-        setHitSummaryStatus('error');
+        setHitSummaryStatus(LoadStatus.Error);
         return;
       }
       setActiveTabId(activeTab.id);
@@ -85,15 +121,15 @@ export default function App() {
         tabId: activeTab.id,
       })) as RuleHitSummary | undefined;
       if (!summary) {
-        setHitSummaryStatus('error');
+        setHitSummaryStatus(LoadStatus.Error);
         return;
       }
       setHitRuleIds(summary.ruleIds);
       setSkippedRuleIds(summary.skippedRuleIds);
       setHitsTruncated(summary.truncated);
-      setHitSummaryStatus('ready');
+      setHitSummaryStatus(LoadStatus.Ready);
     } catch {
-      setHitSummaryStatus('error');
+      setHitSummaryStatus(LoadStatus.Error);
     }
   };
 
@@ -114,6 +150,15 @@ export default function App() {
       setHitsTruncated(summary.truncated);
     });
   }, [activeTabId]);
+
+  // 当前页面连接建立或游标变化后，根据 bridge 通知刷新页面内快照。
+  useEffect(() => {
+    if (activeTabId === null) {
+      return undefined;
+    }
+    void loadSseDebugSessions(activeTabId);
+    return subscribeSseDebugSessions(() => void loadSseDebugSessions(activeTabId));
+  }, [activeTabId, loadSseDebugSessions]);
 
   // 初始加载 storage 中的开关与分组
   useEffect(() => {
@@ -154,7 +199,7 @@ export default function App() {
       setSkippedRuleIds({});
       setHitsTruncated(false);
     } catch {
-      setHitSummaryStatus('error');
+      setHitSummaryStatus(LoadStatus.Error);
     }
   };
 
@@ -214,6 +259,55 @@ export default function App() {
       })),
       ownerGroupId ? [ownerGroupId] : [],
     );
+  };
+
+  /**
+   * 向用户选择的连接发送下一条事件，并使用输入框中的临时事件字段。
+   * @param action 规则中已保存的手动 SSE Mock 动作
+   * @param session 用户明确选择的目标连接
+   * @param event 用户在 popup 中确认或修改后的事件快照
+   */
+  const handleSendNextSse = async (
+    action: MockResponseAction,
+    session: SseDebugSession,
+    event: SseEvent,
+  ): Promise<void> => {
+    /** 根据最新会话游标生成的单步命令。 */
+    const command = createSseSendNextCommand(action, session, event);
+    if (!command || activeTabId === null) {
+      return;
+    }
+    setPendingSseSessionId(session.id);
+    setFailedSseSessionId(null);
+    try {
+      /** 命令成功后由 bridge 返回的最新会话。 */
+      const updatedSession = await sendNextSseDebugSession(activeTabId, command);
+      setSseDebugSessions((currentSessions) => currentSessions.map((currentSession) =>
+        currentSession.id === updatedSession.id ? updatedSession : currentSession,
+      ));
+    } catch {
+      setFailedSseSessionId(session.id);
+      await loadSseDebugSessions(activeTabId);
+    } finally {
+      setPendingSseSessionId(null);
+    }
+  };
+
+  /**
+   * 展开或收起一条手动 SSE 规则的连接列表。
+   * @param ruleId 要切换的业务规则 ID
+   */
+  const handleToggleSseRule = (ruleId: string): void => {
+    setExpandedSseRuleIds((currentRuleIds) => {
+      /** 切换后的展开规则 ID 集合。 */
+      const nextRuleIds = new Set(currentRuleIds);
+      if (nextRuleIds.has(ruleId)) {
+        nextRuleIds.delete(ruleId);
+      } else {
+        nextRuleIds.add(ruleId);
+      }
+      return nextRuleIds;
+    });
   };
 
   /**
@@ -303,7 +397,7 @@ export default function App() {
         </div>
       )}
 
-      {hitSummaryStatus === 'error' && (
+      {hitSummaryStatus === LoadStatus.Error && (
         <div className="mx-2 mt-2 flex items-center gap-2 rounded-lg border border-destructive/25 bg-destructive/10 px-2.5 py-1.5 text-destructive">
           <p className="min-w-0 flex-1 text-xs font-medium">
             {t('popup.hitSummaryUnavailable')}
@@ -379,6 +473,17 @@ export default function App() {
                       const issue = dnrIssues[rule.id];
                       /** 当前规则匹配上却一次都没能应用时的原因。 */
                       const skipReason = skippedRuleIds[rule.id];
+                      /** 当前规则中配置的手动 SSE Mock 动作。 */
+                      const manualSseAction = getManualSseMockAction(rule);
+                      /** 当前标签页中该规则可在手风琴内展示的连接。 */
+                      const sseConnections = listVisibleSseDebugSessions(sseDebugSessions, rule.id);
+                      /** 当前规则是否切换为手动 SSE 连接手风琴。 */
+                      const showSseAccordion = enabled && group.enabled && rule.enabled &&
+                        isMatched && manualSseAction !== undefined;
+                      /** 当前手动 SSE 规则的连接列表是否已经展开。 */
+                      const sseExpanded = showSseAccordion && expandedSseRuleIds.has(rule.id);
+                      /** 手风琴连接列表的 DOM ID。 */
+                      const sseConnectionsId = `popup-sse-connections-${rule.id}`;
                       /** 右侧状态位的说明文本；无状态可表达时为空。 */
                       const statusLabel = issue
                         ? t('popup.ruleNotRegistered', { message: issue.message })
@@ -392,91 +497,125 @@ export default function App() {
                       return (
                         <li
                           key={rule.id}
-                          role="button"
-                          tabIndex={0}
-                          aria-label={t('popup.jumpToRule')}
-                          onClick={() => handleJumpToRule(rule.id)}
-                          onKeyDown={(event) => {
-                            // 焦点在 Switch 等子控件上时按键交给它自己处理，避免误跳转
-                            if (event.target !== event.currentTarget) {
-                              return;
-                            }
-                            if (event.key === 'Enter' || event.key === ' ') {
-                              event.preventDefault();
-                              handleJumpToRule(rule.id);
-                            }
-                          }}
-                          className={`flex cursor-pointer items-center justify-between gap-2 rounded-md border border-transparent px-1.5 py-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
+                          className={`overflow-hidden rounded-md border border-transparent transition-colors ${
                             isMatched
-                              ? 'bg-[var(--hit-surface)] hover:bg-[var(--hit-surface-hover)]'
-                              : 'hover:bg-muted/60'
+                              ? 'bg-[var(--hit-surface)]'
+                              : ''
                           }`}
                         >
-                          <div className="flex min-w-0 flex-1 items-center gap-2">
-                            {/* 开关自成一体：拦下冒泡，避免切换启停时误触发整卡片的跳转 */}
-                            <span
-                              className="contents"
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              <Switch
-                                checked={rule.enabled}
-                                onCheckedChange={() => handleToggleRule(rule.id)}
-                              />
-                            </span>
-                            <span
-                              className={`min-w-0 flex-1 truncate text-sm ${
-                                rule.enabled ? 'text-foreground' : 'text-muted-foreground'
-                              }`}
-                              title={rule.name}
-                            >
-                              {rule.name}
-                            </span>
-                          </div>
-                          <div className="flex shrink-0 items-center gap-1">
-                            {/*
-                              三种状态共用同一个状态位，只靠颜色与字形区分，彼此互斥：
-                              注册失败只发生在 DNR 通道、未应用只发生在页面补丁通道，
-                              而「生效过」优先于「未应用」已在摘要投影时决定。
-                              行只补一层极淡的底色帮助扫读；描边、内环与浮起角标一并去掉——
-                              四层装饰叠在一起，命中多条时整个列表会糊成一片。
-                            */}
-                            {statusLabel && (
-                              // 说明文字走自绘气泡：原生 title 要悬停约一秒才出、样式不可控，
-                              // 且会被行自身的 title 抢走，注册失败/未应用这类关键信息看不清楚
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            aria-label={showSseAccordion ? t('popup.sseToggleConnections') : t('popup.jumpToRule')}
+                            aria-expanded={showSseAccordion ? sseExpanded : undefined}
+                            aria-controls={showSseAccordion ? sseConnectionsId : undefined}
+                            onClick={() => showSseAccordion
+                              ? handleToggleSseRule(rule.id)
+                              : handleJumpToRule(rule.id)}
+                            onKeyDown={(event) => {
+                              // 焦点在 Switch 等子控件上时按键交给它自己处理，避免误触发规则行。
+                              if (event.target !== event.currentTarget) {
+                                return;
+                              }
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                if (showSseAccordion) {
+                                  handleToggleSseRule(rule.id);
+                                } else {
+                                  handleJumpToRule(rule.id);
+                                }
+                              }
+                            }}
+                            className={`flex cursor-pointer items-center justify-between gap-2 px-1.5 py-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
+                              isMatched
+                                ? 'hover:bg-[var(--hit-surface-hover)]'
+                                : 'hover:bg-muted/60'
+                            }`}
+                          >
+                            <div className="flex min-w-0 flex-1 items-center gap-2">
+                              {/* 开关自成一体：拦下冒泡，避免切换启停时误触发整卡片的跳转。 */}
                               <span
                                 className="contents"
                                 onClick={(event) => event.stopPropagation()}
                               >
-                                <HoverHint
-                                  label={statusLabel}
-                                  content={statusLabel}
-                                  className={`size-4 items-center justify-center ${
-                                    issue
-                                      ? 'text-destructive'
-                                      : skipReason
-                                        ? 'text-warning'
-                                        : 'text-primary'
-                                  }`}
-                                >
-                                  {issue ? (
-                                    <AlertTriangle aria-hidden="true" className="size-3.5" />
-                                  ) : skipReason ? (
-                                    <CircleSlash aria-hidden="true" className="size-3.5" />
-                                  ) : (
-                                    <Target aria-hidden="true" className="size-3.5" />
-                                  )}
-                                </HoverHint>
+                                <Switch
+                                  checked={rule.enabled}
+                                  onCheckedChange={() => handleToggleRule(rule.id)}
+                                />
                               </span>
-                            )}
-                            <Badge
-                              variant={rule.enabled ? 'default' : 'muted'}
-                              className="shrink-0 px-1.5 py-0 text-[11px]"
-                            >
-                              {rule.channel === 'dnr'
-                                ? 'DNR'
-                                : t('templateLibrary.channelPagePatch')}
-                            </Badge>
+                              <span
+                                className={`min-w-0 flex-1 truncate text-sm ${
+                                  rule.enabled ? 'text-foreground' : 'text-muted-foreground'
+                                }`}
+                                title={rule.name}
+                              >
+                                {rule.name}
+                              </span>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1">
+                              {statusLabel && (
+                                // 说明文字走自绘气泡：原生 title 出现慢且会被规则标题覆盖。
+                                <span className="contents" onClick={(event) => event.stopPropagation()}>
+                                  <HoverHint
+                                    label={isMatched ? t('popup.jumpToRule') : statusLabel}
+                                    content={isMatched
+                                      ? <span>{statusLabel} · {t('popup.jumpToRule')}</span>
+                                      : statusLabel}
+                                    className={`items-center justify-center transition-colors ${
+                                      issue
+                                        ? 'size-4 text-destructive'
+                                        : skipReason
+                                          ? 'size-4 text-warning'
+                                          : 'size-5 cursor-pointer text-primary hover:bg-primary/15 hover:text-primary'
+                                    }`}
+                                    onClick={isMatched ? () => handleJumpToRule(rule.id) : undefined}
+                                  >
+                                    {issue ? (
+                                      <AlertTriangle aria-hidden="true" className="size-3.5" />
+                                    ) : skipReason ? (
+                                      <CircleSlash aria-hidden="true" className="size-3.5" />
+                                    ) : (
+                                      <Target aria-hidden="true" className="size-3.5" />
+                                    )}
+                                  </HoverHint>
+                                </span>
+                              )}
+                              <Badge
+                                variant={rule.enabled ? 'default' : 'muted'}
+                                className="shrink-0 px-1.5 py-0 text-[11px]"
+                              >
+                                {rule.channel === 'dnr'
+                                  ? 'DNR'
+                                  : t('templateLibrary.channelPagePatch')}
+                              </Badge>
+                              {showSseAccordion && (
+                                <ChevronDown
+                                  aria-hidden="true"
+                                  className={`size-3.5 text-muted-foreground transition-transform ${
+                                    sseExpanded ? '' : '-rotate-90'
+                                  }`}
+                                />
+                              )}
+                            </div>
                           </div>
+                          {showSseAccordion && sseExpanded && manualSseAction && (
+                            <div id={sseConnectionsId} className="border-t border-border/70 p-1.5">
+                              <SseConnectionList
+                                action={manualSseAction}
+                                connections={sseConnections}
+                                loadStatus={sseDebugSessionStatus}
+                                pendingSessionId={pendingSseSessionId}
+                                failedSessionId={failedSseSessionId}
+                                onSendNext={(action, session, event) =>
+                                  void handleSendNextSse(action, session, event)}
+                                onRetry={() => {
+                                  if (activeTabId !== null) {
+                                    void loadSseDebugSessions(activeTabId);
+                                  }
+                                }}
+                              />
+                            </div>
+                          )}
                         </li>
                       );
                     })}

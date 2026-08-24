@@ -10,12 +10,40 @@ const SSE_IMPORT_FIELDS = new Set(['event', 'data', 'id', 'retry']);
 /** 动态变量解析函数。 */
 export type SseValueResolver = (value: string) => string;
 
+/** 手动 fetch SSE 字节流的生命周期回调。 */
+export interface ManualSseReadableStreamCallbacks {
+  /** 页面代码取消读取响应流时调用。 */
+  onCancel?: () => void;
+}
+
+/** 可由运行时逐条写入的 fetch SSE 字节流。 */
+export interface ManualSseReadableStreamHandle {
+  /** 交给 Response 的字节流。 */
+  stream: ReadableStream<Uint8Array>;
+  /** 立即写入一条完整 SSE 事件；流已关闭时返回 false。 */
+  send: (event: SseEvent) => boolean;
+  /** 正常关闭响应流；已经关闭时返回 false。 */
+  close: () => boolean;
+}
+
 /** Mock EventSource 的生命周期回调。 */
 export interface MockEventSourceCallbacks {
   /** EventSource 成功进入 OPEN 状态时调用。 */
   onOpen?: () => void;
   /** 创建后、派发 open 事件前的额外等待时间。 */
   initialDelayMs?: number;
+  /** 页面代码关闭连接或连接自然结束时调用。 */
+  onClose?: () => void;
+}
+
+/** 可由运行时逐条派发事件的 Mock EventSource。 */
+export interface ManualMockEventSourceHandle {
+  /** 交给页面代码的 EventSource 兼容对象。 */
+  eventSource: EventSource;
+  /** 立即派发一条事件；连接尚未打开或已经关闭时返回 false。 */
+  send: (event: SseEvent) => boolean;
+  /** 正常关闭连接；已经关闭时返回 false。 */
+  close: () => boolean;
 }
 
 /**
@@ -140,6 +168,15 @@ function getSseEvents(action: MockResponseAction): SseEvent[] {
 }
 
 /**
+ * 取得 SSE Mock 当前配置实际会发送的事件数。
+ * @param action SSE Mock 动作
+ * @returns 事件列表长度；缺少显式列表时历史 body 算作一条事件
+ */
+export function getSseEventCount(action: MockResponseAction): number {
+  return getSseEvents(action).length;
+}
+
+/**
  * 把单条事件编码为 text/event-stream 数据块。
  * @param event 待编码事件
  * @param resolveValue 动态变量解析器
@@ -224,6 +261,60 @@ export function createSseReadableStream(
   });
 }
 
+/**
+ * 创建由调试命令逐条写入的 fetch SSE 字节流。
+ *
+ * 手动流不实现 pull 循环，因此在调用 send 前不会产生任何数据，也不会读取事件的 delayMs。
+ * @param resolveValue 动态变量解析器
+ * @param callbacks 流取消回调
+ * @returns 响应流及其受控写入句柄
+ */
+export function createManualSseReadableStream(
+  resolveValue: SseValueResolver,
+  callbacks: ManualSseReadableStreamCallbacks = {},
+): ManualSseReadableStreamHandle {
+  /** UTF-8 编码器；SSE 规范固定使用 UTF-8。 */
+  const encoder = new TextEncoder();
+  /** ReadableStream 创建时取得的写入控制器。 */
+  let streamController: ReadableStreamDefaultController<Uint8Array> | undefined;
+  /** 流是否已经关闭或被消费方取消。 */
+  let closed = false;
+  /** 可由 Response 消费的受控字节流。 */
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      streamController = controller;
+    },
+    cancel() {
+      if (closed) {
+        return;
+      }
+      closed = true;
+      streamController = undefined;
+      callbacks.onCancel?.();
+    },
+  });
+
+  return {
+    stream,
+    send(event) {
+      if (closed || !streamController) {
+        return false;
+      }
+      streamController.enqueue(encoder.encode(formatSseEvent(event, resolveValue)));
+      return true;
+    },
+    close() {
+      if (closed || !streamController) {
+        return false;
+      }
+      closed = true;
+      streamController.close();
+      streamController = undefined;
+      return true;
+    },
+  };
+}
+
 /** 模拟浏览器原生 EventSource 的最小可观察行为。 */
 class MockSseEventSource extends EventTarget {
   /** 尚未建立连接。 */
@@ -258,10 +349,14 @@ class MockSseEventSource extends EventTarget {
   private readonly resolveValue: SseValueResolver;
   /** 生命周期回调。 */
   private readonly callbacks: MockEventSourceCallbacks;
+  /** 是否在 open 后自动按配置派发全部事件。 */
+  private readonly autoDispatch: boolean;
   /** 最后一次派发事件的 ID。 */
   private lastEventId = '';
   /** 解除“保持连接”状态的等待函数。 */
   private releaseKeepOpen: (() => void) | undefined;
+  /** 是否已经发出过关闭生命周期通知。 */
+  private closeNotified = false;
 
   /**
    * 创建 Mock EventSource，并在当前调用栈结束后异步建立连接。
@@ -270,6 +365,7 @@ class MockSseEventSource extends EventTarget {
    * @param action SSE Mock 动作
    * @param resolveValue 动态变量解析器
    * @param callbacks 生命周期回调
+   * @param autoDispatch 是否在连接打开后自动发送配置事件
    */
   constructor(
     url: string,
@@ -277,6 +373,7 @@ class MockSseEventSource extends EventTarget {
     action: MockResponseAction,
     resolveValue: SseValueResolver,
     callbacks: MockEventSourceCallbacks,
+    autoDispatch = true,
   ) {
     super();
     this.url = url;
@@ -284,13 +381,31 @@ class MockSseEventSource extends EventTarget {
     this.action = action;
     this.resolveValue = resolveValue;
     this.callbacks = callbacks;
+    this.autoDispatch = autoDispatch;
     queueMicrotask(() => void this.start());
   }
 
   /** 关闭连接并取消后续事件。 */
   close(): void {
+    if (this.readyState === MockSseEventSource.CLOSED) {
+      return;
+    }
     this.readyState = MockSseEventSource.CLOSED;
     this.releaseKeepOpen?.();
+    this.notifyClose();
+  }
+
+  /**
+   * 在已打开的手动连接上立即派发一条事件。
+   * @param event 待派发的最新草稿事件
+   * @returns 事件是否成功派发
+   */
+  send(event: SseEvent): boolean {
+    if (this.readyState !== MockSseEventSource.OPEN) {
+      return false;
+    }
+    this.dispatchMessage(event);
+    return true;
   }
 
   /** 建立连接并按规则发送事件。 */
@@ -306,6 +421,7 @@ class MockSseEventSource extends EventTarget {
       const errorEvent = new Event('error');
       this.dispatchEvent(errorEvent);
       this.onerror?.call(this as unknown as EventSource, errorEvent);
+      this.notifyClose();
       return;
     }
     this.readyState = MockSseEventSource.OPEN;
@@ -313,8 +429,14 @@ class MockSseEventSource extends EventTarget {
     const openEvent = new Event('open');
     this.dispatchEvent(openEvent);
     this.onopen?.call(this as unknown as EventSource, openEvent);
+    // open 监听器可同步调用 close；关闭后不能再登记手动会话或启动自动发送循环。
+    if (this.readyState !== MockSseEventSource.OPEN) {
+      return;
+    }
     this.callbacks.onOpen?.();
-    await this.dispatchEvents();
+    if (this.autoDispatch) {
+      await this.dispatchEvents();
+    }
   }
 
   /** 按结束行为发送一轮或多轮事件。 */
@@ -340,6 +462,16 @@ class MockSseEventSource extends EventTarget {
       return;
     }
     this.readyState = MockSseEventSource.CLOSED;
+    this.notifyClose();
+  }
+
+  /** 只向生命周期调用方通知一次连接关闭。 */
+  private notifyClose(): void {
+    if (this.closeNotified) {
+      return;
+    }
+    this.closeNotified = true;
+    this.callbacks.onClose?.();
   }
 
   /**
@@ -384,4 +516,35 @@ export function createMockEventSource(
   callbacks: MockEventSourceCallbacks = {},
 ): EventSource {
   return new MockSseEventSource(url, init, action, resolveValue, callbacks) as unknown as EventSource;
+}
+
+/**
+ * 创建由调试命令逐条派发事件的 Mock EventSource。
+ * @param url 绝对事件流地址
+ * @param init EventSource 初始化参数
+ * @param action SSE Mock 动作
+ * @param resolveValue 动态变量解析器
+ * @param callbacks 生命周期回调
+ * @returns EventSource 兼容对象及其受控派发句柄
+ */
+export function createManualMockEventSource(
+  url: string,
+  init: EventSourceInit | undefined,
+  action: MockResponseAction,
+  resolveValue: SseValueResolver,
+  callbacks: MockEventSourceCallbacks = {},
+): ManualMockEventSourceHandle {
+  /** 不自动派发事件的内部 EventSource 实例。 */
+  const source = new MockSseEventSource(url, init, action, resolveValue, callbacks, false);
+  return {
+    eventSource: source as unknown as EventSource,
+    send: (event) => source.send(event),
+    close: () => {
+      if (source.readyState === MockSseEventSource.CLOSED) {
+        return false;
+      }
+      source.close();
+      return true;
+    },
+  };
 }

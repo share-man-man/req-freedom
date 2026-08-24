@@ -1,20 +1,46 @@
 import { browser } from 'wxt/browser';
 import { defineContentScript } from 'wxt/utils/define-content-script';
-import type { ScopeContext } from '@req-freedom/shared';
+import type {
+  ScopeContext,
+  SseDebugCommandResult,
+  SseDebugSession,
+} from '@req-freedom/shared';
 import {
   PAGE_MESSAGE_CHANNEL_REQUEST_SOURCE,
   PAGE_PORT_MSG_RULE_HITS,
   PAGE_PORT_MSG_RULES,
+  PAGE_PORT_MSG_SSE_COMMAND_RESULT,
+  PAGE_PORT_MSG_SSE_SEND_NEXT,
+  PAGE_PORT_MSG_SSE_SESSION_OPENED,
+  PAGE_PORT_MSG_SSE_SESSION_UPDATED,
+  MAX_SSE_DEBUG_SESSIONS_PER_PAGE,
   RUNTIME_MSG_GET_SCOPE_CONTEXT,
+  RUNTIME_MSG_LIST_SSE_SESSIONS,
   RUNTIME_MSG_RULE_HIT,
   RUNTIME_MSG_SCOPE_CONTEXT_CHANGED,
+  RUNTIME_MSG_SSE_SEND_NEXT,
+  RUNTIME_MSG_SSE_SESSION_CHANGED,
   RuleExecutionChannel,
+  SSE_DEBUG_COMMAND_TIMEOUT_MS,
+  SseDebugCommandFailureReason,
+  SseDebugSessionStatus,
+  parseSseDebugCommandResult,
+  parseSseDebugSession,
   STORAGE_KEY_ENABLED,
   STORAGE_KEY_GROUPS,
 } from '@req-freedom/shared';
 import { collectActiveRules, filterRulesByScope } from '@req-freedom/core';
 import { parseHits } from '@/utils/rule-hit';
+import { createRuntimeId } from '@/utils/runtime-id';
 import { getEnabled, getGroups } from '@/utils/storage';
+
+/** bridge 中等待 MAIN world 回应的一条手动 SSE 命令。 */
+interface PendingSseCommand {
+  /** 解除 runtime 消息 Promise 的函数。 */
+  resolve: (result: SseDebugCommandResult) => void;
+  /** 防止页面端口失效后永久挂起的超时定时器。 */
+  timeoutId: ReturnType<typeof setTimeout>;
+}
 
 /**
  * 桥接内容脚本（ISOLATED world）
@@ -36,6 +62,10 @@ export default defineContentScript({
     let pagePort: MessagePort | undefined;
     /** 当前允许通过页面补丁通道上报命中的业务规则 ID。 */
     let activePageRuleIds = new Set<string>();
+    /** 等待 MAIN world 返回 ACK 的手动 SSE 命令。 */
+    const pendingSseCommands = new Map<string, PendingSseCommand>();
+    /** 当前页面已通过打开消息校验的手动 SSE 会话快照。 */
+    const sseSessions = new Map<string, SseDebugSession>();
 
     /**
      * 校验 MAIN world 上报的命中并转交 background。
@@ -48,6 +78,88 @@ export default defineContentScript({
         return;
       }
       void browser.runtime.sendMessage({ type: RUNTIME_MSG_RULE_HIT, hits }).catch(() => undefined);
+    };
+
+    /**
+     * 校验并保存 MAIN world 上报的 SSE 页面会话。
+     * @param value 私有 MessagePort 收到的页面会话
+     * @param opened 是否为首次打开消息
+     */
+    const forwardSseSession = (value: unknown, opened: boolean): void => {
+      /** 共享协议净化后的页面会话。 */
+      const session = parseSseDebugSession(value);
+      if (!session) {
+        return;
+      }
+      if (opened) {
+        if (!activePageRuleIds.has(session.ruleId)) {
+          return;
+        }
+        if (sseSessions.size >= MAX_SSE_DEBUG_SESSIONS_PER_PAGE) {
+          /** 已保留快照中建立时间最早的会话 ID。 */
+          const oldestSessionId = [...sseSessions.values()]
+            .sort((left, right) => left.connectedAt - right.connectedAt)[0]?.id;
+          if (oldestSessionId) {
+            sseSessions.delete(oldestSessionId);
+          }
+        }
+      } else if (sseSessions.get(session.id)?.ruleId !== session.ruleId) {
+        return;
+      }
+      if (session.status === SseDebugSessionStatus.Closed) {
+        sseSessions.delete(session.id);
+      } else {
+        sseSessions.set(session.id, session);
+      }
+      void browser.runtime.sendMessage({
+        type: RUNTIME_MSG_SSE_SESSION_CHANGED,
+      }).catch(() => undefined);
+    };
+
+    /**
+     * 用失败结果解除所有等待中的命令，供端口异常时统一清理。
+     */
+    const rejectPendingSseCommands = (): void => {
+      for (const pending of pendingSseCommands.values()) {
+        clearTimeout(pending.timeoutId);
+        pending.resolve({ ok: false, reason: SseDebugCommandFailureReason.Unavailable });
+      }
+      pendingSseCommands.clear();
+    };
+
+    /**
+     * 将 popup 发给当前标签页的命令交给 MAIN world，并等待明确 ACK。
+     * @param message runtime 收到的命令对象
+     * @returns MAIN world 的命令结果；端口不可用或超时时返回 unavailable
+     */
+    const forwardSseCommand = (message: unknown): Promise<SseDebugCommandResult> => {
+      if (!pagePort || typeof message !== 'object' || message === null || Array.isArray(message)) {
+        return Promise.resolve({
+          ok: false,
+          reason: SseDebugCommandFailureReason.Unavailable,
+        });
+      }
+      /** 用于关联 MAIN world ACK 的命令 ID。 */
+      const commandId = createRuntimeId();
+      return new Promise((resolve) => {
+        /** 命令超过等待窗口后返回不可用，避免 runtime 消息永久挂起。 */
+        const timeoutId = setTimeout(() => {
+          pendingSseCommands.delete(commandId);
+          resolve({ ok: false, reason: SseDebugCommandFailureReason.Unavailable });
+        }, SSE_DEBUG_COMMAND_TIMEOUT_MS);
+        pendingSseCommands.set(commandId, { resolve, timeoutId });
+        try {
+          pagePort?.postMessage({
+            ...(message as Record<string, unknown>),
+            type: PAGE_PORT_MSG_SSE_SEND_NEXT,
+            commandId,
+          });
+        } catch {
+          clearTimeout(timeoutId);
+          pendingSseCommands.delete(commandId);
+          resolve({ ok: false, reason: SseDebugCommandFailureReason.Unavailable });
+        }
+      });
     };
 
     /**
@@ -103,10 +215,44 @@ export default defineContentScript({
       }
       pagePort = candidatePort;
       pagePort.onmessage = (portEvent: MessageEvent) => {
-        if (portEvent.data?.type === PAGE_PORT_MSG_RULE_HITS) {
+        /** MAIN world 私有端口消息的类型。 */
+        const messageType = portEvent.data?.type;
+        if (messageType === PAGE_PORT_MSG_RULE_HITS) {
           forwardRuleHits(portEvent.data.hits);
+          return;
+        }
+        if (
+          messageType === PAGE_PORT_MSG_SSE_SESSION_OPENED ||
+          messageType === PAGE_PORT_MSG_SSE_SESSION_UPDATED
+        ) {
+          forwardSseSession(
+            portEvent.data.session,
+            messageType === PAGE_PORT_MSG_SSE_SESSION_OPENED,
+          );
+          return;
+        }
+        if (messageType === PAGE_PORT_MSG_SSE_COMMAND_RESULT) {
+          /** MAIN world 回传的命令关联 ID。 */
+          const commandId = portEvent.data.commandId;
+          if (typeof commandId !== 'string') {
+            return;
+          }
+          /** 等待该命令结果的 runtime 请求。 */
+          const pending = pendingSseCommands.get(commandId);
+          if (!pending) {
+            return;
+          }
+          clearTimeout(pending.timeoutId);
+          pendingSseCommands.delete(commandId);
+          /** 共享协议净化后的 MAIN world 命令结果。 */
+          const result = parseSseDebugCommandResult(portEvent.data.result);
+          pending.resolve(result ?? {
+            ok: false,
+            reason: SseDebugCommandFailureReason.Unavailable,
+          });
         }
       };
+      pagePort.onmessageerror = rejectPendingSseCommands;
       pagePort.start();
       void pushRulesToPage();
     });
@@ -120,7 +266,16 @@ export default defineContentScript({
       if (scopeMessage?.type === RUNTIME_MSG_SCOPE_CONTEXT_CHANGED && scopeMessage.context) {
         scopeContext = scopeMessage.context;
         void pushRulesToPage();
+        return undefined;
       }
+      if (scopeMessage?.type === RUNTIME_MSG_LIST_SSE_SESSIONS) {
+        // runtime.onMessage 只把 Promise 或 sendResponse 视为响应；普通数组返回值会被忽略。
+        return Promise.resolve([...sseSessions.values()]);
+      }
+      if (scopeMessage?.type === RUNTIME_MSG_SSE_SEND_NEXT) {
+        return forwardSseCommand(message);
+      }
+      return undefined;
     });
 
     // 配置变化时通过已建立的私有端口推送最新规则。

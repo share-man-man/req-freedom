@@ -26,6 +26,7 @@ mise exec -- pnpm dev:lab
 ## 覆盖范围
 
 - Fetch / XHR 的返回值 Mock
+- SSE 手动单步 Mock：Fetch `ReadableStream` 与 EventSource 可分别启停，并逐条展示收到的事件
 - 请求拦截、重定向、参数注入与 Header 改写
 - 网络延迟与上传带宽模拟（弱网资源响应体约 512 KB）
 - JavaScript / CSS 注入的页面级验证
@@ -37,7 +38,9 @@ mise exec -- pnpm dev:lab
 
 ## 示例配置
 
-导入同目录的 `req-freedom-config.json` 后，所有可交互卡片均有一条已启用的对应规则：DNR 覆盖资源拦截、重定向、参数、Header、Cookie、CORS 与 DELETE 方法；页面补丁覆盖 Fetch / XHR Mock、状态码 Mock、上下行限速、改请求体与 GraphQL；页面脚本区会在刷新后显示注入结果。
+导入同目录的 `req-freedom-config.json` 后，所有可交互卡片均有一条已启用的对应规则：DNR 覆盖资源拦截、重定向、参数、Header、Cookie、CORS 与 DELETE 方法；页面补丁覆盖 Fetch / XHR Mock、SSE 手动单步、状态码 Mock、上下行限速、改请求体与 GraphQL；页面脚本区会在刷新后显示注入结果。
+
+SSE 卡片使用 `/api/manual-sse` 作为纯 Mock 地址。Fetch 流与 EventSource 各有独立的启动、停止按钮和“接收时间”；同时建立两路连接后，在扩展 popup 展开命中规则，可以分别对每个连接点击“下一条”。卡片会追加一条包含客户端、事件类型、ID 和 data 的记录，并独立刷新对应客户端的接收时间。示例规则发完三条事件后保持连接，便于继续观察中间状态并显式测试“停止”；该卡片刻意不加入“运行全部请求”，避免批量流程等待长连接结束。
 
 示例配置里刻意留了一条**注册必定失败**的规则（`非法正则（浏览器会拒绝注册）`）：正则用了前瞻断言，JS 的 `RegExp` 认、DNR 的 RE2 引擎不认。它服务于「非法规则 / 注册失败」卡片，预期表现是——请求正常返回、该规则在 popup 与管理页被标为未被浏览器接受、且不计入命中。副作用是每轮规则同步都会走「整批提交失败 → 逐条注册隔离非法规则」的降级路径，这本身也是该卡片要验证的一环：其余规则照常生效。不需要时把这条规则停用即可。
 

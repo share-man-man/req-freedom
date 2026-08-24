@@ -252,6 +252,9 @@
       "deliveryLabel": "Delivery",
       "deliveryBuffered": "Regular response",
       "deliverySse": "SSE event stream",
+      "sseSendModeLabel": "Send mode",
+      "sseSendAuto": "Automatic",
+      "sseSendManual": "Manual step",
       "sseEndBehaviorLabel": "After all events",
       "sseEndClose": "Close connection",
       "sseEndKeepOpen": "Keep connection open",
@@ -270,7 +273,8 @@
       "sseEventId": "Event ID (optional)",
       "sseRetryMs": "Reconnect delay ms",
       "sseDelayMs": "Delay before event ms (default: {{defaultDelayMs}})",
-      "sseHint": "Events are streamed in order as UTF-8. Multi-line data and dynamic variables work with native EventSource and fetch streams."
+      "sseHint": "Events are streamed in order as UTF-8. Multi-line data and dynamic variables work with native EventSource and fetch streams.",
+      "sseManualHint": "Manual mode ignores per-event delays. After the rule matches, use Next in the extension popup to send saved events one at a time; dynamic variables resolve when sent."
     },
     "delayActionEditor": {
       "preset": "Network preset",
@@ -422,7 +426,18 @@
     "ruleMatched": "This rule matched on this page",
     "hitsTruncated": "Only the most recent hits are shown; older ones were dropped.",
     "hitSummaryUnavailable": "Could not load rule hit statistics.",
-    "retry": "Retry"
+    "retry": "Retry",
+    "sseWaiting": "Waiting",
+    "sseSending": "Sending",
+    "sseSendNext": "Next",
+    "sseSendCustom": "Send",
+    "sseCompleted": "Done",
+    "sseSendNextAriaLabel": "Send the next SSE event",
+    "sseSendFailed": "Send failed. The connection may no longer be available; try again.",
+    "sseToggleConnections": "Expand or collapse SSE connections",
+    "sseSentProgress": "Sent {{sent}} / {{total}}",
+    "sseMessageInput": "Next SSE message",
+    "sseCustomMessageInput": "Enter a custom SSE message"
   },
   "dynamicVariableHint": {
     "title": "View available dynamic variables",

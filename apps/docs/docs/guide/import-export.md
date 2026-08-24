@@ -21,15 +21,15 @@
 
 ## 文件格式
 
-当前格式为 schema 版本 2：
+当前导出格式为 schema 版本 3：
 
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "exportedAt": "2026-07-19T08:00:00.000Z",
   "enabled": true,
   "groups": []
 }
 ```
 
-规则以 `channel` 区分执行能力：`dnr` 使用浏览器网络层，`page-patch` 使用页面 fetch / XHR 补丁；每条规则在 `actions` 中配置可组合动作，并以 `methods` 限定 HTTP 方法（空数组表示全部）。不支持的 schema 版本不会写入现有配置。
+规则以 `channel` 区分执行能力：`dnr` 使用浏览器网络层，`page-patch` 使用页面 fetch / XHR 补丁；每条规则在 `actions` 中配置可组合动作，并以 `methods` 限定 HTTP 方法（空数组表示全部）。导入器兼容 schema v2，并在导入时补齐 v3 新增字段的默认值；其他不支持的 schema 版本不会写入现有配置。

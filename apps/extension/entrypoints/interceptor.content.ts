@@ -5,23 +5,38 @@ import type {
   MockResponseAction,
   Rule,
   RuleHit,
+  SseDebugCommandResult,
+  SseDebugSession,
+  SseEvent,
 } from '@req-freedom/shared';
 import {
   DEFAULT_MOCK_BODY_TYPE,
   DEFAULT_MOCK_CONTENT_TYPE,
   InsertScriptCodeType,
   InsertScriptTiming,
+  MAX_SSE_DEBUG_SESSIONS_PER_PAGE,
   MOCK_BODY_TYPE_CONTENT_TYPES,
   MockResponseDelivery,
   MockResponseMode,
   PAGE_MESSAGE_CHANNEL_REQUEST_SOURCE,
   PAGE_PORT_MSG_RULE_HITS,
   PAGE_PORT_MSG_RULES,
+  PAGE_PORT_MSG_SSE_COMMAND_RESULT,
+  PAGE_PORT_MSG_SSE_SEND_NEXT,
+  PAGE_PORT_MSG_SSE_SESSION_OPENED,
+  PAGE_PORT_MSG_SSE_SESSION_UPDATED,
   RequestBodyMode,
   RequestBodySourceMode,
   RuleActionType,
   RuleExecutionChannel,
   RuleHitSkipReason,
+  SseDebugClient,
+  SseDebugCommandFailureReason,
+  SseDebugSendKind,
+  SseDebugSessionStatus,
+  SseEndBehavior,
+  SseSendMode,
+  parseSseDebugSendNextCommand,
 } from '@req-freedom/shared';
 import {
   filterActionsByType,
@@ -37,6 +52,7 @@ import {
   rulesNeedBody,
   sleep,
 } from '@req-freedom/core';
+import { createRuntimeId } from '@/utils/runtime-id';
 import {
   isPassthroughMock,
   resolvePagePlan,
@@ -46,8 +62,11 @@ import {
 } from '@/utils/page-plan';
 import { createAppliedHit } from '@/utils/rule-hit';
 import {
+  createManualMockEventSource,
+  createManualSseReadableStream,
   createMockEventSource,
   createSseReadableStream,
+  getSseEventCount,
   SSE_CONTENT_TYPE,
 } from '@/utils/sse';
 
@@ -115,6 +134,22 @@ interface XhrMockResponseState {
   body: string;
 }
 
+/** MAIN world 中真正持有流控制能力的手动 SSE 传输句柄。 */
+interface ManualSseTransport {
+  /** 立即向当前客户端发送一条事件。 */
+  send: (event: SseEvent) => boolean;
+  /** 正常关闭当前连接。 */
+  close: () => boolean;
+}
+
+/** 手动 SSE 会话的页面快照与不可序列化传输句柄。 */
+interface ManualSseRuntimeSession {
+  /** 可跨上下文传递的状态快照。 */
+  snapshot: SseDebugSession;
+  /** 只保留在 MAIN world 的流控制句柄。 */
+  transport: ManualSseTransport;
+}
+
 /**
  * 拦截内容脚本（MAIN world）
  *
@@ -164,15 +199,296 @@ export default defineContentScript({
       reportRuleHits([reason ? toSkippedHit(hit, reason) : hit]);
     };
 
-    // 私有端口只接受 bridge 推送的规则更新，宿主页无法伪造后续动作消息。
-    bridgePort.onmessage = (event: MessageEvent) => {
-      if (event.data?.type !== PAGE_PORT_MSG_RULES) {
+    /** 当前文档内仍可由用户控制的手动 SSE 会话。 */
+    const manualSseSessions = new Map<string, ManualSseRuntimeSession>();
+
+    /**
+     * 通过私有端口上报一份可序列化的 SSE 会话快照。
+     * @param session 待上报的会话
+     * @param opened 是否为首次登记
+     */
+    const reportSseSession = (
+      session: ManualSseRuntimeSession,
+      opened = false,
+    ): void => {
+      bridgePort.postMessage({
+        type: opened ? PAGE_PORT_MSG_SSE_SESSION_OPENED : PAGE_PORT_MSG_SSE_SESSION_UPDATED,
+        session: session.snapshot,
+      });
+    };
+
+    /**
+     * 更新会话快照中的可变字段并上报。
+     * @param session 待更新的运行时会话
+     * @param changes 本次状态变化
+     */
+    const updateSseSession = (
+      session: ManualSseRuntimeSession,
+      changes: Partial<
+        Pick<
+          SseDebugSession,
+          'eventCount' | 'nextEventIndex' | 'status'
+        >
+      >,
+    ): void => {
+      session.snapshot = {
+        ...session.snapshot,
+        ...changes,
+      };
+      reportSseSession(session);
+    };
+
+    /**
+     * 关闭并释放一条手动 SSE 会话。
+     * @param session 待结束的运行时会话
+     * @param status 对客户端可见的最终状态
+     * @returns 最终页面会话快照
+     */
+    const finalizeSseSession = (
+      session: ManualSseRuntimeSession,
+      status: SseDebugSessionStatus.Completed | SseDebugSessionStatus.Closed,
+    ): SseDebugSession => {
+      manualSseSessions.delete(session.snapshot.id);
+      updateSseSession(session, { status });
+      session.transport.close();
+      return session.snapshot;
+    };
+
+    /**
+     * 处理页面消费方主动取消或关闭连接。
+     * @param sessionId 被页面关闭的会话 ID
+     */
+    const handleSseTransportClosed = (sessionId: string): void => {
+      /** 仍登记在当前文档内的运行时会话。 */
+      const session = manualSseSessions.get(sessionId);
+      if (!session) {
         return;
       }
-      state.enabled = Boolean(event.data.enabled);
-      state.rules = Array.isArray(event.data.rules) ? (event.data.rules as Rule[]) : [];
-      // 规则到达后按需注入命中当前页面的脚本 / 样式
-      applyInsertScripts();
+      finalizeSseSession(session, SseDebugSessionStatus.Closed);
+    };
+
+    /**
+     * 登记新手动 SSE 会话，并淘汰超出页面上限的最早连接。
+     * @param ruleId 命中的业务规则 ID
+     * @param url 请求 URL
+     * @param client 客户端类型
+     * @param eventCount 建立连接时配置中的事件数
+     * @param transport 页面内的流控制句柄
+     * @returns 新登记的运行时会话
+     */
+    const registerSseSession = (
+      ruleId: string,
+      url: string,
+      client: SseDebugClient,
+      eventCount: number,
+      transport: ManualSseTransport,
+    ): ManualSseRuntimeSession => {
+      if (manualSseSessions.size >= MAX_SSE_DEBUG_SESSIONS_PER_PAGE) {
+        /** 达到上限时优先关闭建立时间最早的活动连接。 */
+        const oldestSession = manualSseSessions.values().next().value as
+          | ManualSseRuntimeSession
+          | undefined;
+        if (oldestSession) {
+          finalizeSseSession(oldestSession, SseDebugSessionStatus.Closed);
+        }
+      }
+      /** 新会话的建立时间。 */
+      const connectedAt = Date.now();
+      /** 新建的运行时会话。 */
+      const session: ManualSseRuntimeSession = {
+        snapshot: {
+          id: createRuntimeId(),
+          ruleId,
+          url,
+          client,
+          nextEventIndex: 0,
+          eventCount,
+          status: SseDebugSessionStatus.Connected,
+          connectedAt,
+        },
+        transport,
+      };
+      manualSseSessions.set(session.snapshot.id, session);
+      reportSseSession(session, true);
+      return session;
+    };
+
+    /**
+     * 执行一条经过 bridge 转发的“发送下一条”命令。
+     * @param value 私有端口收到的命令字段
+     * @returns 可回传给扩展界面的明确执行结果
+     */
+    const handleSseSendNext = (value: unknown): SseDebugCommandResult => {
+      /** 共享协议净化后的单步发送命令。 */
+      const command = parseSseDebugSendNextCommand(value);
+      if (!command) {
+        return { ok: false, reason: SseDebugCommandFailureReason.InvalidCommand };
+      }
+      /** 命令指向的当前运行时会话。 */
+      const session = manualSseSessions.get(command.sessionId);
+      if (!session) {
+        return { ok: false, reason: SseDebugCommandFailureReason.NotFound };
+      }
+      /** UI 当前看到的事件游标。 */
+      const eventIndex = command.eventIndex;
+      if (
+        typeof eventIndex !== 'number' ||
+        !Number.isInteger(eventIndex) ||
+        eventIndex !== session.snapshot.nextEventIndex
+      ) {
+        return {
+          ok: false,
+          reason: SseDebugCommandFailureReason.StaleEventIndex,
+          session: session.snapshot,
+        };
+      }
+      /** 命令中携带的最新草稿事件。 */
+      const event = command.event;
+      /** 当前命令发送规则预设事件或完成后的自定义事件。 */
+      const sendKind = command.kind;
+      /** 命令中携带的最新草稿事件总数。 */
+      const eventCount = command.eventCount;
+      /** 命令中携带的最新结束行为。 */
+      const endBehavior = command.endBehavior;
+      /** 预设事件命令是否匹配当前连接状态与游标。 */
+      const validPresetCommand =
+        sendKind === SseDebugSendKind.Preset &&
+        session.snapshot.status === SseDebugSessionStatus.Connected &&
+        typeof eventCount === 'number' &&
+        Number.isInteger(eventCount) &&
+        eventCount > eventIndex;
+      /** 保持连接后的自定义事件命令是否保持原有预设事件进度。 */
+      const validCustomCommand =
+        sendKind === SseDebugSendKind.Custom &&
+        session.snapshot.status === SseDebugSessionStatus.KeptOpen &&
+        endBehavior === SseEndBehavior.KeepOpen &&
+        typeof eventCount === 'number' &&
+        Number.isInteger(eventCount) &&
+        eventCount === eventIndex &&
+        eventCount === session.snapshot.eventCount;
+      if (
+        (!validPresetCommand && !validCustomCommand) ||
+        (endBehavior !== SseEndBehavior.Close &&
+          endBehavior !== SseEndBehavior.KeepOpen)
+      ) {
+        return {
+          ok: false,
+          reason: SseDebugCommandFailureReason.InvalidCommand,
+          session: session.snapshot,
+        };
+      }
+
+      try {
+        if (!session.transport.send(event)) {
+          /** 传输层已不可写时用于回传的最终会话快照。 */
+          const closedSession = finalizeSseSession(session, SseDebugSessionStatus.Closed);
+          return {
+            ok: false,
+            reason: SseDebugCommandFailureReason.Unavailable,
+            session: closedSession,
+          };
+        }
+      } catch {
+        /** 写入异常后用于回传的最终会话快照。 */
+        const closedSession = finalizeSseSession(session, SseDebugSessionStatus.Closed);
+        return {
+          ok: false,
+          reason: SseDebugCommandFailureReason.Unavailable,
+          session: closedSession,
+        };
+      }
+
+      // EventSource 的同步监听器可能在派发过程中主动 close；此时保留 close 产生的终态。
+      if (manualSseSessions.get(session.snapshot.id) !== session) {
+        return { ok: true, session: session.snapshot };
+      }
+      if (sendKind === SseDebugSendKind.Custom) {
+        updateSseSession(session, { status: SseDebugSessionStatus.KeptOpen });
+        return { ok: true, session: session.snapshot };
+      }
+      /** 成功发送后的下一条事件下标。 */
+      const nextEventIndex = eventIndex + 1;
+      if (nextEventIndex >= eventCount) {
+        if (endBehavior === SseEndBehavior.KeepOpen) {
+          updateSseSession(session, {
+            nextEventIndex,
+            status: SseDebugSessionStatus.KeptOpen,
+          });
+          return { ok: true, session: session.snapshot };
+        }
+        updateSseSession(session, { nextEventIndex });
+        return {
+          ok: true,
+          session: finalizeSseSession(session, SseDebugSessionStatus.Completed),
+        };
+      }
+      updateSseSession(session, {
+        nextEventIndex,
+        status: SseDebugSessionStatus.Connected,
+      });
+      return { ok: true, session: session.snapshot };
+    };
+
+    /**
+     * 判断最新规则快照中是否仍存在指定的手动 SSE 规则。
+     * @param ruleId 业务规则 ID
+     * @returns 规则是否仍可支撑活动手动连接
+     */
+    const isManualSseRuleActive = (ruleId: string): boolean =>
+      state.enabled &&
+      state.rules.some(
+        (rule) =>
+          rule.id === ruleId &&
+          rule.actions.some(
+            (action) =>
+              action.type === RuleActionType.MockResponse &&
+              action.delivery === MockResponseDelivery.Sse &&
+              action.sseSendMode === SseSendMode.Manual,
+          ),
+      );
+
+    /**
+     * 关闭已经不再由有效手动 SSE 规则支撑的页面会话。
+     * @returns 无返回值
+     */
+    const closeInvalidSseSessions = (): void => {
+      for (const session of [...manualSseSessions.values()]) {
+        if (!isManualSseRuleActive(session.snapshot.ruleId)) {
+          finalizeSseSession(session, SseDebugSessionStatus.Closed);
+        }
+      }
+    };
+
+    /**
+     * 将 MAIN world 的命令结果关联到 bridge 创建的请求 ID。
+     * @param commandId bridge 生成的命令 ID
+     * @param result MAIN world 的执行结果
+     */
+    const reportSseCommandResult = (
+      commandId: unknown,
+      result: SseDebugCommandResult,
+    ): void => {
+      if (typeof commandId !== 'string') {
+        return;
+      }
+      bridgePort.postMessage({ type: PAGE_PORT_MSG_SSE_COMMAND_RESULT, commandId, result });
+    };
+
+    // 私有端口只接受 bridge 推送的规则更新与手动 SSE 命令，宿主页无法伪造后续消息。
+    bridgePort.onmessage = (event: MessageEvent) => {
+      /** 私有端口消息类型。 */
+      const messageType = event.data?.type;
+      if (messageType === PAGE_PORT_MSG_SSE_SEND_NEXT) {
+        reportSseCommandResult(event.data.commandId, handleSseSendNext(event.data));
+        return;
+      }
+      if (messageType === PAGE_PORT_MSG_RULES) {
+        state.enabled = Boolean(event.data.enabled);
+        state.rules = Array.isArray(event.data.rules) ? (event.data.rules as Rule[]) : [];
+        closeInvalidSseSessions();
+        // 规则到达后按需注入命中当前页面的脚本 / 样式
+        applyInsertScripts();
+      }
     };
     bridgePort.start();
 
@@ -181,6 +497,17 @@ export default defineContentScript({
       { source: PAGE_MESSAGE_CHANNEL_REQUEST_SOURCE },
       '*',
       [bridgeChannel.port2],
+    );
+
+    // 文档失效时释放所有暂停中的流控制器；最终状态尽力通过尚存的私有端口上报。
+    window.addEventListener(
+      'pagehide',
+      () => {
+        for (const session of [...manualSseSessions.values()]) {
+          finalizeSseSession(session, SseDebugSessionStatus.Closed);
+        }
+      },
+      { once: true },
     );
 
     // ---------- InsertScript 脚本 / 样式注入 ----------
@@ -851,7 +1178,45 @@ export default defineContentScript({
         reportMockHit(plan.mockHit);
         await sleep(mockRule.delayMs ?? 0);
         if (mockRule.delivery === MockResponseDelivery.Sse) {
-          /** SSE Mock 按事件各自的等待时间逐块交付，避免把整个事件列表缓冲成普通文本。 */
+          /** 命中 Mock 动作所属的业务规则 ID。 */
+          const ruleId = plan.mockHit?.ruleId;
+          if (mockRule.sseSendMode === SseSendMode.Manual && ruleId) {
+            /** 流取消回调需要在句柄创建后补齐的运行时会话。 */
+            let session: ManualSseRuntimeSession | undefined;
+            /** 只接受调试命令写入的手动 SSE 字节流。 */
+            const manualStream = createManualSseReadableStream(resolveDynamicVariables, {
+              onCancel: () => {
+                if (session) {
+                  handleSseTransportClosed(session.snapshot.id);
+                }
+              },
+            });
+            if (!isManualSseRuleActive(ruleId)) {
+              manualStream.close();
+              /** 规则在响应延迟期间失效时直接返回一个已正常结束的 SSE 响应。 */
+              const response = new Response(manualStream.stream, {
+                status: mockRule.statusCode,
+                statusText: mockRule.statusText,
+                headers: buildMockResponseHeaders(mockRule),
+              });
+              return throttleResponse(response, delayRule);
+            }
+            session = registerSseSession(
+              ruleId,
+              url,
+              SseDebugClient.Fetch,
+              getSseEventCount(mockRule),
+              manualStream,
+            );
+            /** 包装手动 SSE 流的 Mock 响应。 */
+            const response = new Response(manualStream.stream, {
+              status: mockRule.statusCode,
+              statusText: mockRule.statusText,
+              headers: buildMockResponseHeaders(mockRule),
+            });
+            return throttleResponse(response, delayRule);
+          }
+          /** 自动 SSE Mock 按事件等待时间逐块交付，避免把事件列表缓冲成普通文本。 */
           const response = new Response(
             createSseReadableStream(mockRule, resolveDynamicVariables),
             {
@@ -932,6 +1297,42 @@ export default defineContentScript({
         const networkDelayMs = plan.delay
           ? getNetworkRequestDelayMs(plan.delay, 0)
           : 0;
+        /** 命中 Mock 动作所属的业务规则 ID。 */
+        const ruleId = plan.mockHit?.ruleId;
+        if (mockRule.sseSendMode === SseSendMode.Manual && ruleId) {
+          /** open 或 close 回调需要引用的手动 EventSource 控制句柄。 */
+          let manualSource: ReturnType<typeof createManualMockEventSource> | undefined;
+          /** open 后才存在、可上报为已连接的运行时会话。 */
+          let session: ManualSseRuntimeSession | undefined;
+          manualSource = createManualMockEventSource(
+            url,
+            eventSourceInit,
+            mockRule,
+            resolveDynamicVariables,
+            {
+              initialDelayMs: networkDelayMs + (mockRule.delayMs ?? 0),
+              onOpen: () => {
+                if (!manualSource || !isManualSseRuleActive(ruleId)) {
+                  manualSource?.close();
+                  return;
+                }
+                session = registerSseSession(
+                  ruleId,
+                  url,
+                  SseDebugClient.EventSource,
+                  getSseEventCount(mockRule),
+                  manualSource,
+                );
+              },
+              onClose: () => {
+                if (session) {
+                  handleSseTransportClosed(session.snapshot.id);
+                }
+              },
+            },
+          );
+          return manualSource.eventSource;
+        }
         return createMockEventSource(
           url,
           eventSourceInit,

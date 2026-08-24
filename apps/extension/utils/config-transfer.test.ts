@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TFunction } from 'i18next';
+import type { MockResponseAction } from '@req-freedom/shared';
 import {
   CONFIG_EXPORT_SCHEMA_VERSION,
   MatchType,
@@ -8,6 +9,7 @@ import {
   RuleActionType,
   RuleExecutionChannel,
   SseEndBehavior,
+  SseSendMode,
 } from '@req-freedom/shared';
 import { parseConfigurationExport } from './config-transfer';
 
@@ -45,6 +47,7 @@ function configuration(actionOverrides: Record<string, unknown> = {}): Record<st
           body: '',
           sseEvents: [{ event: 'update', data: 'hello', id: '1', retryMs: 1000, delayMs: 50 }],
           sseEndBehavior: SseEndBehavior.KeepOpen,
+          sseSendMode: SseSendMode.Manual,
           ...actionOverrides,
         }],
       }],
@@ -58,14 +61,48 @@ describe('parseConfigurationExport SSE Mock', () => {
     const action = parseConfigurationExport(
       translate,
       JSON.stringify(configuration()),
-    ).groups[0].rules[0].actions[0];
+    ).groups[0].rules[0].actions[0] as MockResponseAction;
 
     expect(action).toMatchObject({
       delivery: MockResponseDelivery.Sse,
       statusCode: 200,
       sseEndBehavior: SseEndBehavior.KeepOpen,
+      sseSendMode: SseSendMode.Manual,
       sseEvents: [{ event: 'update', data: 'hello', id: '1', retryMs: 1000, delayMs: 50 }],
     });
+  });
+
+  it('保留空事件 ID 与缺省发送延迟的 SSE 协议语义', () => {
+    /** 解析后不应补写 delayMs 的 SSE Mock 动作。 */
+    const action = parseConfigurationExport(
+      translate,
+      JSON.stringify(configuration({ sseEvents: [{ data: 'reset', id: '' }] })),
+    ).groups[0].rules[0].actions[0] as MockResponseAction;
+
+    expect(action).toMatchObject({ sseEvents: [{ data: 'reset', id: '' }] });
+    expect(action.sseEvents?.[0]).not.toHaveProperty('delayMs');
+  });
+
+  it('旧配置缺省为自动发送，并拒绝非法发送方式及手动循环组合', () => {
+    /** 不含发送方式的历史 SSE 配置。 */
+    const legacyConfiguration = {
+      ...configuration({ sseSendMode: undefined }),
+      schemaVersion: 2,
+    };
+    /** 历史配置解析后的 SSE Mock 动作。 */
+    const legacyAction = parseConfigurationExport(
+      translate,
+      JSON.stringify(legacyConfiguration),
+    ).groups[0].rules[0].actions[0];
+
+    expect(legacyAction).toMatchObject({ sseSendMode: SseSendMode.Auto });
+    for (const overrides of [
+      { sseSendMode: 'unknown' },
+      { sseSendMode: SseSendMode.Manual, sseEndBehavior: SseEndBehavior.Loop },
+    ]) {
+      expect(() => parseConfigurationExport(translate, JSON.stringify(configuration(overrides))))
+        .toThrow('configTransfer.invalidMockConfig');
+    }
   });
 
   it('拒绝动态 SSE、非 200 状态码与空事件列表', () => {

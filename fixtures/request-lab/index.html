@@ -253,6 +253,60 @@ popup：该规则右侧显示红色警告图标，且不计入命中
               <button class="button" data-action="xhr-request" type="button">发起 XHR</button>
             </article>
 
+            <article class="card card-wide" data-sse-test="manual">
+              <div class="card-heading">
+                <span class="tag">FETCH / EVENTSOURCE</span>
+                <h2>SSE 手动单步</h2>
+              </div>
+              <p>分别建立 Fetch 流或 EventSource 连接，然后在扩展 popup 的命中规则旁逐次点击“下一条”。两路连接可独立停止，收到的事件会按到达顺序显示在下方。</p>
+              <code>GET /api/manual-sse</code>
+              <details>
+                <summary>手动验证说明</summary>
+                <pre>1. 导入示例配置
+2. 同时启动 Fetch 流和 EventSource
+3. 打开扩展 popup，展开命中规则
+4. 分别操作两条连接的「下一条」
+5. 核对两个接收时间及下方事件的客户端、event、id 与 data
+
+此卡片不会加入「运行全部请求」，避免批量流程等待长连接。</pre>
+              </details>
+              <div class="sse-client-grid">
+                <div class="sse-client-panel">
+                  <div class="sse-client-heading">
+                    <strong>Fetch stream</strong>
+                    <span class="sse-client-status" data-sse-client-status="fetch">未连接</span>
+                  </div>
+                  <p class="sse-client-received-time">
+                    接收时间：<time data-sse-received-time="fetch">--</time>
+                  </p>
+                  <div class="button-row">
+                    <button class="button" id="sse-fetch-start" type="button">启动 Fetch 流</button>
+                    <button class="button button-secondary" id="sse-fetch-stop" type="button" disabled>停止</button>
+                  </div>
+                </div>
+                <div class="sse-client-panel">
+                  <div class="sse-client-heading">
+                    <strong>EventSource</strong>
+                    <span class="sse-client-status" data-sse-client-status="event-source">未连接</span>
+                  </div>
+                  <p class="sse-client-received-time">
+                    接收时间：<time data-sse-received-time="event-source">--</time>
+                  </p>
+                  <div class="button-row">
+                    <button class="button" id="sse-event-source-start" type="button">启动 EventSource</button>
+                    <button class="button button-secondary" id="sse-event-source-stop" type="button" disabled>停止</button>
+                  </div>
+                </div>
+              </div>
+              <div class="sse-events-heading">
+                <strong>已接收事件</strong>
+                <span id="sse-event-count">0 条</span>
+              </div>
+              <ol class="sse-event-list" id="sse-event-list" aria-live="polite">
+                <li class="sse-event-empty" data-sse-event-empty>等待事件到达…</li>
+              </ol>
+            </article>
+
             <article class="card" data-test="status">
               <div class="card-heading">
                 <span class="tag">STATUS</span>

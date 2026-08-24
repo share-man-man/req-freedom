@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 2,
-  "exportedAt": "2026-07-25T00:00:00.000Z",
+  "schemaVersion": 3,
+  "exportedAt": "2026-08-19T00:00:00.000Z",
   "enabled": true,
   "groups": [
     {
@@ -149,6 +149,30 @@
             "statusCode": 200,
             "responseHeaders": { "X-Mocked-By": "req-freedom" },
             "body": "{\"source\":\"xhr-mock\",\"items\":[]}"
+          }]
+        },
+        {
+          "id": "rule-manual-sse",
+          "name": "GET /api/manual-sse 手动单步 Mock",
+          "enabled": true,
+          "channel": "page-patch",
+          "methods": ["GET"],
+          "matchType": "contains",
+          "pattern": "/api/manual-sse",
+          "actions": [{
+            "type": "mock-response",
+            "mode": "static",
+            "delivery": "sse",
+            "statusCode": 200,
+            "responseHeaders": { "X-Mocked-By": "req-freedom-sse" },
+            "body": "",
+            "sseSendMode": "manual",
+            "sseEndBehavior": "keep-open",
+            "sseEvents": [
+              { "event": "message", "data": "{\"step\":1,\"state\":\"connected\"}", "id": "1" },
+              { "event": "message", "data": "{\"step\":2,\"state\":\"processing\",\"progress\":50}", "id": "2" },
+              { "event": "message", "data": "{\"step\":3,\"state\":\"completed\",\"progress\":100}", "id": "3" }
+            ]
           }]
         },
         {

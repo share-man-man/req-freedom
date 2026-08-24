@@ -17,7 +17,12 @@ import type {
   RuleHitOutcome,
   RuleHitSkipReason,
   RuleScopeType,
+  SseDebugClient,
+  SseDebugCommandFailureReason,
+  SseDebugSendKind,
+  SseDebugSessionStatus,
   SseEndBehavior,
+  SseSendMode,
 } from './enums';
 
 /**
@@ -131,9 +136,64 @@ export interface MockResponseAction {
   sseEvents?: SseEvent[];
   /** SSE 事件发送完毕后的行为；缺省关闭。 */
   sseEndBehavior?: SseEndBehavior;
+  /** SSE 事件发送方式；缺省为自动发送，以兼容已有规则。 */
+  sseSendMode?: SseSendMode;
   /** 返回前的额外延迟（毫秒） */
   delayMs?: number;
 }
+
+/** 当前页面中可查询和控制的一次手动 SSE Mock 连接。 */
+export interface SseDebugSession {
+  /** MAIN world 创建的会话 ID。 */
+  id: string;
+  /** 命中的业务规则 ID。 */
+  ruleId: string;
+  /** 请求的绝对 URL。 */
+  url: string;
+  /** 发起请求的客户端类型。 */
+  client: SseDebugClient;
+  /** 下一条预设事件的数组下标；保持连接后的自定义发送不会继续递增。 */
+  nextEventIndex: number;
+  /** 当前已知的事件总数。 */
+  eventCount: number;
+  /** 当前运行状态。 */
+  status: SseDebugSessionStatus;
+  /** 建立连接的时间戳。 */
+  connectedAt: number;
+}
+
+/** UI 请求手动发送下一条 SSE 事件时携带的当前事件快照。 */
+export interface SseDebugSendNextCommand {
+  /** 目标会话 ID。 */
+  sessionId: string;
+  /** 发送规则预设事件，或在保持连接后发送临时自定义事件。 */
+  kind: SseDebugSendKind;
+  /** UI 当前看到的预设事件游标；自定义事件发送时等于预设事件总数。 */
+  eventIndex: number;
+  /** 当前预设或自定义事件；字段可能包含 popup 中的本次临时修改。 */
+  event: SseEvent;
+  /** 当前连接确认的预设事件总数；自定义事件不会增加该值。 */
+  eventCount: number;
+  /** 当前已保存配置的流结束行为。 */
+  endBehavior: SseEndBehavior;
+}
+
+/** MAIN world 对单步命令的处理结果。 */
+export type SseDebugCommandResult =
+  | {
+      /** 命令已执行。 */
+      ok: true;
+      /** 执行后的页面会话快照。 */
+      session: SseDebugSession;
+    }
+  | {
+      /** 命令未执行。 */
+      ok: false;
+      /** 命令失败原因。 */
+      reason: SseDebugCommandFailureReason;
+      /** 会话存在时返回最新快照，供陈旧 UI 立即校准。 */
+      session?: SseDebugSession;
+    };
 
 /**
  * 延迟模拟规则

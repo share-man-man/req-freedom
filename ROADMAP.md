@@ -53,7 +53,7 @@ flowchart LR
 
 - [x] ~~**P1 · 基于真实响应改写（Mock 包装模式）**~~ — `MockResponseAction` 新增可选 `passthrough`（仅 `MockResponseMode.Dynamic` 可开）。关闭时保持既有短路语义（不发真实请求）；开启时切换为包装语义：先发出真实请求（同规则的改请求体先生效），把真实响应以 `res` 快照（`status` / `statusText` / `ok` / `headers` / `body` / `json`）连同 `req` 一起交给动态函数，用返回值替换响应体，状态码与响应头一律沿用真实响应；函数不返回值或抛异常时保留真实响应体。XHR 侧页面持有的实例全程不 `send`，真实请求由影子实例（`originalOpen` / `originalSend`）承载，避免原生同步事件抢在异步函数之前交付响应；不透明响应（`no-cors`）原样放行。文档见 [基于真实响应改写](apps/docs/docs/guide/features/mock.md#基于真实响应改写)。
 
-- [x] ~~**P1 · SSE 事件流 Mock**~~ — 静态 Mock 可选择 `MockResponseDelivery.Sse`，将事件序列按各自延迟编码为 UTF-8 `text/event-stream` 流；每条事件支持 `event` / `data` / `id` / `retryMs` 字段、动态变量与多行数据，并可从原始 SSE 响应批量导入。支持事件发完后关闭、保持连接或循环发送；`fetch` 通过 `ReadableStream` 逐块消费，原生 `EventSource` 会模拟连接状态、`open` / `message` / 自定义事件及 `close()`，未命中时回落浏览器原生实现。当前不支持动态响应、基于真实响应改写或 XHR，状态码固定为 `200`。文档见 [SSE 事件流](apps/docs/docs/guide/features/mock.md#sse-事件流)。
+- [x] ~~**P1 · SSE 事件流 Mock**~~ — 静态 Mock 可选择 `MockResponseDelivery.Sse`，将事件序列编码为 UTF-8 `text/event-stream` 流；支持按各事件延迟自动发送，也支持在扩展 popup 的连接手风琴中对当前标签页的每个命中连接独立编辑下一条事件字段并单步发送。每条事件支持 `event` / `data` / `id` / `retryMs` 字段、动态变量与多行数据，并可从原始 SSE 响应批量导入。支持事件发完后关闭、保持连接或在自动模式下循环发送；手动保持连接后还能继续发送不写回规则的自定义事件。`fetch` 通过 `ReadableStream` 逐块消费，原生 `EventSource` 会模拟连接状态、`open` / `message` / 自定义事件及 `close()`，未命中时回落浏览器原生实现。当前不支持动态响应、基于真实响应改写或 XHR，状态码固定为 `200`。文档见 [SSE 事件流](apps/docs/docs/guide/features/mock.md#sse-事件流)。
 
 ### 匹配能力增强
 
@@ -66,7 +66,7 @@ flowchart LR
 
 - [x] ~~**P0 · 规则分组 + 分组开关**~~ — 采用嵌套结构（`RuleGroup { id, name, enabled, rules: Rule[] }`），storage 顶层键 `req-freedom:groups`；生效判定 = 全局开关 && `group.enabled` && `rule.enabled`，`core.collectActiveRules(groups)` 统一扁平化供 background / bridge / popup 复用。options 支持分组卡片、组开关、就地重命名、组间/组内拖拽，规则编辑器可改「所属分组」跨组移动。
 
-- [x] ~~**P0 · 导入 / 导出**~~ — 规则管理页可导入 / 导出完整 JSON 配置（全局开关 + 分组 + 统一规则），当前 `schemaVersion: 2`；导入完整校验通道、动作、请求方法与正则并经确认后整体替换。文档见 [导入与导出配置](apps/docs/docs/guide/import-export.md)。
+- [x] ~~**P0 · 导入 / 导出**~~ — 规则管理页可导入 / 导出完整 JSON 配置（全局开关 + 分组 + 统一规则），当前导出 `schemaVersion: 3`、导入兼容 v2；导入完整校验通道、动作、请求方法与正则并经确认后整体替换。文档见 [导入与导出配置](apps/docs/docs/guide/import-export.md)。
 
 - [x] ~~**P1 · 作用域过滤（tab / 窗口 / 标签组）**~~ — 规则新增可选 `scope`（`RuleScopeType`：`all-tabs` / `tab` / `window` / `tab-group`，多选目标）。两条通道均生效：页面补丁按桥接脚本自身 `tabId` / `windowId` / `groupId` 过滤（`core.matchScope`），DNR 把作用域解析成 `tabId` 集合以 session 规则的 `tabIds` 条件承载（`utils/scope.resolveScopeTabIds`）并随标签事件重算，不限定作用域的规则仍走可跨重启的 dynamic 规则；编辑器实时列出可选对象，已关闭目标标注失效（fail-closed）。文档见 [作用域过滤](apps/docs/docs/guide/features/scope-filter.md)。
 

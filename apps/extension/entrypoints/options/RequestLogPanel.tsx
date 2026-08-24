@@ -3,7 +3,7 @@ import { browser } from 'wxt/browser';
 import { ChevronLeft, CircleSlash, ListFilter, RotateCcw, ScrollText, Target, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { RuleGroup, RuleHit, RuleHitLog, RuleHitTabSummary } from '@req-freedom/shared';
-import { RuleActionType, RuleHitOutcome } from '@req-freedom/shared';
+import { LoadStatus, RuleActionType, RuleHitOutcome } from '@req-freedom/shared';
 import { getLabels } from '@/utils/labels';
 import { clearTabHits, fetchHitLog, fetchHitTabSummaries } from '@/utils/rule-hit-client';
 import {
@@ -110,7 +110,7 @@ export default function RequestLogPanel({
   /** 视图筛选条件。 */
   const [filter, setFilter] = useState<HitLogFilter>(EMPTY_HIT_LOG_FILTER);
   /** 数据加载状态，用于区分「没有命中」与「读不到数据」。 */
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [status, setStatus] = useState<LoadStatus>(LoadStatus.Loading);
 
   /** 各枚举展示名映射。 */
   const labels = getLabels(t);
@@ -125,16 +125,16 @@ export default function RequestLogPanel({
       /** background 内存中仍保有日志的标签页与当前打开的标签页。 */
       const [summaries, tabs] = await Promise.all([fetchHitTabSummaries(), browser.tabs.query({})]);
       if (!summaries) {
-        setStatus('error');
+        setStatus(LoadStatus.Error);
         return;
       }
       setTabSummaries(summaries);
       setLiveTabs(
         tabs.flatMap((tab) => (tab.id === undefined ? [] : [{ id: tab.id, label: tab.title || tab.url || '' }])),
       );
-      setStatus('ready');
+      setStatus(LoadStatus.Ready);
     } catch {
-      setStatus('error');
+      setStatus(LoadStatus.Error);
     }
   }, []);
 
@@ -147,13 +147,13 @@ export default function RequestLogPanel({
       /** background 内存中的权威日志。 */
       const nextLog = await fetchHitLog(tabId);
       if (!nextLog) {
-        setStatus('error');
+        setStatus(LoadStatus.Error);
         return;
       }
       setLog(nextLog);
-      setStatus('ready');
+      setStatus(LoadStatus.Ready);
     } catch {
-      setStatus('error');
+      setStatus(LoadStatus.Error);
     }
   }, []);
 
@@ -227,7 +227,7 @@ export default function RequestLogPanel({
       setLog({ hits: [], truncated: false });
       await loadTabs();
     } catch {
-      setStatus('error');
+      setStatus(LoadStatus.Error);
     }
   };
 
@@ -429,7 +429,7 @@ export default function RequestLogPanel({
         )}
       </div>
 
-      {status === 'error' && (
+      {status === LoadStatus.Error && (
         <div className="flex items-center gap-3 rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <p className="min-w-0 flex-1">{t('requestLog.loadFailed')}</p>
           <Button
@@ -454,7 +454,7 @@ export default function RequestLogPanel({
       )}
 
       {/* 命中记录列表 */}
-      {status === 'loading' ? (
+      {status === LoadStatus.Loading ? (
         // 首屏两次异步读取都还没回来，此时空状态是误导：还没查完，不是真的没有命中
         <p className="rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center text-sm text-muted-foreground">
           {t('requestLog.loading')}

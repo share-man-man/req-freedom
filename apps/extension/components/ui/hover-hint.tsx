@@ -23,6 +23,10 @@ interface HoverHintProps {
   className?: string;
   /** 附加到气泡本体的样式类，用于调整宽度或配色。 */
   contentClassName?: string;
+  /** 触发器点击回调；提供时气泡触发器同时可作为操作按钮。 */
+  onClick?: () => void;
+  /** 是否禁用触发器操作。 */
+  disabled?: boolean;
 }
 
 /** 触发器与气泡之间的间距（px）。 */
@@ -36,7 +40,15 @@ const HINT_GAP = 6;
  * 避免被 popup 窗口下边缘截断。滚动会让已计算的坐标失效，故滚动时直接收起。
  * @param props 气泡内容、触发器内容与样式类
  */
-export function HoverHint({ content, children, label, className, contentClassName }: HoverHintProps) {
+export function HoverHint({
+  content,
+  children,
+  label,
+  className,
+  contentClassName,
+  onClick,
+  disabled = false,
+}: HoverHintProps) {
   /** 气泡节点 ID，供 aria-describedby 关联。 */
   const bubbleId = useId();
   /** 触发器节点引用，用于读取其视口坐标。 */
@@ -83,7 +95,9 @@ export function HoverHint({ content, children, label, className, contentClassNam
       type="button"
       aria-label={label}
       aria-describedby={position ? bubbleId : undefined}
+      disabled={disabled}
       className={cn('relative inline-flex shrink-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', className)}
+      onClick={onClick}
       onMouseEnter={openHint}
       onMouseLeave={closeHint}
       onFocus={openHint}

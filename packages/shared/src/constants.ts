@@ -20,7 +20,10 @@ export const STORAGE_KEY_LOCALE = 'req-freedom:locale';
 export const STORAGE_KEY_THEME = 'req-freedom:theme';
 
 /** 导入 / 导出文件当前使用的配置 schema 版本。 */
-export const CONFIG_EXPORT_SCHEMA_VERSION = 2;
+export const CONFIG_EXPORT_SCHEMA_VERSION = 3;
+
+/** 当前版本可以导入的配置 schema 版本。 */
+export const SUPPORTED_CONFIG_EXPORT_SCHEMA_VERSIONS = [2, 3] as const;
 
 /** 导出配置文件的文件名固定前缀。 */
 export const CONFIG_EXPORT_FILE_NAME_PREFIX = 'req-freedom-config';
@@ -34,8 +37,35 @@ export const PAGE_PORT_MSG_RULES = 'req-freedom:page-rules';
 /** MAIN world 通过私有 MessagePort 上报页面补丁命中的消息类型。 */
 export const PAGE_PORT_MSG_RULE_HITS = 'req-freedom:page-rule-hits';
 
+/** MAIN world 通过私有端口上报新手动 SSE 连接的消息类型。 */
+export const PAGE_PORT_MSG_SSE_SESSION_OPENED = 'req-freedom:sse-session-opened';
+
+/** MAIN world 通过私有端口上报手动 SSE 连接状态变化的消息类型。 */
+export const PAGE_PORT_MSG_SSE_SESSION_UPDATED = 'req-freedom:sse-session-updated';
+
+/** bridge 通过私有端口请求 MAIN world 发送下一条 SSE 事件的消息类型。 */
+export const PAGE_PORT_MSG_SSE_SEND_NEXT = 'req-freedom:sse-send-next';
+
+/** MAIN world 通过私有端口返回手动 SSE 命令结果的消息类型。 */
+export const PAGE_PORT_MSG_SSE_COMMAND_RESULT = 'req-freedom:sse-command-result';
+
 /** 桥接脚本把页面补丁命中转交 background 的消息类型。 */
 export const RUNTIME_MSG_RULE_HIT = 'req-freedom:rule-hit';
+
+/** popup 向当前标签页 bridge 查询手动 SSE 会话的消息类型。 */
+export const RUNTIME_MSG_LIST_SSE_SESSIONS = 'req-freedom:list-sse-sessions';
+
+/** popup 经当前标签页 bridge 请求手动发送下一条 SSE 事件的消息类型。 */
+export const RUNTIME_MSG_SSE_SEND_NEXT = 'req-freedom:sse-send-next';
+
+/** bridge 通知 popup 当前页面的手动 SSE 会话发生变化。 */
+export const RUNTIME_MSG_SSE_SESSION_CHANGED = 'req-freedom:sse-session-changed';
+
+/** 单个页面最多同时保留的可控制 SSE 连接数。 */
+export const MAX_SSE_DEBUG_SESSIONS_PER_PAGE = 50;
+
+/** bridge 等待 MAIN world 返回单步命令结果的最长时间。 */
+export const SSE_DEBUG_COMMAND_TIMEOUT_MS = 5000;
 
 /** popup 向 background 查询当前标签页命中摘要的消息类型。 */
 export const RUNTIME_MSG_GET_RULE_HIT_SUMMARY = 'req-freedom:get-rule-hit-summary';

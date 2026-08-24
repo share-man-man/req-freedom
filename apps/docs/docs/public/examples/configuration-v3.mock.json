@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 3,
+  "exportedAt": "2026-08-19T08:00:00.000Z",
+  "enabled": true,
+  "groups": [
+    {
+      "id": "group-sse-mock",
+      "name": "SSE Mock",
+      "enabled": true,
+      "updatedAt": "2026-08-19T08:00:00.000Z",
+      "rules": [
+        {
+          "id": "rule-sse-progress",
+          "name": "手动发送 SSE 进度",
+          "enabled": true,
+          "channel": "page-patch",
+          "methods": ["GET"],
+          "matchType": "equals",
+          "pattern": "https://api.example.com/v1/progress",
+          "actions": [
+            {
+              "type": "mock-response",
+              "mode": "static",
+              "delivery": "sse",
+              "statusCode": 200,
+              "body": "",
+              "sseSendMode": "manual",
+              "sseEndBehavior": "close",
+              "sseEvents": [
+                { "event": "progress", "data": "{\"percent\":50}", "id": "1" },
+                { "event": "progress", "data": "{\"percent\":100}", "id": "2" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
