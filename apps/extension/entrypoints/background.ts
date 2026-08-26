@@ -54,6 +54,20 @@ let dnrSyncChain: Promise<unknown> = Promise.resolve();
 let actionIconSyncChain: Promise<unknown> = Promise.resolve();
 
 /**
+ * 开发构建启动时按需导入 Request Lab 配置。
+ * @returns 导入任务完成后的 Promise。
+ */
+async function initializeDevelopmentConfiguration(): Promise<void> {
+  /** 仅会进入开发产物的配置导入模块。 */
+  const { importRequestLabConfiguration } = await import('@/utils/dev-configuration');
+  /** 本次是否因 fixture 变化而写入配置。 */
+  const imported = await importRequestLabConfiguration();
+  if (imported) {
+    console.info('[req-freedom] 已自动导入 Request Lab 开发配置。');
+  }
+}
+
+/**
  * 记录一批命中并把徽标刷新为最新状态。
  *
  * 徽标是命中日志的投影而非独立状态：只匹配上、未能应用的记录同样进日志（popup 要据此
@@ -242,6 +256,12 @@ async function pushScopeContext(tabId: number): Promise<void> {
 
 export default defineBackground(() => {
   initActionIcon();
+
+  if (import.meta.env.DEV) {
+    void initializeDevelopmentConfiguration().catch((error) => {
+      console.error('[req-freedom] 自动导入 Request Lab 开发配置失败：', error);
+    });
+  }
 
   // 冷启动：先从镜像恢复命中日志，再按全局开关和恢复结果补回徽标状态。
   void restoreHits()

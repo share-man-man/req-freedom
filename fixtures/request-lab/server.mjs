@@ -46,7 +46,7 @@ const labServer = createServer(
 const crossOriginServer = createServer(createRequestHandler({ routes: crossOriginRoutes }));
 
 labServer.listen(port, HOST, () => {
-  console.log(`\n  ReqFreedom Request Lab\n  http://${HOST}:${port}`);
+  console.log(`\n  ReqFreedom Request Lab（浏览器访问入口）\n  http://${HOST}:${port}`);
   console.log('\n  动态端点：');
   for (const route of labRoutes) {
     console.log(`    ${route.method.padEnd(5)} ${route.path.padEnd(20)} ${route.description}`);
@@ -54,9 +54,10 @@ labServer.listen(port, HOST, () => {
 });
 
 crossOriginServer.listen(crossOriginPort, HOST, () => {
-  console.log(`\n  跨域验证服务（不同源）\n  ${crossOriginBaseUrl}`);
+  console.log(`\n  跨域验证辅助服务（不同源，无需直接访问）\n  ${crossOriginBaseUrl}`);
   for (const route of crossOriginRoutes) {
     console.log(`    ${route.method.padEnd(5)} ${route.path.padEnd(28)} ${route.description}`);
   }
-  console.log('');
+  // 最后一行重新给出主站入口，避免把不同源辅助服务的端口误认为 Request Lab 端口。
+  console.log(`\n  打开 Request Lab：\n  http://${HOST}:${port}\n`);
 });

@@ -11,6 +11,7 @@ import {
   SseEndBehavior,
   SseSendMode,
 } from '@req-freedom/shared';
+import requestLabConfiguration from '../../../fixtures/request-lab/req-freedom-config.json';
 import { parseConfigurationExport } from './config-transfer';
 
 /** 让校验错误稳定返回 i18n key 的测试翻译函数。 */
@@ -114,5 +115,18 @@ describe('parseConfigurationExport SSE Mock', () => {
       expect(() => parseConfigurationExport(translate, JSON.stringify(configuration(overrides))))
         .toThrow('configTransfer.invalidMockConfig');
     }
+  });
+});
+
+describe('Request Lab 配置 fixture', () => {
+  it('符合当前配置导入协议', () => {
+    /** 通过正式导入校验器解析后的 Request Lab 配置。 */
+    const parsed = parseConfigurationExport(
+      translate,
+      JSON.stringify(requestLabConfiguration),
+    );
+
+    expect(parsed.schemaVersion).toBe(CONFIG_EXPORT_SCHEMA_VERSION);
+    expect(parsed.groups).toHaveLength(requestLabConfiguration.groups.length);
   });
 });
