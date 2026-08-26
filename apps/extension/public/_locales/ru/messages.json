@@ -4,5 +4,8 @@
   },
   "extDescription": {
     "message": "Отладка запросов: блокировка, перенаправление, параметры, заголовки, имитация ответов, ограничение сети, тело, скрипты"
-  }
+  },
+  "popupLoading": { "message": "Загрузка ReqFreedom" },
+  "popupStartupFailed": { "message": "Не удалось запустить ReqFreedom" },
+  "popupRetry": { "message": "Повторить" }
 }

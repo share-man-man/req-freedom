@@ -4,5 +4,8 @@
   },
   "extDescription": {
     "message": "요청 디버깅 도구: 차단, 리디렉션, 매개변수 삽입, 헤더 수정, 응답 Mock, 네트워크 제한, 본문 수정, 스크립트 삽입"
-  }
+  },
+  "popupLoading": { "message": "ReqFreedom 로드 중" },
+  "popupStartupFailed": { "message": "ReqFreedom을 시작하지 못했습니다" },
+  "popupRetry": { "message": "다시 시도" }
 }

@@ -4,5 +4,8 @@
   },
   "extDescription": {
     "message": "Débogage des requêtes : blocage, redirection, paramètres, en-têtes, réponses simulées, limitation du débit, corps, scripts"
-  }
+  },
+  "popupLoading": { "message": "Chargement de ReqFreedom" },
+  "popupStartupFailed": { "message": "Impossible de démarrer ReqFreedom" },
+  "popupRetry": { "message": "Réessayer" }
 }

@@ -4,5 +4,8 @@
   },
   "extDescription": {
     "message": "Request debugging: block, redirect, inject params, modify headers, mock responses, throttle, modify body, insert script"
-  }
+  },
+  "popupLoading": { "message": "Loading ReqFreedom" },
+  "popupStartupFailed": { "message": "ReqFreedom failed to start" },
+  "popupRetry": { "message": "Retry" }
 }

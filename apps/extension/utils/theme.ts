@@ -36,14 +36,12 @@ export function getThemeMode(): ThemeMode {
 }
 
 /**
- * 初始化主题偏好，并监听其他扩展页面的设置变更。
- * @returns 主题偏好完成初始化时兑现
+ * 根据已读取的持久化值初始化主题并订阅后续变化。
+ *
+ * popup 会与语言设置一起批量读取 storage 后调用此入口；非法或缺省值回退到系统主题。
+ * @param storedTheme storage 中读取到的主题原始值
  */
-export async function initTheme(): Promise<void> {
-  /** storage 中保存的主题；首次使用时回退为 System。 */
-  const result = await browser.storage.local.get(STORAGE_KEY_THEME);
-  /** 经过校验后的主题模式，非法或缺省值均回退为 System。 */
-  const storedTheme = result[STORAGE_KEY_THEME];
+export function initThemeFromStoredValue(storedTheme: unknown): void {
   applyTheme(isThemeMode(storedTheme) ? storedTheme : ThemeMode.System);
   browser.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'local') {
@@ -53,6 +51,18 @@ export async function initTheme(): Promise<void> {
     const nextTheme = changes[STORAGE_KEY_THEME]?.newValue;
     applyTheme(isThemeMode(nextTheme) ? nextTheme : ThemeMode.System);
   });
+}
+
+/**
+ * 初始化主题偏好，并监听其他扩展页面的设置变更。
+ * @returns 主题偏好完成初始化时兑现
+ */
+export async function initTheme(): Promise<void> {
+  /** storage 中保存的主题；首次使用时回退为 System。 */
+  const result = await browser.storage.local.get(STORAGE_KEY_THEME);
+  /** 经过校验后的主题模式，非法或缺省值均回退为 System。 */
+  const storedTheme = result[STORAGE_KEY_THEME];
+  initThemeFromStoredValue(storedTheme);
 }
 
 /**

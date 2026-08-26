@@ -4,5 +4,8 @@
   },
   "extDescription": {
     "message": "リクエストデバッグ：ブロック、リダイレクト、パラメータ注入、ヘッダー変更、モック、帯域制限、ボディ変更、スクリプト注入"
-  }
+  },
+  "popupLoading": { "message": "ReqFreedom を読み込んでいます" },
+  "popupStartupFailed": { "message": "ReqFreedom を起動できませんでした" },
+  "popupRetry": { "message": "再試行" }
 }

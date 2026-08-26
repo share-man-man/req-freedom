@@ -4,5 +4,8 @@
   },
   "extDescription": {
     "message": "Depuração de requisições: bloquear, redirecionar, parâmetros, cabeçalhos, simular respostas, limitar rede, corpo, scripts"
-  }
+  },
+  "popupLoading": { "message": "Carregando o ReqFreedom" },
+  "popupStartupFailed": { "message": "Não foi possível iniciar o ReqFreedom" },
+  "popupRetry": { "message": "Tentar novamente" }
 }

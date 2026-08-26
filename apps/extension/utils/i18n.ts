@@ -70,13 +70,16 @@ async function resolveInitialLocale(): Promise<SupportedLocale> {
 }
 
 /**
- * 初始化 i18next 单例：读取持久化语言、装载资源、接入 react-i18next。
- * 各入口（popup / options）渲染前需 await 本函数。
+ * 根据已读取的持久化值初始化 i18next。
+ *
+ * popup 会与主题设置一起批量读取 storage 后调用此入口，避免首次渲染前重复等待 storage；
+ * 非法或缺省值回退到浏览器 UI 语言。
+ * @param storedLocale storage 中读取到的语言原始值
  * @returns 初始化完成的 i18next 实例
  */
-export async function initI18n(): Promise<typeof i18next> {
-  /** 初始化时使用的语言。 */
-  const initialLocale = await resolveInitialLocale();
+export async function initI18nFromStoredLocale(storedLocale: unknown): Promise<typeof i18next> {
+  /** 校验后用于初始化的语言。 */
+  const initialLocale = isSupportedLocale(storedLocale) ? storedLocale : detectBrowserLocale();
   await i18next.use(initReactI18next).init({
     resources: {
       'zh-CN': { translation: zhCN },
@@ -104,6 +107,17 @@ export async function initI18n(): Promise<typeof i18next> {
     }
   });
   return i18next;
+}
+
+/**
+ * 初始化 i18next 单例：读取持久化语言、装载资源、接入 react-i18next。
+ * 各入口（popup / options）渲染前需 await 本函数。
+ * @returns 初始化完成的 i18next 实例
+ */
+export async function initI18n(): Promise<typeof i18next> {
+  /** 初始化时使用的语言。 */
+  const initialLocale = await resolveInitialLocale();
+  return initI18nFromStoredLocale(initialLocale);
 }
 
 /**

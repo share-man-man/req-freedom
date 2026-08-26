@@ -4,5 +4,8 @@
   },
   "extDescription": {
     "message": "請求偵錯工具：攔截請求、重定向、參數注入、Header 改寫、返回值 Mock、網路限速、改請求體、指令碼注入"
-  }
+  },
+  "popupLoading": { "message": "正在載入 ReqFreedom" },
+  "popupStartupFailed": { "message": "ReqFreedom 啟動失敗" },
+  "popupRetry": { "message": "重試" }
 }

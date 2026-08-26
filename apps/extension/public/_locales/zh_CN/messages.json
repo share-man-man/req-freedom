@@ -4,5 +4,8 @@
   },
   "extDescription": {
     "message": "请求调试工具：拦截请求、重定向、参数注入、Header 改写、返回值 Mock、网络限速、改请求体、脚本注入"
-  }
+  },
+  "popupLoading": { "message": "正在加载 ReqFreedom" },
+  "popupStartupFailed": { "message": "ReqFreedom 启动失败" },
+  "popupRetry": { "message": "重试" }
 }

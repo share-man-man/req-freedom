@@ -4,9 +4,51 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ReqFreedom</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, sans-serif;
+      }
+
+      body {
+        margin: 0;
+        width: 340px;
+      }
+
+      .popup-boot {
+        box-sizing: border-box;
+        display: flex;
+        min-height: 96px;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        color: #64748b;
+        font-size: 12px;
+      }
+
+      .popup-boot__spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid currentColor;
+        border-right-color: transparent;
+        border-radius: 999px;
+        animation: popup-boot-spin 0.8s linear infinite;
+      }
+
+      @keyframes popup-boot-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="popup-boot" role="status" aria-label="ReqFreedom" data-popup-loading>
+        <span class="popup-boot__spinner" aria-hidden="true"></span>
+        <span>ReqFreedom</span>
+      </div>
+    </div>
     <script type="module" src="./main.tsx"></script>
   </body>
 </html>

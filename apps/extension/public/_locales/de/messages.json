@@ -4,5 +4,8 @@
   },
   "extDescription": {
     "message": "Request-Diagnose: blockieren, umleiten, Parameter, Header ändern, Antworten simulieren, drosseln, Body ändern, Skripte"
-  }
+  },
+  "popupLoading": { "message": "ReqFreedom wird geladen" },
+  "popupStartupFailed": { "message": "ReqFreedom konnte nicht gestartet werden" },
+  "popupRetry": { "message": "Erneut versuchen" }
 }
