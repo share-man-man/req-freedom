@@ -942,16 +942,21 @@ function ActionWorkbench({ draft, focusedType, channelTab, onChannelTab, onToggl
                   // 行本身不能嵌套按钮，故拆成「控件 + 文字 label + 说明气泡 + 删除按钮」，让说明图标紧跟动作名称
                   return <div key={type} className={`group flex items-center rounded-md pr-1 transition-colors ${active ? 'bg-primary/10' : 'hover:bg-muted/50'}`}>
                     {/* 互斥动作使用 radio，可叠加动作使用 checkbox；原生控件同时提供键盘与读屏语义。 */}
-                    <input
-                      id={controlId}
-                      type={selectionGroup.control}
-                      name={controlName}
-                      checked={selectedAction !== undefined}
-                      aria-invalid={hasError}
-                      className={`ml-2.5 size-3.5 shrink-0 accent-primary ${hasError ? 'outline outline-2 outline-offset-1 outline-destructive' : ''}`}
-                      onFocus={() => { if (selectedAction) onFocus(type); }}
-                      onChange={() => onToggle(type)}
-                    />
+                    <span className="relative ml-2.5 size-4 shrink-0">
+                      <input
+                        id={controlId}
+                        type={selectionGroup.control}
+                        name={controlName}
+                        checked={selectedAction !== undefined}
+                        aria-invalid={hasError}
+                        className={`peer absolute inset-0 size-4 cursor-pointer appearance-none border border-input bg-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${selectionGroup.control === 'radio' ? 'rounded-full checked:border-primary' : 'rounded-[3px] checked:border-primary checked:bg-primary'} ${hasError ? 'outline outline-2 outline-offset-1 outline-destructive' : ''}`}
+                        onFocus={() => { if (selectedAction) onFocus(type); }}
+                        onChange={() => onToggle(type)}
+                      />
+                      {selectionGroup.control === 'radio'
+                        ? <span className="pointer-events-none absolute left-1/2 top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary opacity-0 transition-opacity peer-checked:opacity-100" />
+                        : <Check className="pointer-events-none absolute inset-0.5 size-3 text-primary-foreground opacity-0 transition-opacity peer-checked:opacity-100" strokeWidth={3} />}
+                    </span>
                     <label htmlFor={controlId} className="block min-w-0 cursor-pointer py-1.5 pl-1.5 text-left">
                       <span className={`block truncate text-sm font-medium ${selectedAction ? 'text-foreground' : 'text-muted-foreground'}`}>{labels.RULE_ACTION_TYPE_LABELS[type]}</span>
                     </label>
