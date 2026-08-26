@@ -83,13 +83,13 @@ import type { OptionsView, RuleStatusFilter } from './ManagementDashboard';
  *
  * 用 div + CSS Grid 而非原生 <table>：浏览器对 display:table-row 元素的 transform 过渡渲染不可靠，
  * 会导致 dnd-kit 排序时「瞬间换位、无让位动画」；block/grid 布局才能让排序动画稳定生效。
- * 列依次为：拖拽柄 · 启用 · 名称 · 执行通道 · 动作 · 匹配内容 · 操作。
+ * 列依次为：拖拽柄 · 启用 · 名称 · 执行通道 · 动作 · 匹配方式 · 请求方法 · 匹配内容 · 操作。
  *
  * 「执行通道」「操作」使用固定宽度，名称 / 动作 / 匹配内容按比例分配余宽；不能使用 auto，
  * 否则每一行会按自身内容分别计算列宽，导致表头和规则内容无法左对齐。
  */
 const RULE_ROW_GRID =
-  'grid grid-cols-[28px_44px_minmax(0,1.1fr)_100px_minmax(0,1.2fr)_minmax(0,1.1fr)_72px] items-center gap-3';
+  'grid grid-cols-[28px_44px_minmax(0,1.1fr)_100px_minmax(0,1.2fr)_88px_minmax(0,0.8fr)_minmax(0,1.1fr)_72px] items-center gap-3';
 
 /**
  * 无分组时新建规则用的「默认分组」占位 ID。
@@ -336,6 +336,16 @@ function SortableRuleRow({
           );
         })}
       </div>
+      <Badge variant="muted" className="justify-self-start whitespace-nowrap">
+        {labels.MATCH_TYPE_LABELS[rule.matchType]}
+      </Badge>
+      <Badge
+        variant="outline"
+        className="min-w-0 max-w-full justify-self-start truncate whitespace-nowrap font-mono"
+        title={rule.methods.length > 0 ? rule.methods.join(' / ') : t('ruleEditor.methodPicker.all')}
+      >
+        {rule.methods.length > 0 ? rule.methods.join(' / ') : t('ruleEditor.methodPicker.all')}
+      </Badge>
       <code
         className="min-w-0 max-w-full justify-self-start truncate rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
         title={rule.pattern}
@@ -583,6 +593,8 @@ function RuleColumnsHeader() {
       <span className="whitespace-nowrap">{t('app.columns.name')}</span>
       <span className="whitespace-nowrap">{t('app.columns.channel')}</span>
       <span className="whitespace-nowrap">{t('app.columns.actions')}</span>
+      <span className="whitespace-nowrap">{t('ruleEditor.matchType')}</span>
+      <span className="whitespace-nowrap">{t('ruleEditor.methods')}</span>
       <span className="whitespace-nowrap">{t('app.columns.pattern')}</span>
       <span className="whitespace-nowrap text-right">{t('app.columns.operations')}</span>
     </div>
@@ -624,6 +636,16 @@ function RuleRowStatic({ rule }: { rule: Rule }) {
           </Badge>
         ))}
       </div>
+      <Badge variant="muted" className="justify-self-start whitespace-nowrap">
+        {labels.MATCH_TYPE_LABELS[rule.matchType]}
+      </Badge>
+      <Badge
+        variant="outline"
+        className="min-w-0 max-w-full justify-self-start truncate whitespace-nowrap font-mono"
+        title={rule.methods.length > 0 ? rule.methods.join(' / ') : t('ruleEditor.methodPicker.all')}
+      >
+        {rule.methods.length > 0 ? rule.methods.join(' / ') : t('ruleEditor.methodPicker.all')}
+      </Badge>
       <code
         className="min-w-0 max-w-full justify-self-start truncate rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
         title={rule.pattern}

@@ -590,9 +590,9 @@ export default function App() {
                                 variant={rule.enabled ? 'default' : 'muted'}
                                 className="shrink-0 px-1.5 py-0 text-[11px]"
                               >
-                                {rule.channel === 'dnr'
-                                  ? 'DNR'
-                                  : t('templateLibrary.channelPagePatch')}
+                                {rule.methods.length > 0
+                                  ? rule.methods.join(' / ')
+                                  : t('ruleEditor.methodPicker.all')}
                               </Badge>
                               {showSseAccordion && (
                                 <ChevronDown
