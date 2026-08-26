@@ -4,9 +4,9 @@ ReqFreedom 配置文件使用带版本号的 JSON 协议。人或 AI 生成配�
 
 ## 协议资源
 
-- [最小 Mock 示例](https://share-man-man.github.io/req-freedom/examples/configuration-v3.mock.json)
-- [覆盖全部动作的完整示例](https://share-man-man.github.io/req-freedom/examples/configuration-v3.complete.json)
-- [v2 兼容示例](https://share-man-man.github.io/req-freedom/examples/configuration-v2.mock.json)
+- [最小 Mock 示例](https://github.com/share-man-man/req-freedom/raw/refs/heads/main/apps/docs/docs/public/examples/configuration-v3.mock.json)
+- [覆盖全部动作的完整示例](https://github.com/share-man-man/req-freedom/raw/refs/heads/main/apps/docs/docs/public/examples/configuration-v3.complete.json)
+- [v2 兼容示例](https://github.com/share-man-man/req-freedom/raw/refs/heads/main/apps/docs/docs/public/examples/configuration-v2.mock.json)
 
 当前导出协议版本为 `schemaVersion: 3`。v3 增加 SSE 手动单步发送配置；导入器继续接受 v2，并把缺少发送方式的 SSE 规则迁移为自动发送。未来协议结构变化时会继续递增版本号，不会原地改变旧版本字段的语义。
 

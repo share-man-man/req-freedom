@@ -33,7 +33,7 @@
 
 ```text
 请先阅读 ReqFreedom 配置文件协议，并按协议生成可直接导入的完整 JSON 配置：
-https://share-man-man.github.io/req-freedom/guide/configuration-format
+https://github.com/share-man-man/req-freedom/raw/refs/heads/main/apps/docs/docs/guide/configuration-format.md
 ```
 
 ## 安装
