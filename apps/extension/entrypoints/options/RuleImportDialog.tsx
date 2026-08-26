@@ -5,6 +5,7 @@ import {
   ChevronDown,
   FileJson,
   FolderPlus,
+  Upload,
   Terminal,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -21,7 +22,7 @@ import type {
   RuleImportWarningCode,
 } from '@req-freedom/core';
 import { Button } from '@/components/ui/button';
-import { DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -60,6 +61,154 @@ interface CurlImportDialogProps {
   onContinue: (rule: Rule) => void;
 }
 
+interface ConfigImportDialogProps {
+  /** 打开 ReqFreedom Tab 时自动回填的本地配置 JSON。 */
+  initialContent: string;
+  /** 取消导入。 */
+  onCancel: () => void;
+  /** 校验并保存配置文本；返回 false 表示用户取消了覆盖确认。 */
+  onImport: (content: string) => Promise<boolean>;
+}
+
+/** ReqFreedom 配置导入允许的文件扩展名。 */
+const CONFIG_IMPORT_ACCEPT = '.json,application/json';
+
+/**
+ * ReqFreedom 配置导入：支持拖拽/选择 JSON 文件，也支持直接粘贴 JSON。
+ * @param props 取消与导入回调
+ */
+export function ConfigImportDialog({ initialContent, onCancel, onImport }: ConfigImportDialogProps) {
+  const { t } = useTranslation();
+  /** 隐藏文件选择框。 */
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  /** 待导入的 JSON 文本。 */
+  const [content, setContent] = useState(initialContent);
+  /** 最近选择或拖入的文件名。 */
+  const [fileName, setFileName] = useState('');
+  /** 文件是否正悬停在拖放区域。 */
+  const [dragging, setDragging] = useState(false);
+  /** 读取、校验或保存错误。 */
+  const [error, setError] = useState<string | null>(null);
+  /** 是否正在保存配置。 */
+  const [saving, setSaving] = useState(false);
+
+  /**
+   * 读取配置文件到编辑区。
+   * @param file 用户选择或拖入的 JSON 文件
+   */
+  const loadFile = async (file: File): Promise<void> => {
+    try {
+      /** 文件中的原始文本。 */
+      const nextContent = await file.text();
+      setContent(nextContent);
+      setFileName(file.name);
+      setError(null);
+    } catch {
+      setError(t('ruleImport.config.readFailure'));
+    }
+  };
+
+  /**
+   * 从文件选择框读取配置。
+   * @param event 文件选择事件
+   */
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    /** 用户刚选择的文件。 */
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (file) void loadFile(file);
+  };
+
+  /**
+   * 接收拖入的配置文件。
+   * @param event 文件拖放事件
+   */
+  const handleDrop = (event: React.DragEvent<HTMLButtonElement>): void => {
+    event.preventDefault();
+    setDragging(false);
+    /** 用户拖入的第一个文件。 */
+    const file = event.dataTransfer.files[0];
+    if (file) void loadFile(file);
+  };
+
+  /** 校验并保存当前 JSON。 */
+  const handleImport = async (): Promise<void> => {
+    setSaving(true);
+    setError(null);
+    try {
+      await onImport(content);
+    } catch (cause) {
+      /** 可直接展示给用户的导入失败原因。 */
+      const message = cause instanceof Error ? cause.message : String(cause);
+      setError(message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={CONFIG_IMPORT_ACCEPT}
+        className="hidden"
+        onChange={handleFileChange}
+      />
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
+        <p className="text-sm text-muted-foreground">{t('ruleImport.config.hint')}</p>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          onDragEnter={(event) => {
+            event.preventDefault();
+            setDragging(true);
+          }}
+          onDragOver={(event) => event.preventDefault()}
+          onDragLeave={() => setDragging(false)}
+          onDrop={handleDrop}
+          className={`flex w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-6 py-7 text-center transition-colors ${
+            dragging ? 'border-primary bg-primary/10' : 'border-border bg-muted/20 hover:bg-muted/40'
+          }`}
+        >
+          <Upload className="size-6 text-primary" />
+          <span className="text-sm font-medium">
+            {fileName || t('ruleImport.config.dropTitle')}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {t('ruleImport.config.dropHint')}
+          </span>
+        </button>
+        <div className="space-y-2">
+          <Label htmlFor="config-import-content">{t('ruleImport.config.pasteLabel')}</Label>
+          <textarea
+            id="config-import-content"
+            className="min-h-64 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+            placeholder={t('ruleImport.config.pastePlaceholder')}
+            value={content}
+            onChange={(event) => {
+              setContent(event.target.value);
+              setFileName('');
+              setError(null);
+            }}
+          />
+        </div>
+        {error && (
+          <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            {error}
+          </p>
+        )}
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onCancel}>{t('ruleEditor.cancel')}</Button>
+        <Button disabled={!content.trim() || saving} onClick={() => void handleImport()}>
+          {saving ? t('ruleImport.config.importing') : t('ruleImport.config.import')}
+        </Button>
+      </DialogFooter>
+    </div>
+  );
+}
+
 /**
  * cURL 单条导入：只负责解析请求与选择目标动作，后续继续复用原有单条编辑交互。
  * @param props 取消与继续回调
@@ -92,9 +241,6 @@ export function CurlImportDialog({ onCancel, onContinue }: CurlImportDialogProps
 
   return (
     <div className="flex max-h-[82vh] min-h-0 flex-1 flex-col overflow-hidden">
-      <DialogHeader>
-        <DialogTitle>{t('ruleImport.curl.title')}</DialogTitle>
-      </DialogHeader>
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5">
         <p className="text-sm text-muted-foreground">{t('ruleImport.curl.hint')}</p>
         <div className="space-y-2">
@@ -170,6 +316,10 @@ export function HarImportDialog({ groups, onCancel, onCommit }: HarImportDialogP
   const fileInputRef = useRef<HTMLInputElement>(null);
   /** 文件名。 */
   const [fileName, setFileName] = useState('');
+  /** 待解析的 HAR JSON 文本。 */
+  const [content, setContent] = useState('');
+  /** 文件是否正悬停在拖放区域。 */
+  const [dragging, setDragging] = useState(false);
   /** 批量候选状态。 */
   const [items, setItems] = useState<BatchCandidateState[]>([]);
   /** 当前展开的候选规则 ID。 */
@@ -186,21 +336,14 @@ export function HarImportDialog({ groups, onCancel, onCommit }: HarImportDialogP
   const [saving, setSaving] = useState(false);
 
   /**
-   * 选择并解析 HAR 文件。
-   * @param event 文件选择事件
+   * 解析 HAR 文本并生成规则候选。
+   * @param nextContent HAR JSON 原始文本
+   * @param sourceName 可选的来源文件名，用于生成默认分组名
    */
-  const handleFile = async (event: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
-    /** 用户选择的文件。 */
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) {
-      return;
-    }
+  const parseContent = (nextContent: string, sourceName = ''): void => {
     try {
-      /** HAR 原始文本。 */
-      const content = await file.text();
       /** core 生成的规则候选。 */
-      const candidates = parseHarRules(content);
+      const candidates = parseHarRules(nextContent);
       /** 重复请求默认不选，防止同一 URL + 方法产生互相覆盖的规则。 */
       const nextItems = candidates.map((candidate) => ({
         candidate,
@@ -208,20 +351,60 @@ export function HarImportDialog({ groups, onCancel, onCommit }: HarImportDialogP
         rule: candidate.rule,
         error: null,
       }));
-      setFileName(file.name);
       setItems(nextItems);
       setExpandedId(nextItems[0]?.rule.id ?? null);
       setError(candidates.length === 0 ? t('ruleImport.har.noCandidates') : null);
       setNewGroupName(
-        file.name.replace(/\.har$/i, '').trim() || t('ruleImport.har.defaultGroupName'),
+        sourceName.replace(/\.har$/i, '').trim() || t('ruleImport.har.defaultGroupName'),
       );
     } catch (cause) {
       /** core 返回的稳定错误代码。 */
       const code = cause instanceof Error ? cause.message : 'unknown';
       setItems([]);
-      setFileName(file.name);
+      setExpandedId(null);
       setError(t(`ruleImport.errors.${code}`, { defaultValue: code }));
     }
+  };
+
+  /**
+   * 读取并解析选择或拖入的 HAR 文件。
+   * @param file 用户提供的 HAR 文件
+   */
+  const loadFile = async (file: File): Promise<void> => {
+    try {
+      /** HAR 文件中的原始文本。 */
+      const nextContent = await file.text();
+      setContent(nextContent);
+      setFileName(file.name);
+      parseContent(nextContent, file.name);
+    } catch {
+      setItems([]);
+      setExpandedId(null);
+      setError(t('ruleImport.har.readFailure'));
+    }
+  };
+
+  /**
+   * 选择并解析 HAR 文件。
+   * @param event 文件选择事件
+   */
+  const handleFile = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    /** 用户选择的文件。 */
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (file) void loadFile(file);
+  };
+
+  /**
+   * 接收拖入的 HAR 文件。
+   * @param event 文件拖放事件
+   */
+  const handleDrop = (event: React.DragEvent<HTMLButtonElement>): void => {
+    event.preventDefault();
+    setDragging(false);
+    /** 用户拖入的第一个文件。 */
+    const file = event.dataTransfer.files[0];
+    if (file) void loadFile(file);
   };
 
   /**
@@ -303,37 +486,71 @@ export function HarImportDialog({ groups, onCancel, onCommit }: HarImportDialogP
 
   return (
     <div className="flex max-h-[88vh] min-h-0 flex-1 flex-col overflow-hidden">
-      <DialogHeader>
-        <DialogTitle>{t('ruleImport.har.title')}</DialogTitle>
-      </DialogHeader>
       <input
         ref={fileInputRef}
         type="file"
         accept=".har,application/json"
         className="hidden"
-        onChange={(event) => void handleFile(event)}
+        onChange={handleFile}
       />
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/20 px-3 py-3">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">
-              {fileName || t('ruleImport.har.chooseHint')}
-            </p>
-            {items.length > 0 && (
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {t('ruleImport.har.summary', {
-                  selected: selectedCount,
-                  total: items.length,
-                  size: Math.ceil(selectedBytes / 1024),
-                })}
-              </p>
-            )}
+        <p className="text-sm text-muted-foreground">{t('ruleImport.har.chooseHint')}</p>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          onDragEnter={(event) => {
+            event.preventDefault();
+            setDragging(true);
+          }}
+          onDragOver={(event) => event.preventDefault()}
+          onDragLeave={() => setDragging(false)}
+          onDrop={handleDrop}
+          className={`flex w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-6 py-7 text-center transition-colors ${
+            dragging ? 'border-primary bg-primary/10' : 'border-border bg-muted/20 hover:bg-muted/40'
+          }`}
+        >
+          <FileJson className="size-6 text-primary" />
+          <span className="text-sm font-medium">
+            {fileName || t('ruleImport.har.dropTitle')}
+          </span>
+          <span className="text-xs text-muted-foreground">{t('ruleImport.har.dropHint')}</span>
+        </button>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <Label htmlFor="har-import-content">{t('ruleImport.har.pasteLabel')}</Label>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!content.trim()}
+              onClick={() => parseContent(content)}
+            >
+              {t('ruleImport.har.parse')}
+            </Button>
           </div>
-          <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-            <FileJson />
-            {t('ruleImport.har.chooseFile')}
-          </Button>
+          <textarea
+            id="har-import-content"
+            className="min-h-40 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+            placeholder={t('ruleImport.har.pastePlaceholder')}
+            value={content}
+            onChange={(event) => {
+              setContent(event.target.value);
+              setFileName('');
+              setItems([]);
+              setExpandedId(null);
+              setError(null);
+            }}
+          />
         </div>
+
+        {items.length > 0 && (
+          <p className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+            {t('ruleImport.har.summary', {
+              selected: selectedCount,
+              total: items.length,
+              size: Math.ceil(selectedBytes / 1024),
+            })}
+          </p>
+        )}
 
         {items.length > 0 && (
           <>

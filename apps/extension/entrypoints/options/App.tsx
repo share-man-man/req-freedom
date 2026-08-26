@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, ChevronDown, FolderPlus, GripVertical, LayoutTemplate, Pencil, Plus, Terminal, Trash2 } from 'lucide-react';
-import type { ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import {
@@ -56,7 +55,7 @@ import type { RuleTemplate } from '@/utils/templates';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import RequestLogPanel from './RequestLogPanel';
@@ -64,6 +63,7 @@ import RuleEditor from './RuleEditor';
 import { ACTION_BADGE_CLASS, CHANNEL_BADGE_CLASS } from './rule-badges';
 import {
   CurlImportDialog,
+  ConfigImportDialog,
   HAR_IMPORT_NEW_GROUP,
   HarImportDialog,
   type HarImportCommit,
@@ -98,9 +98,6 @@ const RULE_ROW_GRID =
  * 中途取消则不产生空的默认分组。
  */
 const DEFAULT_GROUP_SENTINEL = '__req-freedom:default-group__';
-
-/** 配置导入文件选择器允许的扩展名；仅按扩展名过滤，避免 macOS 对 JSON MIME 类型识别不一致。 */
-const CONFIG_IMPORT_ACCEPT = '.json';
 
 /**
  * 被浏览器拒绝注册的动作徽标样式：与 ACTION_BADGE_CLASS 同一层级，用于覆盖动作本身的配色。
@@ -833,8 +830,8 @@ export default function App() {
   const [ruleDialog, setRuleDialog] = useState<RuleDialogState | null>(null);
   /** 模板库对话框的目标分组 ID：非 null 即打开，选用模板后规则落到该分组（可为默认分组占位）。 */
   const [templateTargetGroupId, setTemplateTargetGroupId] = useState<string | null>(null);
-  /** cURL 单条导入或 HAR 批量导入对话框。 */
-  const [ruleImportDialog, setRuleImportDialog] = useState<'curl' | 'har' | null>(null);
+  /** 当前导入弹窗展示的导入方式；null 表示关闭。 */
+  const [ruleImportDialog, setRuleImportDialog] = useState<'config' | 'curl' | 'har' | null>(null);
   /** cURL 导入的目标分组；从头部「导入规则」进入时为 null，表示沿用首个分组。 */
   const [curlTargetGroupId, setCurlTargetGroupId] = useState<string | null>(null);
   /** 当前正在拖拽的分组 ID，用于渲染外层分组 DragOverlay 预览 */
@@ -843,8 +840,6 @@ export default function App() {
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(new Set());
   /** 导入 / 导出结果的就地提示。 */
   const [transferMessage, setTransferMessage] = useState<string | null>(null);
-  /** 隐藏的 JSON 文件选择框，用按钮触发以保持工具栏布局统一。 */
-  const importInputRef = useRef<HTMLInputElement>(null);
   /** 搜索分组名、规则名与匹配内容的关键词。 */
   const [searchQuery, setSearchQuery] = useState('');
   /** 分组启用状态筛选。 */
@@ -1062,13 +1057,6 @@ export default function App() {
   };
 
   /**
-   * 打开 JSON 文件选择框。
-   */
-  const handleImportClick = (): void => {
-    importInputRef.current?.click();
-  };
-
-  /**
    * 打开 cURL 导入弹窗并记录目标分组。
    * @param groupId 解析结果要落入的分组；null 表示沿用首个分组
    */
@@ -1140,21 +1128,12 @@ export default function App() {
   };
 
   /**
-   * 读取、校验并整体替换当前配置。
-   * @param event 文件选择事件
+   * 校验 JSON 文本并整体替换当前配置。
+   * @param content 文件上传或直接粘贴的 JSON 文本
+   * @returns 是否完成导入；用户取消覆盖确认时返回 false
    */
-  const handleImport = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
-    /** 用户刚选择的配置文件。 */
-    const file = event.target.files?.[0];
-    // 允许用户连续选择同一文件再次导入。
-    event.target.value = '';
-    if (!file) {
-      return;
-    }
-
+  const handleImport = async (content: string): Promise<boolean> => {
     try {
-      /** 文件中的原始 JSON 文本。 */
-      const content = await file.text();
       /** 已通过结构与 schema 校验的配置。 */
       const configuration = parseConfigurationExport(t, content);
       /** 导入配置中包含的规则总数。 */
@@ -1164,16 +1143,18 @@ export default function App() {
           t('app.transfer.importConfirm', { groupCount: configuration.groups.length, ruleCount }),
         )
       ) {
-        return;
+        return false;
       }
       await saveConfiguration(configuration.groups, configuration.enabled);
       setGroups(configuration.groups);
       setCollapsedGroupIds(new Set());
       setTransferMessage(t('app.transfer.importSuccess', { groupCount: configuration.groups.length, ruleCount }));
+      setRuleImportDialog(null);
+      return true;
     } catch (error) {
       /** 便于用户定位问题的导入错误。 */
       const message = error instanceof Error ? error.message : t('app.transfer.importParseFailure');
-      setTransferMessage(t('app.transfer.importFailure', { message }));
+      throw new Error(t('app.transfer.importFailure', { message }));
     }
   };
 
@@ -1450,22 +1431,20 @@ export default function App() {
   const activeGroup = activeGroupId
     ? groups.find((group) => group.id === activeGroupId)
     : undefined;
+  /** ReqFreedom Tab 自动回填的当前本地配置；没有分组时保持空白。 */
+  const configImportInitialContent = groups.length > 0
+    ? JSON.stringify(createConfigurationExport(groups, globalEnabled), null, 2)
+    : '';
 
   return (
     <div className="min-h-screen">
-      <input
-        ref={importInputRef}
-        type="file"
-        accept={CONFIG_IMPORT_ACCEPT}
-        className="hidden"
-        onChange={(event) => void handleImport(event)}
-      />
       <OptionsPageHeader
         enabled={globalEnabled}
         onToggleEnabled={handleToggleGlobalEnabled}
-        onImportConfig={handleImportClick}
-        onImportCurl={() => handleOpenCurlImport(null)}
-        onImportHar={() => setRuleImportDialog('har')}
+        onImport={() => {
+          setCurlTargetGroupId(null);
+          setRuleImportDialog('config');
+        }}
         onExport={() => void handleExport()}
       />
 
@@ -1623,9 +1602,42 @@ export default function App() {
         onOpenChange={(open) => !open && setRuleImportDialog(null)}
       >
         <DialogContent
-          className={ruleImportDialog === 'har' ? 'max-w-5xl' : 'max-w-2xl'}
+          className="h-[min(52rem,calc(100vh-2rem))] max-h-none w-[min(64rem,calc(100vw-2rem))] max-w-none"
           onPointerDownOutside={(event) => event.preventDefault()}
         >
+          <DialogHeader className="flex-col items-stretch gap-4 pr-10">
+            <DialogTitle>{t('dashboard.header.import')}</DialogTitle>
+            <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1" role="tablist">
+              {(['config', 'har', 'curl'] as const).map((method) => {
+                /** 从分组的添加规则菜单进入时，只允许使用带目标分组的 cURL 导入。 */
+                const disabled = curlTargetGroupId !== null && method !== 'curl';
+                return (
+                  <button
+                    key={method}
+                    type="button"
+                    role="tab"
+                    disabled={disabled}
+                    aria-selected={ruleImportDialog === method}
+                    onClick={() => setRuleImportDialog(method)}
+                    className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                      ruleImportDialog === method
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    } disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-muted-foreground`}
+                  >
+                    {t(`ruleImport.tabs.${method}`)}
+                  </button>
+                );
+              })}
+            </div>
+          </DialogHeader>
+          {ruleImportDialog === 'config' && (
+            <ConfigImportDialog
+              initialContent={configImportInitialContent}
+              onCancel={() => setRuleImportDialog(null)}
+              onImport={handleImport}
+            />
+          )}
           {ruleImportDialog === 'curl' && (
             <CurlImportDialog
               onCancel={() => setRuleImportDialog(null)}

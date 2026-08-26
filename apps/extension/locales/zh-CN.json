@@ -351,6 +351,21 @@
     "noMatchingGroupsHint": "调整搜索或筛选条件后再试"
   },
   "ruleImport": {
+    "tabs": {
+      "config": "ReqFreedom",
+      "curl": "cURL",
+      "har": "HAR"
+    },
+    "config": {
+      "hint": "导入 ReqFreedom 导出的完整配置，将替换当前全部分组和规则。",
+      "dropTitle": "拖拽 JSON 文件到这里，或点击选择",
+      "dropHint": "支持 ReqFreedom 导出的 .json 配置文件",
+      "pasteLabel": "直接粘贴 JSON",
+      "pastePlaceholder": "在这里粘贴 ReqFreedom 配置 JSON…",
+      "readFailure": "无法读取该文件，请重试。",
+      "importing": "正在导入…",
+      "import": "导入配置"
+    },
     "menu": {
       "config": "导入 ReqFreedom 配置",
       "curl": "从 cURL 创建规则",
@@ -366,6 +381,12 @@
       "title": "从 HAR 批量创建 Mock",
       "chooseHint": "选择 HAR 文件后预览其中可导入的文本响应。",
       "chooseFile": "选择 HAR",
+      "dropTitle": "拖拽 HAR 文件到这里，或点击选择",
+      "dropHint": "支持 .har 文件和 HAR JSON",
+      "pasteLabel": "直接粘贴 HAR JSON",
+      "pastePlaceholder": "在这里粘贴 HAR JSON…",
+      "parse": "解析 HAR",
+      "readFailure": "无法读取该 HAR 文件，请重试。",
       "summary": "已选 {{selected}} / {{total}} 条 · 约 {{size}} KB",
       "group": "所属分组",
       "newGroup": "新建导入分组",

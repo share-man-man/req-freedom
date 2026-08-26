@@ -351,6 +351,21 @@
     "noMatchingGroupsHint": "Try adjusting your search or filters"
   },
   "ruleImport": {
+    "tabs": {
+      "config": "ReqFreedom",
+      "curl": "cURL",
+      "har": "HAR"
+    },
+    "config": {
+      "hint": "Import a complete ReqFreedom export. This replaces all current groups and rules.",
+      "dropTitle": "Drop a JSON file here, or click to choose",
+      "dropHint": "Supports .json configuration files exported by ReqFreedom",
+      "pasteLabel": "Paste JSON directly",
+      "pastePlaceholder": "Paste ReqFreedom configuration JSON here…",
+      "readFailure": "Could not read this file. Please try again.",
+      "importing": "Importing…",
+      "import": "Import configuration"
+    },
     "menu": {
       "config": "Import ReqFreedom configuration",
       "curl": "Create from cURL",
@@ -366,6 +381,12 @@
       "title": "Create mocks from HAR",
       "chooseHint": "Choose a HAR file to preview text responses.",
       "chooseFile": "Choose HAR",
+      "dropTitle": "Drop a HAR file here, or click to choose",
+      "dropHint": "Supports .har files and HAR JSON",
+      "pasteLabel": "Paste HAR JSON directly",
+      "pastePlaceholder": "Paste HAR JSON here…",
+      "parse": "Parse HAR",
+      "readFailure": "Could not read this HAR file. Please try again.",
       "summary": "{{selected}} of {{total}} selected · about {{size}} KB",
       "group": "Target group",
       "newGroup": "Create a new import group",
