@@ -99,6 +99,9 @@ const RULE_ROW_GRID =
  */
 const DEFAULT_GROUP_SENTINEL = '__req-freedom:default-group__';
 
+/** 配置导入文件选择器允许的扩展名；仅按扩展名过滤，避免 macOS 对 JSON MIME 类型识别不一致。 */
+const CONFIG_IMPORT_ACCEPT = '.json';
+
 /**
  * 被浏览器拒绝注册的动作徽标样式：与 ACTION_BADGE_CLASS 同一层级，用于覆盖动作本身的配色。
  *
@@ -1431,7 +1434,7 @@ export default function App() {
       <input
         ref={importInputRef}
         type="file"
-        accept="application/json,.json"
+        accept={CONFIG_IMPORT_ACCEPT}
         className="hidden"
         onChange={(event) => void handleImport(event)}
       />
