@@ -355,7 +355,7 @@ export default function App() {
 
   return (
     <div className="flex flex-col">
-      {/* 顶部：品牌 + 全局开关 */}
+      {/* 顶部：品牌 + 规则管理 + 全局开关 */}
       <header className="flex items-center justify-between border-b border-border px-3 py-2">
         <div className="flex items-center gap-2">
           <span className="flex size-6 items-center justify-center rounded-md bg-primary/10 text-primary">
@@ -368,7 +368,13 @@ export default function App() {
             </p>
           </div>
         </div>
-        <Switch checked={enabled} onCheckedChange={handleToggleGlobal} />
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={handleOpenOptions}>
+            <Settings2 />
+            {t('popup.manageRules')}
+          </Button>
+          <Switch checked={enabled} onCheckedChange={handleToggleGlobal} />
+        </div>
       </header>
 
       {/* 当前页面命中提示：总数同时包含 DNR 与页面补丁通道。 */}
@@ -626,14 +632,6 @@ export default function App() {
           </div>
         )}
       </div>
-
-      {/* 底部：进入管理页 */}
-      <footer className="border-t border-border p-2">
-        <Button variant="outline" size="sm" className="w-full" onClick={handleOpenOptions}>
-          <Settings2 />
-          {t('popup.manageRules')}
-        </Button>
-      </footer>
     </div>
   );
 }
