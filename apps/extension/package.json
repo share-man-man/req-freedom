@@ -1,6 +1,6 @@
 {
   "name": "@req-freedom/extension",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
   "description": "ReqFreedom 浏览器插件（MV3，WXT + React）",
