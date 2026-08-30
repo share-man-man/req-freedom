@@ -33,9 +33,6 @@ import {
   getDnrIssues,
   getEnabled,
   getGroups,
-  saveConfiguration,
-  saveGroups,
-  setEnabled,
   takePendingRuleHighlight,
   watchDnrIssues,
   watchEnabled,
@@ -43,6 +40,15 @@ import {
   watchHitTabsChanged,
   watchPendingRuleHighlight,
 } from '@/utils/storage';
+import {
+  commitConfiguration,
+  EMPTY_CONFIGURATION_HISTORY_STATUS,
+  initializeConfigurationHistory,
+  redoConfiguration,
+  undoConfiguration,
+  watchConfigurationHistory,
+  type ConfigurationHistoryStatus,
+} from '@/utils/configuration-history';
 import { fetchHitTabSummaries, sumHitRecords } from '@/utils/rule-hit-client';
 import {
   createConfigurationExport,
@@ -826,6 +832,12 @@ export default function App() {
   const [groups, setGroups] = useState<RuleGroup[]>([]);
   /** 全局开关状态，与 popup 顶部开关共用同一份 storage */
   const [globalEnabled, setGlobalEnabled] = useState(true);
+  /** 当前配置时间线的撤销 / 重做能力。 */
+  const [historyStatus, setHistoryStatus] = useState<ConfigurationHistoryStatus>(
+    EMPTY_CONFIGURATION_HISTORY_STATUS,
+  );
+  /** 正在恢复历史快照时锁定按钮，避免连续点击造成游标竞争。 */
+  const [historyBusy, setHistoryBusy] = useState(false);
   /** 规则编辑对话框状态，null 表示关闭 */
   const [ruleDialog, setRuleDialog] = useState<RuleDialogState | null>(null);
   /** 模板库对话框的目标分组 ID：非 null 即打开，选用模板后规则落到该分组（可为默认分组占位）。 */
@@ -872,6 +884,14 @@ export default function App() {
         highlightRule(ruleId);
       }
     });
+    return unwatch;
+  }, []);
+
+  // 初始化 session 历史，并跟随 popup 等其他扩展页面提交的时间线变化。
+  useEffect(() => {
+    /** 历史变化订阅。 */
+    const unwatch = watchConfigurationHistory(setHistoryStatus);
+    void initializeConfigurationHistory().then(setHistoryStatus);
     return unwatch;
   }, []);
 
@@ -983,9 +1003,14 @@ export default function App() {
   /**
    * 更新分组列表并持久化
    * @param next 新的分组列表
+   * @param label 本次用户操作名称
    * @param updatedGroupIds 需要刷新最近更新时间的分组 ID
    */
-  const persist = async (next: RuleGroup[], updatedGroupIds: readonly string[] = []): Promise<void> => {
+  const persist = async (
+    next: RuleGroup[],
+    label: string,
+    updatedGroupIds: readonly string[] = [],
+  ): Promise<void> => {
     /** 本次操作发生时刻，用于统一更新受影响分组的摘要时间。 */
     const updatedAt = new Date().toISOString();
     /** 需要写入最新更新时间的分组 ID。 */
@@ -995,7 +1020,10 @@ export default function App() {
       updatedGroupIdSet.has(group.id) ? { ...group, updatedAt } : group,
     );
     setGroups(groupsWithUpdatedAt);
-    await saveGroups(groupsWithUpdatedAt);
+    await commitConfiguration(
+      { enabled: globalEnabled, groups: groupsWithUpdatedAt },
+      label,
+    );
   };
 
   /**
@@ -1004,7 +1032,11 @@ export default function App() {
    */
   const handleToggleGlobalEnabled = (next: boolean): void => {
     setGlobalEnabled(next);
-    void setEnabled(next);
+    /** 便于撤销菜单说明本次全局开关变化的名称。 */
+    const label = next
+      ? t('dashboard.header.globalEnabled')
+      : t('dashboard.header.globalDisabled');
+    void commitConfiguration({ enabled: next, groups }, label);
   };
 
   /**
@@ -1024,7 +1056,7 @@ export default function App() {
    * 新建一个空分组并追加到末尾
    */
   const handleAddGroup = (): void => {
-    void persist([...groups, createRuleGroup(t)]);
+    void persist([...groups, createRuleGroup(t)], t('app.newGroup'));
   };
 
   // ---------- 导入 / 导出 ----------
@@ -1119,7 +1151,12 @@ export default function App() {
           : group,
       );
     }
-    await saveGroups(nextGroups);
+    /** 提交时最新的全局开关，避免批量解析期间覆盖 popup 的同步修改。 */
+    const latestEnabled = await getEnabled();
+    await commitConfiguration(
+      { enabled: latestEnabled, groups: nextGroups },
+      t('ruleImport.tabs.har'),
+    );
     setGroups(nextGroups);
     setRuleImportDialog(null);
     setTransferMessage(
@@ -1145,7 +1182,10 @@ export default function App() {
       ) {
         return false;
       }
-      await saveConfiguration(configuration.groups, configuration.enabled);
+      await commitConfiguration(
+        { enabled: configuration.enabled, groups: configuration.groups },
+        t('ruleImport.tabs.config'),
+      );
       setGroups(configuration.groups);
       setCollapsedGroupIds(new Set());
       setTransferMessage(t('app.transfer.importSuccess', { groupCount: configuration.groups.length, ruleCount }));
@@ -1180,8 +1220,13 @@ export default function App() {
    * @param id 分组 ID
    */
   const handleToggleGroup = (id: string): void => {
+    /** 切换前的目标分组。 */
+    const targetGroup = groups.find((group) => group.id === id);
+    /** 与切换结果对应的用户操作名称。 */
+    const label = targetGroup?.enabled ? t('app.disableGroup') : t('app.enableGroup');
     void persist(
       groups.map((group) => (group.id === id ? { ...group, enabled: !group.enabled } : group)),
+      label,
       [id],
     );
   };
@@ -1192,7 +1237,11 @@ export default function App() {
    * @param name 新名称
    */
   const handleRenameGroup = (id: string, name: string): void => {
-    void persist(groups.map((group) => (group.id === id ? { ...group, name } : group)), [id]);
+    void persist(
+      groups.map((group) => (group.id === id ? { ...group, name } : group)),
+      t('app.edit'),
+      [id],
+    );
   };
 
   /**
@@ -1208,7 +1257,7 @@ export default function App() {
         return;
       }
     }
-    void persist(groups.filter((group) => group.id !== id));
+    void persist(groups.filter((group) => group.id !== id), t('app.deleteGroup'));
   };
 
   // ---------- 规则操作 ----------
@@ -1269,7 +1318,10 @@ export default function App() {
   const handleSaveRule = (rule: Rule, targetGroupId: string): void => {
     // 目标是「默认分组」占位：此刻才真正创建默认分组并放入该规则（取消则不会走到这里，故不留空组）
     if (targetGroupId === DEFAULT_GROUP_SENTINEL) {
-      void persist([...groups, { ...createRuleGroup(t, t('group.autoDefaultName')), rules: [rule] }]);
+      void persist(
+        [...groups, { ...createRuleGroup(t, t('group.autoDefaultName')), rules: [rule] }],
+        t('app.newRule'),
+      );
       setRuleDialog(null);
       return;
     }
@@ -1299,7 +1351,9 @@ export default function App() {
     const updatedGroupIds = sourceGroupId
       ? [sourceGroupId, targetGroupId]
       : [targetGroupId];
-    void persist(next, updatedGroupIds);
+    /** 保存前的弹窗状态决定这是新建还是编辑操作。 */
+    const label = ruleDialog?.isNew ? t('app.newRule') : t('app.edit');
+    void persist(next, label, updatedGroupIds);
     setRuleDialog(null);
   };
 
@@ -1315,6 +1369,7 @@ export default function App() {
         ...group,
         rules: group.rules.filter((rule) => rule.id !== ruleId),
       })),
+      t('app.delete'),
       ownerGroupId ? [ownerGroupId] : [],
     );
   };
@@ -1333,6 +1388,7 @@ export default function App() {
           rule.id === ruleId ? { ...rule, enabled: !rule.enabled } : rule,
         ),
       })),
+      t('app.edit'),
       ownerGroupId ? [ownerGroupId] : [],
     );
   };
@@ -1345,6 +1401,7 @@ export default function App() {
   const handleReorderRules = (groupId: string, nextRules: Rule[]): void => {
     void persist(
       groups.map((group) => (group.id === groupId ? { ...group, rules: nextRules } : group)),
+      t('app.dragToReorder'),
       [groupId],
     );
   };
@@ -1369,8 +1426,81 @@ export default function App() {
     if (oldIndex === -1 || newIndex === -1) {
       return;
     }
-    void persist(arrayMove(groups, oldIndex, newIndex), [String(active.id), String(over.id)]);
+    void persist(
+      arrayMove(groups, oldIndex, newIndex),
+      t('app.dragToReorderGroup'),
+      [String(active.id), String(over.id)],
+    );
   };
+
+  /**
+   * 撤销最近一次已保存的配置修改。
+   */
+  const handleUndo = async (): Promise<void> => {
+    setHistoryBusy(true);
+    try {
+      /** 历史仓库恢复的上一份配置。 */
+      const result = await undoConfiguration();
+      if (result) {
+        setGroups(result.snapshot.groups);
+        setGlobalEnabled(result.snapshot.enabled);
+        setHistoryStatus(result.status);
+      }
+    } finally {
+      setHistoryBusy(false);
+    }
+  };
+
+  /**
+   * 重做最近一次被撤销的配置修改。
+   */
+  const handleRedo = async (): Promise<void> => {
+    setHistoryBusy(true);
+    try {
+      /** 历史仓库恢复的下一份配置。 */
+      const result = await redoConfiguration();
+      if (result) {
+        setGroups(result.snapshot.groups);
+        setGlobalEnabled(result.snapshot.enabled);
+        setHistoryStatus(result.status);
+      }
+    } finally {
+      setHistoryBusy(false);
+    }
+  };
+
+  // 配置历史只在失焦、保存等提交动作时生成；焦点位于输入控件或 CodeMirror 时，
+  // 撤销 / 重做快捷键交给控件自身，避免事件冒泡到 window 后误操作整份配置。
+  useEffect(() => {
+    /** 配置历史键盘监听器。 */
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      /** 当前事件目标元素。 */
+      const target = event.target as HTMLElement | null;
+      /** 是否处于应保留原生文本撤销能力的可编辑控件中。 */
+      const isEditing =
+        target?.isContentEditable ||
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA';
+      if (isEditing || historyBusy || !(event.metaKey || event.ctrlKey)) {
+        return;
+      }
+      /** 是否为常见的重做快捷键。 */
+      const wantsRedo =
+        (event.key.toLocaleLowerCase() === 'z' && event.shiftKey) ||
+        event.key.toLocaleLowerCase() === 'y';
+      /** 是否为不带 Shift 的撤销快捷键。 */
+      const wantsUndo = event.key.toLocaleLowerCase() === 'z' && !event.shiftKey;
+      if (wantsUndo && historyStatus.canUndo) {
+        event.preventDefault();
+        void handleUndo();
+      } else if (wantsRedo && historyStatus.canRedo) {
+        event.preventDefault();
+        void handleRedo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [historyBusy, historyStatus]);
 
   /** 所有分组内的规则总数。 */
   const totalRuleCount = groups.reduce((count, group) => count + group.rules.length, 0);
@@ -1441,6 +1571,12 @@ export default function App() {
       <OptionsPageHeader
         enabled={globalEnabled}
         onToggleEnabled={handleToggleGlobalEnabled}
+        canUndo={historyStatus.canUndo && !historyBusy}
+        canRedo={historyStatus.canRedo && !historyBusy}
+        undoLabel={historyStatus.undoLabel}
+        redoLabel={historyStatus.redoLabel}
+        onUndo={() => void handleUndo()}
+        onRedo={() => void handleRedo()}
         onImport={() => {
           setCurlTargetGroupId(null);
           setRuleImportDialog('config');

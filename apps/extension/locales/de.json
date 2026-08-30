@@ -485,6 +485,8 @@
       "globalDisabled": "Global deaktiviert",
       "import": "Regeln importieren",
       "export": "Regeln exportieren",
+      "undo": "Rückgängig",
+      "redo": "Wiederholen",
       "theme": "Design",
       "themeSystem": "Systemeinstellung",
       "themeLight": "Hell",

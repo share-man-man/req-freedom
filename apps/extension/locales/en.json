@@ -485,6 +485,8 @@
       "globalDisabled": "Globally disabled",
       "import": "Import rules",
       "export": "Export rules",
+      "undo": "Undo",
+      "redo": "Redo",
       "theme": "Theme",
       "themeSystem": "System",
       "themeLight": "Light",

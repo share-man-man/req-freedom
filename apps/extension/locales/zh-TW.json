@@ -485,6 +485,8 @@
       "globalDisabled": "已全域性停用",
       "import": "匯入規則",
       "export": "匯出規則",
+      "undo": "復原",
+      "redo": "重做",
       "theme": "主題",
       "themeSystem": "跟隨系統",
       "themeLight": "淺色",

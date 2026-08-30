@@ -13,6 +13,15 @@ export const STORAGE_KEY_GROUPS = 'req-freedom:groups';
 /** storage 中全局开关的键名 */
 export const STORAGE_KEY_ENABLED = 'req-freedom:enabled';
 
+/** storage.session 中配置撤销 / 重做历史的键名。 */
+export const STORAGE_KEY_CONFIGURATION_HISTORY = 'req-freedom:configuration-history';
+
+/** 单次浏览器会话最多保留的配置快照数量。 */
+export const MAX_CONFIGURATION_HISTORY_ENTRIES = 50;
+
+/** 跨 options / popup 串行提交配置历史时使用的 Web Lock 名称。 */
+export const CONFIGURATION_HISTORY_LOCK_NAME = 'req-freedom:configuration-history-write';
+
 /** storage 中界面语言的键名（值为 i18next 语言代码，如 'zh-CN' / 'en'） */
 export const STORAGE_KEY_LOCALE = 'req-freedom:locale';
 

@@ -24,12 +24,11 @@ import {
   getDnrIssues,
   getEnabled,
   getGroups,
-  saveGroups,
-  setEnabled,
   setPendingRuleHighlight,
   watchDnrIssues,
   watchTabHitSummary,
 } from '@/utils/storage';
+import { commitConfiguration } from '@/utils/configuration-history';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { HoverHint } from '@/components/ui/hover-hint';
@@ -180,7 +179,11 @@ export default function App() {
    */
   const handleToggleGlobal = async (next: boolean): Promise<void> => {
     setEnabledState(next);
-    await setEnabled(next);
+    /** 与切换结果对应的历史操作名称。 */
+    const label = next
+      ? t('dashboard.header.globalEnabled')
+      : t('dashboard.header.globalDisabled');
+    await commitConfiguration({ enabled: next, groups }, label);
   };
 
   /**
@@ -215,9 +218,14 @@ export default function App() {
   /**
    * 更新分组列表并持久化
    * @param next 新的分组列表
+   * @param label 本次用户操作名称
    * @param updatedGroupIds 需要刷新最近更新时间的分组 ID
    */
-  const persist = async (next: RuleGroup[], updatedGroupIds: readonly string[] = []): Promise<void> => {
+  const persist = async (
+    next: RuleGroup[],
+    label: string,
+    updatedGroupIds: readonly string[] = [],
+  ): Promise<void> => {
     /** 本次操作发生时刻，用于刷新受影响分组的摘要时间。 */
     const updatedAt = new Date().toISOString();
     /** 需要刷新摘要时间的分组 ID 集合。 */
@@ -227,7 +235,10 @@ export default function App() {
       updatedGroupIdSet.has(group.id) ? { ...group, updatedAt } : group,
     );
     setGroups(groupsWithUpdatedAt);
-    await saveGroups(groupsWithUpdatedAt);
+    await commitConfiguration(
+      { enabled, groups: groupsWithUpdatedAt },
+      label,
+    );
   };
 
   /**
@@ -235,10 +246,15 @@ export default function App() {
    * @param groupId 分组 ID
    */
   const handleToggleGroup = async (groupId: string): Promise<void> => {
+    /** 切换前的目标分组。 */
+    const targetGroup = groups.find((group) => group.id === groupId);
+    /** 与切换结果对应的历史操作名称。 */
+    const label = targetGroup?.enabled ? t('app.disableGroup') : t('app.enableGroup');
     await persist(
       groups.map((group) =>
         group.id === groupId ? { ...group, enabled: !group.enabled } : group,
       ),
+      label,
       [groupId],
     );
   };
@@ -257,6 +273,7 @@ export default function App() {
           rule.id === ruleId ? { ...rule, enabled: !rule.enabled } : rule,
         ),
       })),
+      t('app.edit'),
       ownerGroupId ? [ownerGroupId] : [],
     );
   };

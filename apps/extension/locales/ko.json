@@ -485,6 +485,8 @@
       "globalDisabled": "전체 비활성화됨",
       "import": "규칙 가져오기",
       "export": "규칙 내보내기",
+      "undo": "실행 취소",
+      "redo": "다시 실행",
       "theme": "테마",
       "themeSystem": "시스템 설정",
       "themeLight": "라이트",

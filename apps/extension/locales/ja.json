@@ -485,6 +485,8 @@
       "globalDisabled": "全体で無効",
       "import": "ルールをインポート",
       "export": "ルールをエクスポート",
+      "undo": "元に戻す",
+      "redo": "やり直す",
       "theme": "テーマ",
       "themeSystem": "システムに従う",
       "themeLight": "ライト",

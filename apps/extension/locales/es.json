@@ -485,6 +485,8 @@
       "globalDisabled": "Desactivado globalmente",
       "import": "Importar reglas",
       "export": "Exportar reglas",
+      "undo": "Deshacer",
+      "redo": "Rehacer",
       "theme": "Tema",
       "themeSystem": "Sistema",
       "themeLight": "Claro",

@@ -45,14 +45,6 @@ export async function getGroups(): Promise<RuleGroup[]> {
 }
 
 /**
- * 保存全部规则分组（整体覆盖）
- * @param groups 分组列表
- */
-export async function saveGroups(groups: RuleGroup[]): Promise<void> {
-  await browser.storage.local.set({ [STORAGE_KEY_GROUPS]: groups });
-}
-
-/**
  * 订阅规则分组的变化。
  *
  * popup 与 options 是两个独立的页面上下文，一方写入 storage 后另一方不会自动重渲染；
@@ -83,14 +75,6 @@ export async function getEnabled(): Promise<boolean> {
   /** storage 查询结果 */
   const result = await browser.storage.local.get(STORAGE_KEY_ENABLED);
   return (result[STORAGE_KEY_ENABLED] as boolean | undefined) ?? true;
-}
-
-/**
- * 写入全局开关状态
- * @param enabled 是否启用
- */
-export async function setEnabled(enabled: boolean): Promise<void> {
-  await browser.storage.local.set({ [STORAGE_KEY_ENABLED]: enabled });
 }
 
 /**

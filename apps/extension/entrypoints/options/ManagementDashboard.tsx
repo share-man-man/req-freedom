@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronLeft, ChevronRight, Download, FolderPlus, Info, Languages, ListChecks, Monitor, Moon, MoreHorizontal, ScrollText, Search, Sun, ToggleRight, Upload } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Download, FolderPlus, Info, Languages, ListChecks, Monitor, Moon, MoreHorizontal, Redo2, ScrollText, Search, Sun, ToggleRight, Undo2, Upload } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { browser } from 'wxt/browser';
@@ -310,6 +310,18 @@ interface OptionsPageHeaderProps {
   enabled: boolean;
   /** 切换全局开关后的回调。 */
   onToggleEnabled: (next: boolean) => void;
+  /** 当前是否可以撤销。 */
+  canUndo: boolean;
+  /** 当前是否可以重做。 */
+  canRedo: boolean;
+  /** 即将撤销的操作名称。 */
+  undoLabel: string | null;
+  /** 即将重做的操作名称。 */
+  redoLabel: string | null;
+  /** 点击撤销后的回调。 */
+  onUndo: () => void;
+  /** 点击重做后的回调。 */
+  onRedo: () => void;
   /** 点击导入规则后的回调。 */
   onImport: () => void;
   /** 点击导出规则后的回调。 */
@@ -323,6 +335,12 @@ interface OptionsPageHeaderProps {
 export function OptionsPageHeader({
   enabled,
   onToggleEnabled,
+  canUndo,
+  canRedo,
+  undoLabel,
+  redoLabel,
+  onUndo,
+  onRedo,
   onImport,
   onExport,
 }: OptionsPageHeaderProps) {
@@ -340,6 +358,30 @@ export function OptionsPageHeader({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <div className="flex items-center rounded-lg border border-border/70 bg-card/60 p-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8"
+              disabled={!canUndo}
+              onClick={onUndo}
+              aria-label={t('dashboard.header.undo')}
+              title={undoLabel ? `${t('dashboard.header.undo')}：${undoLabel}` : t('dashboard.header.undo')}
+            >
+              <Undo2 className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8"
+              disabled={!canRedo}
+              onClick={onRedo}
+              aria-label={t('dashboard.header.redo')}
+              title={redoLabel ? `${t('dashboard.header.redo')}：${redoLabel}` : t('dashboard.header.redo')}
+            >
+              <Redo2 className="size-4" />
+            </Button>
+          </div>
           {/* 全局开关与 popup 顶部同源：停用时下方所有规则都不生效，用红色状态文案强调 */}
           <div className="flex items-center gap-2 rounded-full border border-border/70 bg-card/60 px-3 py-1.5">
             <span
