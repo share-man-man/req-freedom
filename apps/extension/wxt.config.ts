@@ -4,6 +4,13 @@ import tailwindcss from '@tailwindcss/vite';
 // WXT 配置：React 模块 + Tailwind v4 + MV3 manifest
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
+  dev: {
+    server: {
+      // 固定开发服务与产物引用使用同一 IPv4 地址，避免 localhost 被解析到其他 IPv6 服务。
+      host: '127.0.0.1',
+      origin: '127.0.0.1',
+    },
+  },
   // Tailwind v4 通过 Vite 插件接入，各 entrypoint 的 CSS 里 @import "tailwindcss" 即可
   vite: () => ({
     plugins: [tailwindcss()],
