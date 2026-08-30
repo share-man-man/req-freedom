@@ -5,6 +5,7 @@
     ".claude/skills/**",
     ".store-assets/**"
   ],
+  "ignoreBinaries": ["mise"],
   "workspaces": {
     "apps/extension": {
       "entry": ["components/ui/**"]
