@@ -18,6 +18,18 @@ import {
 import { RuleTemplateCategory } from '@/utils/templates';
 
 /**
+ * 把规则的请求方法列表格式化成展示文案。
+ *
+ * 空数组在协议里表示「不限方法」，各处展示都要还原成「全部」文案，故收敛在此。
+ * @param t 当前语言下的翻译函数
+ * @param methods 规则上的请求方法列表
+ * @returns 用 ` / ` 连接的方法名，或「全部」文案
+ */
+export function formatRuleMethods(t: TFunction, methods: readonly string[]): string {
+  return methods.length > 0 ? methods.join(' / ') : t('ruleEditor.methodPicker.all');
+}
+
+/**
  * 按当前语言构建全部枚举展示名 Record。
  *
  * 组件内用 `useTranslation()` 取得的 `t` 调用即可；非组件的纯函数（如校验器、摘要文案生成）

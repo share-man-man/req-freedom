@@ -9,7 +9,7 @@ import {
   RUNTIME_MSG_GET_RULE_HIT_SUMMARY,
 } from '@req-freedom/shared';
 import { collectActiveRules } from '@req-freedom/core';
-import { getLabels } from '@/utils/labels';
+import { formatRuleMethods, getLabels } from '@/utils/labels';
 import {
   createSseSendNextCommand,
   getManualSseMockAction,
@@ -607,9 +607,7 @@ export default function App() {
                                 variant={rule.enabled ? 'default' : 'muted'}
                                 className="shrink-0 px-1.5 py-0 text-[11px]"
                               >
-                                {rule.methods.length > 0
-                                  ? rule.methods.join(' / ')
-                                  : t('ruleEditor.methodPicker.all')}
+                                {formatRuleMethods(t, rule.methods)}
                               </Badge>
                               {showSseAccordion && (
                                 <ChevronDown

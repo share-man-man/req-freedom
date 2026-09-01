@@ -56,7 +56,7 @@ import {
   parseConfigurationExport,
 } from '@/utils/config-transfer';
 import { createRuleGroup, createSampleRule, duplicateRule, instantiateRuleTemplate } from '@/utils/factories';
-import { getLabels } from '@/utils/labels';
+import { formatRuleMethods, getLabels } from '@/utils/labels';
 import type { RuleTemplate } from '@/utils/templates';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -104,6 +104,18 @@ const RULE_ROW_GRID =
  * 中途取消则不产生空的默认分组。
  */
 const DEFAULT_GROUP_SENTINEL = '__req-freedom:default-group__';
+
+/**
+ * 在嵌套的分组结构中定位某条规则所属的分组。
+ *
+ * 规则只按 ID 引用、不带回指分组的字段，增删改都要先反查归属，故收敛成一个入口。
+ * @param groups 全部分组
+ * @param ruleId 规则 ID
+ * @returns 含该规则的分组；找不到时为 undefined
+ */
+function findRuleOwnerGroup(groups: RuleGroup[], ruleId: string): RuleGroup | undefined {
+  return groups.find((group) => group.rules.some((rule) => rule.id === ruleId));
+}
 
 /**
  * 被浏览器拒绝注册的动作徽标样式：与 ACTION_BADGE_CLASS 同一层级，用于覆盖动作本身的配色。
@@ -254,64 +266,72 @@ function GroupNameInput({ value, onCommit }: GroupNameInputProps) {
   );
 }
 
-interface SortableRuleRowProps {
-  /** 行对应的规则 */
-  rule: Rule;
-  /** 该规则的 DNR 注册失败记录；未失败时为 undefined */
-  issue?: DnrRegistrationIssue;
-  /** 切换启用状态回调 */
-  onToggle: (id: string) => void;
-  /** 进入编辑回调 */
-  onEdit: (rule: Rule) => void;
-  /** 复制回调 */
-  onDuplicate: (id: string) => void;
-  /** 删除回调 */
-  onDelete: (id: string) => void;
-  /** 是否为 popup 跳转后需要强调的目标规则。 */
-  highlighted: boolean;
+/** 拖拽句柄的公共外观（可拖拽句柄与拖拽预览里的占位句柄共用） */
+const DRAG_HANDLE_CLASS =
+  'flex items-center justify-center rounded p-1 text-muted-foreground opacity-50';
+
+interface DragHandleProps {
+  /** 悬浮提示文案 */
+  title: string;
+  /** dnd-kit 的句柄属性与监听器，展开到按钮上 */
+  handleProps: Record<string, unknown>;
 }
 
 /**
- * 可拖拽排序的规则行（div + Grid 实现，保证 dnd-kit 排序动画顺滑）
+ * 拖拽句柄按钮：规则行与分组卡片共用同一外观与交互态。
+ * @param title 悬浮提示文案
+ * @param handleProps dnd-kit `useSortable` 返回的 attributes + listeners
  */
-function SortableRuleRow({
-  rule,
-  issue,
-  onToggle,
-  onEdit,
-  onDuplicate,
-  onDelete,
-  highlighted,
-}: SortableRuleRowProps) {
+function DragHandle({ title, handleProps }: DragHandleProps) {
+  return (
+    <button
+      type="button"
+      className={`${DRAG_HANDLE_CLASS} cursor-grab touch-none transition-opacity hover:opacity-100 active:cursor-grabbing`}
+      title={title}
+      {...handleProps}
+    >
+      <GripVertical className="size-4" />
+    </button>
+  );
+}
+
+/**
+ * 规则行操作列的按钮定义（可交互行与拖拽预览共用）。
+ *
+ * 两处必须渲染同样多的按钮，否则 Grid 末列宽度对不上、拖拽预览会与真实行错位，
+ * 因此增删操作只改这一份定义。
+ */
+const RULE_ROW_ACTIONS = [
+  { key: 'duplicate', Icon: Copy, titleKey: 'app.duplicate', className: '' },
+  { key: 'edit', Icon: Pencil, titleKey: 'app.edit', className: '' },
+  {
+    key: 'delete',
+    Icon: Trash2,
+    titleKey: 'app.delete',
+    className: 'text-muted-foreground hover:text-destructive',
+  },
+] as const;
+
+/** 规则行操作的标识，用于把按钮定义与各自的点击回调对应起来 */
+type RuleRowActionKey = (typeof RULE_ROW_ACTIONS)[number]['key'];
+
+interface RuleRowCellsProps {
+  /** 行对应的规则 */
+  rule: Rule;
+  /** 该规则的 DNR 注册失败记录；未失败或纯展示场景为 undefined */
+  issue?: DnrRegistrationIssue;
+}
+
+/**
+ * 规则行的信息单元格（名称 → 匹配串共 6 列），可交互行与拖拽预览共用同一份渲染，
+ * 保证两者列内容与宽度天然一致。开关与操作列因交互差异由各自的行组件渲染。
+ */
+function RuleRowCells({ rule, issue }: RuleRowCellsProps) {
   const { t } = useTranslation();
   /** 各枚举展示名映射。 */
   const labels = getLabels(t);
-  /** dnd-kit 排序钩子：提供拖拽句柄监听、位移与拖拽态 */
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: rule.id,
-  });
-
   return (
-    <div
-      ref={setNodeRef}
-      id={`rule-${encodeURIComponent(rule.id)}`}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
-      // 拖拽中原行完全透明留出空位，跟随光标的是 DragOverlay 里的副本
-      className={`${RULE_ROW_GRID} group border-t border-border/80 px-4 py-2.5 transition-colors hover:bg-primary/[0.03] ${
-        highlighted ? 'rule-target-highlight' : ''
-      } ${isDragging ? 'opacity-0' : ''}`}
-    >
-      {/* 拖拽句柄 */}
-      <button
-        type="button"
-        className="flex cursor-grab touch-none items-center justify-center rounded p-1 text-muted-foreground opacity-50 transition-opacity hover:opacity-100 active:cursor-grabbing"
-        title={t('app.dragToReorder')}
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical className="size-4" />
-      </button>
-      <Switch checked={rule.enabled} onCheckedChange={() => onToggle(rule.id)} />
+    <>
       {/* 长名字截断，避免撑宽行挤压其他列 */}
       <div className="flex min-w-0 items-center gap-2">
         <span className="truncate text-sm font-medium" title={rule.name}>
@@ -348,9 +368,9 @@ function SortableRuleRow({
       <Badge
         variant="outline"
         className="min-w-0 max-w-full justify-self-start truncate whitespace-nowrap font-mono"
-        title={rule.methods.length > 0 ? rule.methods.join(' / ') : t('ruleEditor.methodPicker.all')}
+        title={formatRuleMethods(t, rule.methods)}
       >
-        {rule.methods.length > 0 ? rule.methods.join(' / ') : t('ruleEditor.methodPicker.all')}
+        {formatRuleMethods(t, rule.methods)}
       </Badge>
       <code
         className="min-w-0 max-w-full justify-self-start truncate rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
@@ -358,34 +378,77 @@ function SortableRuleRow({
       >
         {rule.pattern}
       </code>
+    </>
+  );
+}
+
+interface SortableRuleRowProps {
+  /** 行对应的规则 */
+  rule: Rule;
+  /** 该规则的 DNR 注册失败记录；未失败时为 undefined */
+  issue?: DnrRegistrationIssue;
+  /** 切换启用状态回调 */
+  onToggle: (id: string) => void;
+  /** 进入编辑回调 */
+  onEdit: (rule: Rule) => void;
+  /** 复制回调 */
+  onDuplicate: (id: string) => void;
+  /** 删除回调 */
+  onDelete: (id: string) => void;
+  /** 是否为 popup 跳转后需要强调的目标规则。 */
+  highlighted: boolean;
+}
+
+/**
+ * 可拖拽排序的规则行（div + Grid 实现，保证 dnd-kit 排序动画顺滑）
+ */
+function SortableRuleRow({
+  rule,
+  issue,
+  onToggle,
+  onEdit,
+  onDuplicate,
+  onDelete,
+  highlighted,
+}: SortableRuleRowProps) {
+  const { t } = useTranslation();
+  /** dnd-kit 排序钩子：提供拖拽句柄监听、位移与拖拽态 */
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: rule.id,
+  });
+  /** 操作列各按钮的点击回调，与 RULE_ROW_ACTIONS 的 key 一一对应 */
+  const actionHandlers: Record<RuleRowActionKey, () => void> = {
+    duplicate: () => onDuplicate(rule.id),
+    edit: () => onEdit(rule),
+    delete: () => onDelete(rule.id),
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      id={`rule-${encodeURIComponent(rule.id)}`}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      // 拖拽中原行完全透明留出空位，跟随光标的是 DragOverlay 里的副本
+      className={`${RULE_ROW_GRID} group border-t border-border/80 px-4 py-2.5 transition-colors hover:bg-primary/[0.03] ${
+        highlighted ? 'rule-target-highlight' : ''
+      } ${isDragging ? 'opacity-0' : ''}`}
+    >
+      <DragHandle title={t('app.dragToReorder')} handleProps={{ ...attributes, ...listeners }} />
+      <Switch checked={rule.enabled} onCheckedChange={() => onToggle(rule.id)} />
+      <RuleRowCells rule={rule} issue={issue} />
       <div className="flex justify-end gap-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-8"
-          title={t('app.duplicate')}
-          onClick={() => onDuplicate(rule.id)}
-        >
-          <Copy className="size-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-8"
-          title={t('app.edit')}
-          onClick={() => onEdit(rule)}
-        >
-          <Pencil className="size-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-8 text-muted-foreground hover:text-destructive"
-          title={t('app.delete')}
-          onClick={() => onDelete(rule.id)}
-        >
-          <Trash2 className="size-4" />
-        </Button>
+        {RULE_ROW_ACTIONS.map(({ key, Icon, titleKey, className }) => (
+          <Button
+            key={key}
+            variant="ghost"
+            size="icon"
+            className={`size-8 ${className}`}
+            title={t(titleKey)}
+            onClick={actionHandlers[key]}
+          >
+            <Icon className="size-4" />
+          </Button>
+        ))}
       </div>
     </div>
   );
@@ -496,15 +559,10 @@ function SortableGroupCard({
       <CardHeader
         className={`flex-row items-center gap-2 px-4 py-3.5 ${collapsed ? '' : 'border-b border-border/80'}`}
       >
-        <button
-          type="button"
-          className="flex cursor-grab touch-none items-center justify-center rounded p-1 text-muted-foreground opacity-50 transition-opacity hover:opacity-100 active:cursor-grabbing"
+        <DragHandle
           title={t('app.dragToReorderGroup')}
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical className="size-4" />
-        </button>
+          handleProps={{ ...attributes, ...listeners }}
+        />
         <button
           type="button"
           className="flex items-center justify-center rounded p-1 text-muted-foreground transition-colors hover:text-foreground"
@@ -626,61 +684,20 @@ function RuleColumnsHeader() {
  * @param rule 规则数据
  */
 function RuleRowStatic({ rule }: { rule: Rule }) {
-  const { t } = useTranslation();
-  /** 各枚举展示名映射。 */
-  const labels = getLabels(t);
   return (
-    <div className={`${RULE_ROW_GRID} px-3 py-2`}>
-      <span className="flex items-center justify-center p-1 text-muted-foreground opacity-50">
+    <div className={`${RULE_ROW_GRID} px-4 py-2.5`}>
+      <span className={DRAG_HANDLE_CLASS}>
         <GripVertical className="size-4" />
       </span>
       <Switch checked={rule.enabled} onCheckedChange={() => {}} />
-      <div className="flex min-w-0 items-center gap-2">
-        <span className="truncate text-sm font-medium" title={rule.name}>
-          {rule.name}
-        </span>
-        <ScopeBadge scope={rule.scope} />
-      </div>
-      <Badge variant="secondary" className={`justify-self-start whitespace-nowrap border-transparent ${CHANNEL_BADGE_CLASS[rule.channel]}`}>
-        {rule.channel === RuleExecutionChannel.Dnr ? 'DNR' : t('templateLibrary.channelPagePatch')}
-      </Badge>
-      <div className="flex min-w-0 flex-wrap items-center gap-1 justify-self-start">
-        {rule.actions.map((action) => (
-          <Badge
-            key={action.type}
-            variant="secondary"
-            className={`whitespace-nowrap border-transparent ${ACTION_BADGE_CLASS[action.type]}`}
-          >
-            {labels.RULE_ACTION_TYPE_LABELS[action.type]}
-          </Badge>
-        ))}
-      </div>
-      <Badge variant="muted" className="justify-self-start whitespace-nowrap">
-        {labels.MATCH_TYPE_LABELS[rule.matchType]}
-      </Badge>
-      <Badge
-        variant="outline"
-        className="min-w-0 max-w-full justify-self-start truncate whitespace-nowrap font-mono"
-        title={rule.methods.length > 0 ? rule.methods.join(' / ') : t('ruleEditor.methodPicker.all')}
-      >
-        {rule.methods.length > 0 ? rule.methods.join(' / ') : t('ruleEditor.methodPicker.all')}
-      </Badge>
-      <code
-        className="min-w-0 max-w-full justify-self-start truncate rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
-        title={rule.pattern}
-      >
-        {rule.pattern}
-      </code>
+      <RuleRowCells rule={rule} />
+      {/* 操作按钮在预览里只需占位对齐，故渲染为不可点的同尺寸图标 */}
       <div className="flex justify-end gap-1 text-muted-foreground">
-        <span className="flex size-8 items-center justify-center">
-          <Copy className="size-4" />
-        </span>
-        <span className="flex size-8 items-center justify-center">
-          <Pencil className="size-4" />
-        </span>
-        <span className="flex size-8 items-center justify-center">
-          <Trash2 className="size-4" />
-        </span>
+        {RULE_ROW_ACTIONS.map(({ key, Icon }) => (
+          <span key={key} className="flex size-8 items-center justify-center">
+            <Icon className="size-4" />
+          </span>
+        ))}
       </div>
     </div>
   );
@@ -1322,7 +1339,7 @@ export default function App() {
    */
   const handleEditRule = (rule: Rule): void => {
     /** 规则所属分组 */
-    const owner = groups.find((group) => group.rules.some((item) => item.id === rule.id));
+    const owner = findRuleOwnerGroup(groups, rule.id);
     if (!owner) {
       return;
     }
@@ -1363,9 +1380,7 @@ export default function App() {
       };
     });
     /** 原规则所在的分组，跨分组保存时也应刷新其更新时间。 */
-    const sourceGroupId = groups.find((group) =>
-      group.rules.some((item) => item.id === rule.id),
-    )?.id;
+    const sourceGroupId = findRuleOwnerGroup(groups, rule.id)?.id;
     /** 本次需要更新时间的分组 ID。 */
     const updatedGroupIds = sourceGroupId
       ? [sourceGroupId, targetGroupId]
@@ -1382,7 +1397,7 @@ export default function App() {
    */
   const handleDuplicateRule = (ruleId: string): void => {
     /** 被复制规则所属的分组。 */
-    const owner = groups.find((group) => group.rules.some((rule) => rule.id === ruleId));
+    const owner = findRuleOwnerGroup(groups, ruleId);
     if (!owner) {
       return;
     }
@@ -1414,7 +1429,7 @@ export default function App() {
    */
   const handleDeleteRule = (ruleId: string): void => {
     /** 被删除规则原本所属的分组。 */
-    const ownerGroupId = groups.find((group) => group.rules.some((rule) => rule.id === ruleId))?.id;
+    const ownerGroupId = findRuleOwnerGroup(groups, ruleId)?.id;
     void persist(
       groups.map((group) => ({
         ...group,
@@ -1431,7 +1446,7 @@ export default function App() {
    */
   const handleToggleRule = (ruleId: string): void => {
     /** 被切换规则所属的分组。 */
-    const ownerGroupId = groups.find((group) => group.rules.some((rule) => rule.id === ruleId))?.id;
+    const ownerGroupId = findRuleOwnerGroup(groups, ruleId)?.id;
     void persist(
       groups.map((group) => ({
         ...group,
