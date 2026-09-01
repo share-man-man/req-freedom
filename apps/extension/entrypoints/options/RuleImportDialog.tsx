@@ -167,8 +167,10 @@ export function ConfigImportDialog({ initialContent, onCancel, onImport }: Confi
           onDragOver={(event) => event.preventDefault()}
           onDragLeave={() => setDragging(false)}
           onDrop={handleDrop}
-          className={`flex w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-6 py-7 text-center transition-colors ${
-            dragging ? 'border-primary bg-primary/10' : 'border-border bg-muted/20 hover:bg-muted/40'
+          className={`flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-6 py-7 text-center transition-colors outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/30 ${
+            dragging
+              ? 'border-primary bg-primary/10'
+              : 'border-border bg-muted/20 hover:border-primary/60 hover:bg-primary/5'
           }`}
         >
           <Upload className="size-6 text-primary" />
@@ -505,8 +507,10 @@ export function HarImportDialog({ groups, onCancel, onCommit }: HarImportDialogP
           onDragOver={(event) => event.preventDefault()}
           onDragLeave={() => setDragging(false)}
           onDrop={handleDrop}
-          className={`flex w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-6 py-7 text-center transition-colors ${
-            dragging ? 'border-primary bg-primary/10' : 'border-border bg-muted/20 hover:bg-muted/40'
+          className={`flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-6 py-7 text-center transition-colors outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/30 ${
+            dragging
+              ? 'border-primary bg-primary/10'
+              : 'border-border bg-muted/20 hover:border-primary/60 hover:bg-primary/5'
           }`}
         >
           <FileJson className="size-6 text-primary" />
