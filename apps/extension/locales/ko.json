@@ -4,7 +4,8 @@
     "autoDefaultName": "기본 그룹"
   },
   "rule": {
-    "defaultName": "새 규칙"
+    "defaultName": "새 규칙",
+    "copiedName": "{{name}} 복사본"
   },
   "template": {
     "corsAllowAll": {
@@ -308,6 +309,7 @@
     "dragToReorder": "드래그하여 순서 변경",
     "dragToReorderGroup": "드래그하여 그룹 순서 변경",
     "edit": "편집",
+    "duplicate": "복제",
     "delete": "삭제",
     "expand": "펼치기",
     "collapse": "접기",

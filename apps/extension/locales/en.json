@@ -4,7 +4,8 @@
     "autoDefaultName": "Default Group"
   },
   "rule": {
-    "defaultName": "New Rule"
+    "defaultName": "New Rule",
+    "copiedName": "{{name}} copy"
   },
   "template": {
     "corsAllowAll": {
@@ -308,6 +309,7 @@
     "dragToReorder": "Drag to reorder",
     "dragToReorderGroup": "Drag to reorder group",
     "edit": "Edit",
+    "duplicate": "Duplicate",
     "delete": "Delete",
     "expand": "Expand",
     "collapse": "Collapse",

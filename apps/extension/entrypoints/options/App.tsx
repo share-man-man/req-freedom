@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, ChevronDown, FolderPlus, GripVertical, LayoutTemplate, Pencil, Plus, Terminal, Trash2 } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Copy, FolderPlus, GripVertical, LayoutTemplate, Pencil, Plus, Terminal, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import {
@@ -55,7 +55,7 @@ import {
   getConfigurationExportFileName,
   parseConfigurationExport,
 } from '@/utils/config-transfer';
-import { createRuleGroup, createSampleRule, instantiateRuleTemplate } from '@/utils/factories';
+import { createRuleGroup, createSampleRule, duplicateRule, instantiateRuleTemplate } from '@/utils/factories';
 import { getLabels } from '@/utils/labels';
 import type { RuleTemplate } from '@/utils/templates';
 import { Badge } from '@/components/ui/badge';
@@ -95,7 +95,7 @@ import type { OptionsView, RuleStatusFilter } from './ManagementDashboard';
  * 否则每一行会按自身内容分别计算列宽，导致表头和规则内容无法左对齐。
  */
 const RULE_ROW_GRID =
-  'grid grid-cols-[28px_44px_minmax(0,1.1fr)_100px_minmax(0,1.2fr)_88px_minmax(0,0.8fr)_minmax(0,1.1fr)_72px] items-center gap-3';
+  'grid grid-cols-[28px_44px_minmax(0,1.1fr)_100px_minmax(0,1.2fr)_88px_minmax(0,0.8fr)_minmax(0,1.1fr)_104px] items-center gap-3';
 
 /**
  * 无分组时新建规则用的「默认分组」占位 ID。
@@ -263,6 +263,8 @@ interface SortableRuleRowProps {
   onToggle: (id: string) => void;
   /** 进入编辑回调 */
   onEdit: (rule: Rule) => void;
+  /** 复制回调 */
+  onDuplicate: (id: string) => void;
   /** 删除回调 */
   onDelete: (id: string) => void;
   /** 是否为 popup 跳转后需要强调的目标规则。 */
@@ -277,6 +279,7 @@ function SortableRuleRow({
   issue,
   onToggle,
   onEdit,
+  onDuplicate,
   onDelete,
   highlighted,
 }: SortableRuleRowProps) {
@@ -360,6 +363,15 @@ function SortableRuleRow({
           variant="ghost"
           size="icon"
           className="size-8"
+          title={t('app.duplicate')}
+          onClick={() => onDuplicate(rule.id)}
+        >
+          <Copy className="size-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8"
           title={t('app.edit')}
           onClick={() => onEdit(rule)}
         >
@@ -398,6 +410,8 @@ interface SortableGroupCardProps {
   onToggleRule: (ruleId: string) => void;
   /** 编辑组内规则 */
   onEditRule: (rule: Rule) => void;
+  /** 复制组内规则 */
+  onDuplicateRule: (ruleId: string) => void;
   /** 删除组内规则 */
   onDeleteRule: (ruleId: string) => void;
   /** 组内规则重排后的回调（传入重排后的规则列表） */
@@ -428,6 +442,7 @@ function SortableGroupCard({
   onImportCurl,
   onToggleRule,
   onEditRule,
+  onDuplicateRule,
   onDeleteRule,
   onReorderRules,
   collapsed,
@@ -569,6 +584,7 @@ function SortableGroupCard({
                     issue={dnrIssues[rule.id]}
                     onToggle={onToggleRule}
                     onEdit={onEditRule}
+                    onDuplicate={onDuplicateRule}
                     onDelete={onDeleteRule}
                     highlighted={rule.id === highlightedRuleId}
                   />
@@ -656,6 +672,9 @@ function RuleRowStatic({ rule }: { rule: Rule }) {
         {rule.pattern}
       </code>
       <div className="flex justify-end gap-1 text-muted-foreground">
+        <span className="flex size-8 items-center justify-center">
+          <Copy className="size-4" />
+        </span>
         <span className="flex size-8 items-center justify-center">
           <Pencil className="size-4" />
         </span>
@@ -1358,6 +1377,38 @@ export default function App() {
   };
 
   /**
+   * 复制规则：在原规则所在分组内，紧随原规则之后插入一份同内容的副本
+   * @param ruleId 被复制规则的 ID
+   */
+  const handleDuplicateRule = (ruleId: string): void => {
+    /** 被复制规则所属的分组。 */
+    const owner = groups.find((group) => group.rules.some((rule) => rule.id === ruleId));
+    if (!owner) {
+      return;
+    }
+    /** 原规则在组内的下标，副本插入其后。 */
+    const index = owner.rules.findIndex((rule) => rule.id === ruleId);
+    /** 换了新 id 与副本名的规则拷贝。 */
+    const copy = duplicateRule(t, owner.rules[index]);
+    void persist(
+      groups.map((group) =>
+        group.id === owner.id
+          ? {
+              ...group,
+              rules: [
+                ...group.rules.slice(0, index + 1),
+                copy,
+                ...group.rules.slice(index + 1),
+              ],
+            }
+          : group,
+      ),
+      t('app.duplicate'),
+      [owner.id],
+    );
+  };
+
+  /**
    * 删除规则
    * @param ruleId 规则 ID
    */
@@ -1677,6 +1728,7 @@ export default function App() {
                     onImportCurl={handleOpenCurlImport}
                     onToggleRule={handleToggleRule}
                     onEditRule={handleEditRule}
+                    onDuplicateRule={handleDuplicateRule}
                     onDeleteRule={handleDeleteRule}
                     onReorderRules={handleReorderRules}
                     collapsed={collapsedGroupIds.has(group.id)}

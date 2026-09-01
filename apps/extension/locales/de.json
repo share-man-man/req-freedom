@@ -4,7 +4,8 @@
     "autoDefaultName": "Standardgruppe"
   },
   "rule": {
-    "defaultName": "Neue Regel"
+    "defaultName": "Neue Regel",
+    "copiedName": "{{name}} – Kopie"
   },
   "template": {
     "corsAllowAll": {
@@ -308,6 +309,7 @@
     "dragToReorder": "Zum Sortieren ziehen",
     "dragToReorderGroup": "Ziehen, um die Gruppe zu sortieren",
     "edit": "Bearbeiten",
+    "duplicate": "Duplizieren",
     "delete": "Löschen",
     "expand": "Aufklappen",
     "collapse": "Zuklappen",

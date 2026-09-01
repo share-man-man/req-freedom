@@ -4,7 +4,8 @@
     "autoDefaultName": "デフォルトグループ"
   },
   "rule": {
-    "defaultName": "新しいルール"
+    "defaultName": "新しいルール",
+    "copiedName": "{{name}} のコピー"
   },
   "template": {
     "corsAllowAll": {
@@ -308,6 +309,7 @@
     "dragToReorder": "ドラッグして並べ替え",
     "dragToReorderGroup": "ドラッグしてグループを並べ替え",
     "edit": "編集",
+    "duplicate": "複製",
     "delete": "削除",
     "expand": "展開",
     "collapse": "折りたたむ",

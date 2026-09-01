@@ -4,7 +4,8 @@
     "autoDefaultName": "默认分组"
   },
   "rule": {
-    "defaultName": "新规则"
+    "defaultName": "新规则",
+    "copiedName": "{{name}} 副本"
   },
   "template": {
     "corsAllowAll": {
@@ -308,6 +309,7 @@
     "dragToReorder": "拖拽排序",
     "dragToReorderGroup": "拖拽排序分组",
     "edit": "编辑",
+    "duplicate": "复制",
     "delete": "删除",
     "expand": "展开",
     "collapse": "折叠",

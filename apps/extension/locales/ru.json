@@ -4,7 +4,8 @@
     "autoDefaultName": "Группа по умолчанию"
   },
   "rule": {
-    "defaultName": "Новое правило"
+    "defaultName": "Новое правило",
+    "copiedName": "{{name}} — копия"
   },
   "template": {
     "corsAllowAll": {
@@ -308,6 +309,7 @@
     "dragToReorder": "Перетащите для сортировки",
     "dragToReorderGroup": "Перетащите для изменения порядка группы",
     "edit": "Изменить",
+    "duplicate": "Дублировать",
     "delete": "Удалить",
     "expand": "Развернуть",
     "collapse": "Свернуть",
