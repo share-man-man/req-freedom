@@ -1,6 +1,7 @@
 import { browser } from 'wxt/browser';
 import {
   CONFIGURATION_HISTORY_LOCK_NAME,
+  MAX_CONFIGURATION_HISTORY_BYTES,
   MAX_CONFIGURATION_HISTORY_ENTRIES,
   STORAGE_KEY_CONFIGURATION_HISTORY,
   type RuleGroup,
@@ -174,6 +175,58 @@ export function getConfigurationHistoryStatus(
 }
 
 /**
+ * 估算历史写入 session storage 时占用的字节数。
+ * @param history 待估算的历史
+ * @returns 序列化后的字节数（含键名开销）
+ */
+function measureConfigurationHistoryBytes(history: ConfigurationHistory): number {
+  return (
+    new TextEncoder().encode(JSON.stringify(history)).length +
+    STORAGE_KEY_CONFIGURATION_HISTORY.length
+  );
+}
+
+/**
+ * 按字节预算裁剪历史，防止大体积配置快照撑爆 session 配额。
+ *
+ * 每次丢弃离当前节点更远的一端：重做分支不短于撤销分支时先丢最新节点，否则丢最早节点，
+ * 保证当前生效节点始终保留。
+ * @param history 待裁剪的历史
+ * @param maxBytes 允许占用的字节上限
+ * @returns 预算内的历史；仅剩当前节点仍超预算时返回 null
+ */
+export function trimConfigurationHistoryToBudget(
+  history: ConfigurationHistory,
+  maxBytes: number = MAX_CONFIGURATION_HISTORY_BYTES,
+): ConfigurationHistory | null {
+  /** 逐步裁剪中的历史。 */
+  let trimmed = history;
+  while (measureConfigurationHistoryBytes(trimmed) > maxBytes) {
+    if (trimmed.entries.length <= 1) {
+      return null;
+    }
+    /** 当前节点之后可重做的节点数量。 */
+    const redoCount = trimmed.entries.length - 1 - trimmed.cursor;
+    /** 当前节点之前可撤销的节点数量。 */
+    const undoCount = trimmed.cursor;
+    trimmed =
+      redoCount > 0 && redoCount >= undoCount
+        ? { entries: trimmed.entries.slice(0, -1), cursor: trimmed.cursor }
+        : { entries: trimmed.entries.slice(1), cursor: trimmed.cursor - 1 };
+  }
+  return trimmed;
+}
+
+/**
+ * 只保留当前生效节点的历史，用于写入配额不足时的降级。
+ * @param history 当前历史
+ * @returns 单节点历史
+ */
+function keepCurrentEntryOnly(history: ConfigurationHistory): ConfigurationHistory {
+  return { entries: [history.entries[history.cursor]], cursor: 0 };
+}
+
+/**
  * 校验 storage 中读出的历史基本结构。
  * @param value storage 原始值
  * @returns 是否为可使用的配置历史
@@ -207,11 +260,51 @@ async function getConfigurationHistory(): Promise<ConfigurationHistory | null> {
 }
 
 /**
- * 保存配置历史。
- * @param history 要写入 session 的历史
+ * 丢弃 session 中的配置历史，等价于本次会话暂时不提供撤销 / 重做。
  */
-async function saveConfigurationHistory(history: ConfigurationHistory): Promise<void> {
-  await browser.storage.session.set({ [STORAGE_KEY_CONFIGURATION_HISTORY]: history });
+async function clearConfigurationHistory(): Promise<void> {
+  try {
+    await browser.storage.session.remove(STORAGE_KEY_CONFIGURATION_HISTORY);
+  } catch {
+    // session 已不可写时无需处理：历史本就是尽力而为的会话级能力。
+  }
+}
+
+/**
+ * 尽力保存配置历史：先按字节预算裁剪，写入仍失败时逐级降级。
+ *
+ * session 配额由命中日志等数据共享，无法在本地精确预测，因此必须捕获写入异常，
+ * 否则配额超限会以未处理的 Promise 异常暴露给用户。
+ * @param history 要写入 session 的历史
+ * @returns 实际写入的历史；完全无法保存时返回 null
+ */
+async function saveConfigurationHistory(
+  history: ConfigurationHistory,
+): Promise<ConfigurationHistory | null> {
+  /** 裁剪到字节预算内的历史。 */
+  const bounded = trimConfigurationHistoryToBudget(history);
+  if (bounded) {
+    try {
+      await browser.storage.session.set({ [STORAGE_KEY_CONFIGURATION_HISTORY]: bounded });
+      return bounded;
+    } catch {
+      // 预算内仍写入失败说明其他会话数据占满配额，继续降级。
+    }
+    if (bounded.entries.length > 1) {
+      /** 只保留当前节点的最小历史。 */
+      const currentOnly = keepCurrentEntryOnly(bounded);
+      try {
+        await browser.storage.session.set({
+          [STORAGE_KEY_CONFIGURATION_HISTORY]: currentOnly,
+        });
+        return currentOnly;
+      } catch {
+        // 单节点也放不下，只能彻底放弃本次历史。
+      }
+    }
+  }
+  await clearConfigurationHistory();
+  return null;
 }
 
 /**
@@ -253,8 +346,11 @@ export async function initializeConfigurationHistory(): Promise<ConfigurationHis
     const current = await getCurrentConfiguration();
     /** 与当前配置对齐后的历史。 */
     const history = alignConfigurationHistory(await getConfigurationHistory(), current);
-    await saveConfigurationHistory(history);
-    return getConfigurationHistoryStatus(history);
+    /** 实际写入 session 的历史。 */
+    const storedHistory = await saveConfigurationHistory(history);
+    return storedHistory
+      ? getConfigurationHistoryStatus(storedHistory)
+      : EMPTY_CONFIGURATION_HISTORY_STATUS;
   });
 }
 
@@ -278,14 +374,13 @@ export async function commitConfiguration(
     if (nextHistory === previousHistory) {
       return getConfigurationHistoryStatus(previousHistory);
     }
-    await saveConfigurationHistory(nextHistory);
-    try {
-      await saveConfiguration(snapshot.groups, snapshot.enabled);
-    } catch (error) {
-      await saveConfigurationHistory(previousHistory);
-      throw error;
-    }
-    return getConfigurationHistoryStatus(nextHistory);
+    // 先落盘真实配置：历史只是会话级辅助能力，写历史失败不应连带丢掉用户这次修改。
+    await saveConfiguration(snapshot.groups, snapshot.enabled);
+    /** 实际写入 session 的历史。 */
+    const storedHistory = await saveConfigurationHistory(nextHistory);
+    return storedHistory
+      ? getConfigurationHistoryStatus(storedHistory)
+      : EMPTY_CONFIGURATION_HISTORY_STATUS;
   });
 }
 
@@ -309,14 +404,16 @@ async function restoreConfigurationHistory(
     }
     /** 新游标指向的目标配置。 */
     const snapshot = cloneSnapshot(nextHistory.entries[nextHistory.cursor].snapshot);
-    await saveConfigurationHistory(nextHistory);
-    try {
-      await saveConfiguration(snapshot.groups, snapshot.enabled);
-    } catch (error) {
-      await saveConfigurationHistory(previousHistory);
-      throw error;
-    }
-    return { snapshot, status: getConfigurationHistoryStatus(nextHistory) };
+    // 与提交同理：配置先生效，历史写入失败时最多退化为不可继续撤销 / 重做。
+    await saveConfiguration(snapshot.groups, snapshot.enabled);
+    /** 实际写入 session 的历史。 */
+    const storedHistory = await saveConfigurationHistory(nextHistory);
+    return {
+      snapshot,
+      status: storedHistory
+        ? getConfigurationHistoryStatus(storedHistory)
+        : EMPTY_CONFIGURATION_HISTORY_STATUS,
+    };
   });
 }
 

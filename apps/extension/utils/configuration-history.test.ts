@@ -5,6 +5,7 @@ import {
   createConfigurationHistory,
   getConfigurationHistoryStatus,
   moveConfigurationHistory,
+  trimConfigurationHistoryToBudget,
   type ConfigurationSnapshot,
 } from './configuration-history';
 
@@ -69,6 +70,36 @@ describe('configuration history', () => {
     expect(historyD.entries.map((entry) => entry.label)).toEqual([null, 'B', 'D']);
     expect(historyD.cursor).toBe(2);
     expect(getConfigurationHistoryStatus(historyD).canRedo).toBe(false);
+  });
+
+  it('trims entries until the history fits the byte budget', () => {
+    /** 体积较大的配置快照，用于逼近字节预算。 */
+    const createBulkySnapshot = (id: string): ConfigurationSnapshot =>
+      createSnapshot(true, [{
+        id,
+        name: id,
+        enabled: true,
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        rules: [],
+      }]);
+    /** A-B-C 三节点时间线。 */
+    const history = appendConfigurationHistory(
+      appendConfigurationHistory(
+        createConfigurationHistory(createBulkySnapshot('a')),
+        createBulkySnapshot('b'),
+        'B',
+      ),
+      createBulkySnapshot('c'),
+      'C',
+    );
+    /** 预算只够放下当前节点时的裁剪结果。 */
+    const trimmed = trimConfigurationHistoryToBudget(history, 260);
+
+    expect(trimmed).not.toBeNull();
+    expect(trimmed!.entries.length).toBeLessThan(3);
+    expect(trimmed!.entries[trimmed!.cursor].snapshot).toEqual(createBulkySnapshot('c'));
+    // 预算小于单个节点时无法保存，交由调用方降级为不可撤销。
+    expect(trimConfigurationHistoryToBudget(history, 10)).toBeNull();
   });
 
   it('does not append a duplicate snapshot', () => {

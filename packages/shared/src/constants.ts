@@ -19,6 +19,14 @@ export const STORAGE_KEY_CONFIGURATION_HISTORY = 'req-freedom:configuration-hist
 /** 单次浏览器会话最多保留的配置快照数量。 */
 export const MAX_CONFIGURATION_HISTORY_ENTRIES = 50;
 
+/**
+ * 配置历史在 storage.session 中允许占用的字节上限。
+ *
+ * storage.session 总配额为 10MB 且与命中日志等其他会话数据共享，
+ * 单份配置可能包含大体积 Mock 响应体，因此历史必须按字节而非仅按条数裁剪。
+ */
+export const MAX_CONFIGURATION_HISTORY_BYTES = 4 * 1024 * 1024;
+
 /** 跨 options / popup 串行提交配置历史时使用的 Web Lock 名称。 */
 export const CONFIGURATION_HISTORY_LOCK_NAME = 'req-freedom:configuration-history-write';
 
