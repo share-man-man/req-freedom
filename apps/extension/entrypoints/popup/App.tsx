@@ -465,6 +465,7 @@ export default function App() {
                       />
                     </button>
                     <Switch
+                      variant="group"
                       checked={group.enabled}
                       onCheckedChange={() => handleToggleGroup(group.id)}
                     />
@@ -562,6 +563,7 @@ export default function App() {
                                 onClick={(event) => event.stopPropagation()}
                               >
                                 <Switch
+                                  variant="rule"
                                   checked={rule.enabled}
                                   onCheckedChange={() => handleToggleRule(rule.id)}
                                 />

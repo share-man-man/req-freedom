@@ -434,7 +434,7 @@ function SortableRuleRow({
       } ${isDragging ? 'opacity-0' : ''}`}
     >
       <DragHandle title={t('app.dragToReorder')} handleProps={{ ...attributes, ...listeners }} />
-      <Switch checked={rule.enabled} onCheckedChange={() => onToggle(rule.id)} />
+      <Switch variant="rule" checked={rule.enabled} onCheckedChange={() => onToggle(rule.id)} />
       <RuleRowCells rule={rule} issue={issue} />
       <div className="flex justify-end gap-1">
         {RULE_ROW_ACTIONS.map(({ key, Icon, titleKey, className }) => (
@@ -575,6 +575,7 @@ function SortableGroupCard({
           />
         </button>
         <Switch
+          variant="group"
           checked={group.enabled}
           onCheckedChange={() => onToggleGroup(group.id)}
           title={group.enabled ? t('app.disableGroup') : t('app.enableGroup')}
@@ -689,7 +690,7 @@ function RuleRowStatic({ rule }: { rule: Rule }) {
       <span className={DRAG_HANDLE_CLASS}>
         <GripVertical className="size-4" />
       </span>
-      <Switch checked={rule.enabled} onCheckedChange={() => {}} />
+      <Switch variant="rule" checked={rule.enabled} onCheckedChange={() => {}} />
       <RuleRowCells rule={rule} />
       {/* 操作按钮在预览里只需占位对齐，故渲染为不可点的同尺寸图标 */}
       <div className="flex justify-end gap-1 text-muted-foreground">

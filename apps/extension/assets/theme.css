@@ -34,6 +34,9 @@
   --destructive-foreground: oklch(0.985 0 0);
   --success: oklch(0.62 0.17 152);
   --warning: oklch(0.75 0.16 75);
+  /* 组与规则开关使用同一紫色色系的两个层级，并在所有入口保持一致。 */
+  --group-toggle-active: #7651b5;
+  --rule-toggle-active: #624985;
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   /* 聚焦环跟随主色（流光紫） */
